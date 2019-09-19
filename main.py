@@ -8,7 +8,8 @@ if __name__ == "__main__":
     #game.board_game.board[12][0].markers.append(1)
     game.board_game.board[7][10].markers.append(1)
     player_id = 1
-    while True:
+    while not game.is_finished():
+        game.board_game.print_board()
         roll = game.roll_dice()
         print('Dice: ', roll)
         moves = game.available_moves(roll)

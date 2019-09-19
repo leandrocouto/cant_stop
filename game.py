@@ -1,4 +1,5 @@
 import numpy as np
+import random
 
 class Cell:
     def __init__(self):
@@ -49,10 +50,11 @@ class Game:
         dice_combination is a list with one or two integers representing the sum
         the player chose.
         """
-        for die in range(len(dice_combination)):
+        for die_position in range(len(dice_combination)):
             current_position_zero = 0
             current_position_id = -1
-            cell_list = self.board_game.board[dice_combination[die]]
+            row = dice_combination[die_position]
+            cell_list = self.board_game.board[row]
             for i in range(0, len(cell_list)):
                 if 0 in cell_list[i].markers:
                     current_position_zero = i
@@ -66,19 +68,14 @@ class Game:
                 else: # Zero is ahead of the player_id marker
                     #First check if the player will win that column
                     if current_position_zero == len(cell_list) - 1:
-                        self.player_won_column.append((i, player_id))
+                        self.player_won_column.append((row, player_id))
                     else:
                         cell_list[current_position_zero].markers.remove(0)
                         cell_list[current_position_zero+1].markers.append(0)
             else: #There's no zero yet in that column
                 #First check if the player will win that column
                 if current_position_id == len(cell_list) - 1:
-                    print('dice combination[die]:', dice_combination[die])
-                    print('die: ', die)
-                    print('current zero: ', current_position_zero)
-                    print('current id: ', current_position_id)
-                    self.player_won_column.append((dice_combination[die],
-                                                   player_id))
+                    self.player_won_column.append((row, player_id))
                 else:
                     cell_list[current_position_id+1].markers.append(0)
     def transform_neutral_markers(self, player_id):
@@ -175,22 +172,25 @@ class Game:
         if not is_first_value_valid and not is_second_value_valid and \
                 neutral_markers == 0:
             return True  
-        if is_first_value_valid and is_second_value_valid:
+        elif is_first_value_valid and is_second_value_valid:
             return True
-        if is_first_value_valid and not is_second_value_valid and \
+        elif is_first_value_valid and not is_second_value_valid and \
                 neutral_markers == 2:
             return True
-        if is_first_value_valid and not is_second_value_valid and \
+        elif is_first_value_valid and not is_second_value_valid and \
                 neutral_markers == 3:
             return False
-        if not is_first_value_valid and is_second_value_valid and \
+        elif not is_first_value_valid and is_second_value_valid and \
                 neutral_markers == 2:
             return True
-        if not is_first_value_valid and is_second_value_valid and \
+        elif not is_first_value_valid and is_second_value_valid and \
                 neutral_markers == 3:
             return False
-        if not is_first_value_valid and not is_second_value_valid and \
+        elif not is_first_value_valid and not is_second_value_valid and \
                 neutral_markers == 2 and tuple[0] == tuple[1]:
+            return True
+        elif not is_first_value_valid and not is_second_value_valid and \
+                neutral_markers == 1:
             return True
         else:
             return False
@@ -234,15 +234,27 @@ class Game:
                     combination.append(comb)
                 elif self.check_value_availability(comb[0]) and \
                           self.check_value_availability(comb[1]):
+                    print('Os valores', comb[0], 'e', comb[1], 'foram aceitos separadamente.')
                     combination.append([comb[0]])
                     combination.append([comb[1]])
                 if self.check_value_availability(comb[0]) and not\
                           self.check_value_availability(comb[1]):
+                    print('O valor', comb[0], 'foi aceito.')
                     combination.append([comb[0]])
                 if self.check_value_availability(comb[1]) and not\
                           self.check_value_availability(comb[0]):
+                    print('O valor', comb[0], 'foi aceito.')
                     combination.append([comb[1]])
             return combination
-        based on the current board schematic
-        """
-        print()
+    def is_finished(self):
+    	won_columns_player_1 = 0
+    	won_columns_player_2 = 0
+    	for tuples in self.finished_columns:
+    		if tuples[1] == 1:
+    			won_columns_player_1 += 1
+    		else:
+    			won_columns_player_2 += 1
+    	if won_columns_player_1 == 3 or won_columns_player_2 == 3:
+    		return True
+    	else:
+    		return False
