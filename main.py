@@ -9,7 +9,7 @@ if __name__ == "__main__":
     game.board_game.board[7][10].markers.append(1)
     player_id = 1
     while not game.is_finished():
-        game.board_game.print_board()
+        game.board_game.print_board(game.player_won_column)
         roll = game.roll_dice()
         print('Dice: ', roll)
         moves = game.available_moves(roll)
@@ -29,7 +29,7 @@ if __name__ == "__main__":
             continue
         chosen_play = int(input('Choose play: '))
         game.play(player_id, moves[chosen_play])
-        game.board_game.print_board()
+        game.board_game.print_board(game.player_won_column)
         print('Após play.')
         continue_to_play = input('Continue? (y/n)') 
         if continue_to_play != 'y' and continue_to_play != 'Y':
@@ -40,4 +40,4 @@ if __name__ == "__main__":
                 player_id += 1 
             print('player_id = ', player_id)
             continue
-    game.board_game.print_board()
+    game.board_game.print_board(game.player_won_column)

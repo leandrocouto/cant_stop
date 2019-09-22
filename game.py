@@ -19,16 +19,23 @@ class Board:
         for x in range(2,13):
             for _ in range(offset):
                 self.board[x].append(Cell())
+            # This empty string will be replaces by a '*' if the row
+            # has been partially completed (i.e.: the player completed that row
+            # but their turn has not ended just yet).
+            # self.board[x].append('')
             if x < 7:
                 offset += 2
             else:
                 offset -= 2
-    def print_board(self):
+    def print_board(self, rows):
+        partial_completed_rows = [item[0] for item in rows]
         for x in range(2,13):
             list_of_cells = self.board[x]
             print('{:3d}:'.format(x), end='')
             for cell in list_of_cells:
                 print(cell.markers, end='')
+            if x in partial_completed_rows:
+                print('*', end='')
             print()
 
 class Game:
@@ -98,8 +105,7 @@ class Game:
                         ocurrences_index.append((x,i,j))
                        
             if count == 2:
-                x, i, j = ocurrences_index[0]
-                print('Tuplas = ', ocurrences_index[0], ocurrences_index[1])
+                x, i, _ = ocurrences_index[0]
                 self.board_game.board[x][i].markers.remove(player_id)
         
         # Check if the player won some column and update it accordingly
@@ -109,8 +115,6 @@ class Game:
                 cell.markers.clear()
                 cell.markers.append(player_id)
         self.player_won_column.clear()
-        print('board no fim transform neutral')
-        self.board_game.print_board()
 
     def erase_neutral_markers(self):
         """Remove the neutral markers because the player is busted."""
@@ -121,19 +125,30 @@ class Game:
     def count_neutral_markers(self):
         """Return the number of neutral markers present in the current board."""
         count = 0
+        # Has to take into account the columns the player won in the current
+        # round.
+        partial_completed_rows = [item[0] for item in self.player_won_column]
+        for row in partial_completed_rows:
+            for cell in self.board_game.board[row]:
+                if 0 in cell.markers:
+                    count += 1
+        # Iterate through the other rows.
         for x in range(2,13):
+            if x in partial_completed_rows:
+                continue
             list_of_cells = self.board_game.board[x]
             for cell in list_of_cells:
                 if 0 in cell.markers:
                     count += 1
-        # Also has to take into account the columns the player won in the
-        # current round.
-        return count + len(self.player_won_column)
+        
+        return count
     def is_player_busted(self, all_moves):
         """Check if the player has no remaining play. Return a boolean.
         all_moves is a list of 2-tuples or integers relating to the possible
         plays the player can make.
         """
+        if len(all_moves) == 0:
+            return True
         if self.count_neutral_markers() < 3:
             return False
         for move in all_moves:
@@ -224,28 +239,21 @@ class Game:
                                 (dice[0] + dice[2], dice[1] + dice[3]),
                                 (dice[0] + dice[3], dice[1] + dice[2])]
         print('Standard combination: ', standard_combination)
-        if False:#self.count_neutral_markers() < 2:
-            return standard_combination
-        else:
-            combination = []
-            for comb in standard_combination:
-                if self.check_tuple_availability(comb):
-                    print('A tupla', comb, 'foi aceita.')
-                    combination.append(comb)
-                elif self.check_value_availability(comb[0]) and \
-                          self.check_value_availability(comb[1]):
-                    print('Os valores', comb[0], 'e', comb[1], 'foram aceitos separadamente.')
-                    combination.append([comb[0]])
-                    combination.append([comb[1]])
-                if self.check_value_availability(comb[0]) and not\
-                          self.check_value_availability(comb[1]):
-                    print('O valor', comb[0], 'foi aceito.')
-                    combination.append([comb[0]])
-                if self.check_value_availability(comb[1]) and not\
-                          self.check_value_availability(comb[0]):
-                    print('O valor', comb[0], 'foi aceito.')
-                    combination.append([comb[1]])
-            return combination
+        combination = []
+        for comb in standard_combination:
+            if self.check_tuple_availability(comb):
+                combination.append(comb)
+            elif self.check_value_availability(comb[0]) and \
+                      self.check_value_availability(comb[1]):
+                combination.append([comb[0]])
+                combination.append([comb[1]])
+            if self.check_value_availability(comb[0]) and not\
+                      self.check_value_availability(comb[1]):
+                combination.append([comb[0]])
+            if self.check_value_availability(comb[1]) and not\
+                      self.check_value_availability(comb[0]):
+                combination.append([comb[1]])
+        return combination
     def is_finished(self):
     	won_columns_player_1 = 0
     	won_columns_player_2 = 0
