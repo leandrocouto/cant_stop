@@ -41,31 +41,45 @@ class Board:
 class Game:
     def __init__(self, board_game = None, n_players = 2):
         """finished_columns is a list of 2-tuples indicating which columns were
-        won by a certain player. Ex.: (2, 3) meaning column 2 won by player 4.
+        won by a certain player. Ex.: (2, 3) meaning column 2 won by player 3.
         player_won_column is a list of 2-tuples indicating which 
         columns were won by a certain player in the current round.
-        Ex.: (2, 3) meaning column 2 won by player 4 in the current round.
+        Ex.: (2, 3) meaning column 2 won by player 3 in the current round.
+        dice_action refers to which action the game is at at the moment, if the
+        player is choosing which combination or if the player is choosing if he
+        wants to continue playing the turn or not.
         """
         self.board_game = Board()
         self.n_players = n_players
         self.finished_columns = []
         self.player_won_column = []
+        self.player_turn = 1
+        self.dice_action = True
     def clone(self):
         return Game(self.board, self.n_players)
-    def play(self, player_id, dice_combination):
+    def play(self, chosen_play):
         """player_id refers to either 1, 2, 3 or 4.
         dice_combination is a list with one or two integers representing the sum
         the player chose.
         """
-        for die_position in range(len(dice_combination)):
+        if chosen_play == 'n':
+            self.transform_neutral_markers()
+            # Next action should be to choose a dice combination
+            self.dice_action = True
+            return
+        if chosen_play == 'y':
+            # Next action should be to choose a dice combination
+            self.dice_action = True
+            return
+        for die_position in range(len(chosen_play)):
             current_position_zero = 0
             current_position_id = -1
-            row = dice_combination[die_position]
+            row = chosen_play[die_position]
             cell_list = self.board_game.board[row]
             for i in range(0, len(cell_list)):
                 if 0 in cell_list[i].markers:
                     current_position_zero = i
-                if player_id in cell_list[i].markers:
+                if self.player_turn in cell_list[i].markers:
                     current_position_id = i
             # If there's a zero in that column ahead of the player_id marker
             if current_position_id < current_position_zero:
@@ -75,46 +89,63 @@ class Game:
                 else: # Zero is ahead of the player_id marker
                     #First check if the player will win that column
                     if current_position_zero == len(cell_list) - 1:
-                        self.player_won_column.append((row, player_id))
+                        self.player_won_column.append((row, self.player_turn))
                     else:
                         cell_list[current_position_zero].markers.remove(0)
                         cell_list[current_position_zero+1].markers.append(0)
             else: #There's no zero yet in that column
                 #First check if the player will win that column
                 if current_position_id == len(cell_list) - 1:
-                    self.player_won_column.append((row, player_id))
+                    self.player_won_column.append((row, self.player_turn))
                 else:
                     cell_list[current_position_id+1].markers.append(0)
-    def transform_neutral_markers(self, player_id):
+        # Next action should be to choose if the player wants to continue or not
+        self.dice_action = False
+    def transform_neutral_markers(self):
         """Transform the neutral markers into player_id markers (1,2,3 or 4)."""
         for x in range(2,13):
             for i in range(len(self.board_game.board[x])):
                 for j in range(len(self.board_game.board[x][i].markers)):
                     if self.board_game.board[x][i].markers[j] == 0:
-                        self.board_game.board[x][i].markers[j] = player_id
+                        self.board_game.board[x][i].markers[j] = self.player_turn
         # Check if there are duplicates of player_id in the columns
-        # If so, keep only the furthest one
+        # If so, keep only the furthest one. Must make sure to not check
+        # already won columns.
+        completed_rows = [item[0] for item in self.finished_columns]
         for x in range(2,13):
+            if x in completed_rows:
+                continue
             list_of_cells = self.board_game.board[x]
             count = 0
             ocurrences_index = []
             for i in range(len(list_of_cells)):
                 for j in range(len(list_of_cells[i].markers)):
-                    if list_of_cells[i].markers[j] == player_id:
+                    if list_of_cells[i].markers[j] == self.player_turn:
                         count += 1
                         ocurrences_index.append((x,i,j))
                        
             if count == 2:
                 x, i, _ = ocurrences_index[0]
-                self.board_game.board[x][i].markers.remove(player_id)
+                self.board_game.board[x][i].markers.remove(self.player_turn)
         
-        # Check if the player won some column and update it accordingly
+        # Check if the player won some column and update it accordingly.
+
+        # Special case: Player 1 is about to win, for ex. column 7 but he rolled
+        # a (7,7) tuple. That would add two instances (1,7) in the finished
+        # columns list. Remove the duplicates from player_won_column.
+        self.player_won_column = list(set(self.player_won_column))
+
         for column_won in self.player_won_column:
             self.finished_columns.append((column_won[0], column_won[1]))
             for cell in self.board_game.board[column_won[0]]:
                 cell.markers.clear()
-                cell.markers.append(player_id)
+                cell.markers.append(self.player_turn)
         self.player_won_column.clear()
+
+        if self.player_turn == self.n_players:
+                self.player_turn = 1
+        else:
+            self.player_turn += 1
 
     def erase_neutral_markers(self):
         """Remove the neutral markers because the player is busted."""
@@ -148,6 +179,12 @@ class Game:
         plays the player can make.
         """
         if len(all_moves) == 0:
+            self.erase_neutral_markers()
+            self.player_won_column.clear()
+            if self.player_turn == self.n_players:
+                self.player_turn = 1
+            else:
+                self.player_turn += 1
             return True
         if self.count_neutral_markers() < 3:
             return False
@@ -157,6 +194,12 @@ class Game:
                 for cell in list_of_cells:
                     if 0 in cell.markers:
                         return False
+        self.erase_neutral_markers()
+        self.player_won_column.clear()
+        if self.player_turn == self.n_players:
+            self.player_turn = 1
+        else:
+            self.player_turn += 1
         return True
     def roll_dice(self):
         """Return a 4-tuple with four integers representing the dice roll."""
@@ -230,11 +273,14 @@ class Game:
         return False
     def available_moves(self, dice):
         """Return a list of 2-tuples of possible combinations player_id can play
-        if neutral counter is less than 2.
+        if neutral counter is less than 2 or return the list [y,n] in case the
+        current action is to continue to play or not.
         dice is a 4-tuple with 4 integers representing the dice roll. Otherwise, 
         return a list of 2-tuples or integers according to the current board 
         schematic.
         """
+        if not self.dice_action:
+            return ['y','n']
         standard_combination = [(dice[0] + dice[1], dice[2] + dice[3]),
                                 (dice[0] + dice[2], dice[1] + dice[3]),
                                 (dice[0] + dice[3], dice[1] + dice[2])]
@@ -262,7 +308,9 @@ class Game:
     			won_columns_player_1 += 1
     		else:
     			won_columns_player_2 += 1
-    	if won_columns_player_1 == 3 or won_columns_player_2 == 3:
+        # >= because the player can have 2 columns and win another 2 columns
+        # in one turn.
+    	if won_columns_player_1 >= 3 or won_columns_player_2 >= 3:
     		return True
     	else:
     		return False

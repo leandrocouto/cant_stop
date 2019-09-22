@@ -41,9 +41,9 @@ class MCTS:
     def run_mcts(game):
         root = Node(game.board)
         #Expands the children of the root before the actual algorithm
-        valid_actions = game.valid_actions(game.board)
+        valid_actions = game.available_moves(game.board)
         for action in valid_actions:
-            child_state = Node(game.apply_action(action), root)
+            child_state = Node(game.play(action), root)
             child_state.action_taken = action
             root.children_list.append(child_state)
         for _ in range(self.n_simulations):
@@ -57,14 +57,14 @@ class MCTS:
                 search_path.append(node)
             #At this point, a leaf was reached.
             #If it was not visited yet, then perform the rollout and
-            #backpropagates the reward returned from the end of the simulation
+            #backpropagates the reward returned from the end of the simulation.
             #If it has been visited, then expand its children, choose the one
             #with the highest ucb score and do a rollout from there.
             if node.n_visits == 0:
                 rollout_value = rollout(node, scratch_game)
                 backpropagate(search_path, rollout_value, scratch_game.to_play())
             else:
-                valid_actions = game.valid_actions(node.state.board)
+                valid_actions = game.available_moves(node.state.board)
 
             
 
@@ -90,7 +90,7 @@ class MCTS:
         return action, child
 
     def ucb_value(node):
-        valid_actions = game.valid_actions(node.state)
+        valid_actions = game.available_moves(node.state)
         if node.n_visits == 0:
             return float('inf')
         else:
