@@ -1,5 +1,6 @@
 import numpy as np
 import random
+import copy
 
 class Cell:
     def __init__(self):
@@ -39,7 +40,9 @@ class Board:
             print()
 
 class Game:
-    def __init__(self, board_game = None, n_players = 2):
+    def __init__(self, board_game = None, n_players = 2, finished_columns = None,
+                player_won_column = None, player_turn = None, dice_action = None,
+                current_roll = None):
         """finished_columns is a list of 2-tuples indicating which columns were
         won by a certain player. Ex.: (2, 3) meaning column 2 won by player 3.
         player_won_column is a list of 2-tuples indicating which 
@@ -49,14 +52,18 @@ class Game:
         player is choosing which combination or if the player is choosing if he
         wants to continue playing the turn or not.
         """
-        self.board_game = Board()
+        self.board_game = board_game or Board()
         self.n_players = n_players
-        self.finished_columns = []
-        self.player_won_column = []
-        self.player_turn = 1
-        self.dice_action = True
+        self.finished_columns = finished_columns or []
+        self.player_won_column = player_won_column or []
+        self.player_turn = player_turn or 1
+        self.dice_action = dice_action or True
+        self.current_roll = current_roll or self.roll_dice()
     def clone(self):
-        return Game(self.board, self.n_players)
+        return copy.deepcopy(self)
+        #return Game(self.board_game, self.n_players, self.finished_columns,
+        #            self.player_won_column, self.player_turn, self.dice_action,
+        #            self.current_roll)
     def play(self, chosen_play):
         """player_id refers to either 1, 2, 3 or 4.
         dice_combination is a list with one or two integers representing the sum
@@ -70,6 +77,8 @@ class Game:
         if chosen_play == 'y':
             # Next action should be to choose a dice combination
             self.dice_action = True
+            return
+        if self.is_player_busted(self.available_moves()):
             return
         for die_position in range(len(chosen_play)):
             current_position_zero = 0
@@ -101,6 +110,56 @@ class Game:
                     cell_list[current_position_id+1].markers.append(0)
         # Next action should be to choose if the player wants to continue or not
         self.dice_action = False
+        # Then a new dice roll is done (same is done if the player is busted)
+        self.current_roll = self.roll_dice()
+    def simulated_play(self, chosen_play):
+        """player_id refers to either 1, 2, 3 or 4.
+        dice_combination is a list with one or two integers representing the sum
+        the player chose.
+        """
+        simulated_game = self.clone()
+        if chosen_play == 'n':
+            simulated_game.transform_neutral_markers()
+            return simulated_game.board_game
+        if chosen_play == 'y':
+            return simulated_game.board_game
+        if simulated_game.is_player_busted(simulated_game.available_moves()):
+            return simulated_game.board_game
+        for die_position in range(len(chosen_play)):
+            current_position_zero = 0
+            current_position_id = -1
+            row = chosen_play[die_position]
+            cell_list = simulated_game.board_game.board[row]
+            for i in range(0, len(cell_list)):
+                if 0 in cell_list[i].markers:
+                    current_position_zero = i
+                if simulated_game.player_turn in cell_list[i].markers:
+                    current_position_id = i
+            # If there's a zero in that column ahead of the player_id marker
+            if current_position_id < current_position_zero:
+                # If there's no zero and no player_id marker
+                if current_position_zero == 0 and 0 not in cell_list[0].markers:
+                    cell_list[current_position_zero].markers.append(0)
+                else: # Zero is ahead of the player_id marker
+                    #First check if the player will win that column
+                    if current_position_zero == len(cell_list) - 1:
+                        simulated_game.player_won_column.append((row, 
+                                                    simulated_game.player_turn))
+                    else:
+                        cell_list[current_position_zero].markers.remove(0)
+                        cell_list[current_position_zero+1].markers.append(0)
+            else: #There's no zero yet in that column
+                #First check if the player will win that column
+                if current_position_id == len(cell_list) - 1:
+                    simulated_game.player_won_column.append((row, 
+                                                    simulated_game.player_turn))
+                else:
+                    cell_list[current_position_id+1].markers.append(0)
+        # Next action should be to choose if the player wants to continue or not
+        simulated_game.dice_action = False
+        # Then a new dice roll is done (same is done if the player is busted)
+        simulated_game.current_roll = simulated_game.roll_dice()
+        return simulated_game.board_game
     def transform_neutral_markers(self):
         """Transform the neutral markers into player_id markers (1,2,3 or 4)."""
         for x in range(2,13):
@@ -176,8 +235,11 @@ class Game:
     def is_player_busted(self, all_moves):
         """Check if the player has no remaining play. Return a boolean.
         all_moves is a list of 2-tuples or integers relating to the possible
-        plays the player can make.
+        plays the player can make or the [y,n] list regarding the turn the
+        player chooses if he wants to continue playing or not.
         """
+        if all_moves == ['y', 'n']:
+        	return False
         if len(all_moves) == 0:
             self.erase_neutral_markers()
             self.player_won_column.clear()
@@ -185,6 +247,8 @@ class Game:
                 self.player_turn = 1
             else:
                 self.player_turn += 1
+            # Then a new dice roll is done (same is done if a play is completed)
+            self.current_roll = self.roll_dice()
             return True
         if self.count_neutral_markers() < 3:
             return False
@@ -200,6 +264,8 @@ class Game:
             self.player_turn = 1
         else:
             self.player_turn += 1
+        # Then a new dice roll is done (same is done if a play is completed)
+        self.current_roll = self.roll_dice()
         return True
     def roll_dice(self):
         """Return a 4-tuple with four integers representing the dice roll."""
@@ -271,7 +337,7 @@ class Game:
             if 0 in cell.markers:
                 return True
         return False
-    def available_moves(self, dice):
+    def available_moves(self):
         """Return a list of 2-tuples of possible combinations player_id can play
         if neutral counter is less than 2 or return the list [y,n] in case the
         current action is to continue to play or not.
@@ -281,24 +347,27 @@ class Game:
         """
         if not self.dice_action:
             return ['y','n']
-        standard_combination = [(dice[0] + dice[1], dice[2] + dice[3]),
-                                (dice[0] + dice[2], dice[1] + dice[3]),
-                                (dice[0] + dice[3], dice[1] + dice[2])]
-        print('Standard combination: ', standard_combination)
+        standard_combination = [(self.current_roll[0] + self.current_roll[1], 
+        						self.current_roll[2] + self.current_roll[3]),
+                                (self.current_roll[0] + self.current_roll[2], 
+                                self.current_roll[1] + self.current_roll[3]),
+                                (self.current_roll[0] + self.current_roll[3], 
+                                self.current_roll[1] + self.current_roll[2])]
+        #print('Standard combination: ', standard_combination)
         combination = []
         for comb in standard_combination:
             if self.check_tuple_availability(comb):
                 combination.append(comb)
             elif self.check_value_availability(comb[0]) and \
                       self.check_value_availability(comb[1]):
-                combination.append([comb[0]])
-                combination.append([comb[1]])
+                combination.append((comb[0],))
+                combination.append((comb[1],))
             if self.check_value_availability(comb[0]) and not\
                       self.check_value_availability(comb[1]):
-                combination.append([comb[0]])
+                combination.append((comb[0],))
             if self.check_value_availability(comb[1]) and not\
                       self.check_value_availability(comb[0]):
-                combination.append([comb[1]])
+                combination.append((comb[1],))
         return combination
     def is_finished(self):
     	won_columns_player_1 = 0
@@ -310,7 +379,9 @@ class Game:
     			won_columns_player_2 += 1
         # >= because the player can have 2 columns and win another 2 columns
         # in one turn.
-    	if won_columns_player_1 >= 3 or won_columns_player_2 >= 3:
-    		return True
+    	if won_columns_player_1 >= 3:
+    		return 1, True
+    	elif  won_columns_player_2 >= 3:
+    		return 2, True
     	else:
-    		return False
+    		return -1, False
