@@ -1,6 +1,7 @@
 from collections import defaultdict
 from game import Game
-import math
+import math, random
+import numpy as np
 
 class Node:
     def __init__(self, state, parent=None):
@@ -39,32 +40,22 @@ class MCTS:
         self.n_simulations = n_simulations
 
     def run_mcts(self, game):
-        root = Node(game.board_game.board)
+        root = Node(game.clone())
         #Expands the children of the root before the actual algorithm
-        valid_actions = game.available_moves()
-        print('num children antes:', len(root.children))
-        for action in valid_actions:
-            child_state = Node(game.simulated_play(action), root)
-            child_state.action_taken = action
-            print('action: ', action)
-            print('child_state')
-            child_state.state.print_board(game.player_won_column)
-            print(root)
-            print(action)
-            print(child_state)
-            root.children[action] = child_state
-        print('num children dps:', len(root.children))
-        print('board do game original após inserçao dos filhos da simulacao')
-        game.board_game.print_board(game.player_won_column)
+        self.expand_children(root)
         for _ in range(self.n_simulations):
             node = root
             scratch_game = game.clone()
             search_path = [node]
 
             while node.is_expanded():
-                action, node = self.select_child(node, game)
+                action, new_node = self.select_child(node)
+                #print('nó selecionado')
+                #new_node.state.board_game.print_board([])
+                node.action_taken = action 
                 scratch_game.play(action)
-                search_path.append(node)
+                search_path.append(new_node)
+                node = new_node
             #At this point, a leaf was reached.
             #If it was not visited yet, then perform the rollout and
             #backpropagates the reward returned from the end of the simulation.
@@ -72,19 +63,25 @@ class MCTS:
             #with the highest ucb score and do a rollout from there.
             if node.n_visits == 0:
                 rollout_value = self.rollout(node, scratch_game)
-                self.backpropagate(search_path, rollout_value)
+                self.backpropagate(search_path, action, rollout_value)
             else:
-                valid_actions = game.available_moves()
+                self.expand_children(node)
+                action_for_rollout, node_for_rollout = self.select_child(node)
+                search_path.append(node)
 
-            
-
-            #TODO: expand the node
-
-
-
+                rollout_value = self.rollout(node_for_rollout, scratch_game)
+                self.backpropagate(search_path, action_for_rollout, rollout_value)
             action = self.select_action(game, root)
+        print('size of search path:', len(search_path))
         return action, root
-
+    def expand_children(self, parent):
+        valid_actions = parent.state.available_moves()
+        for action in valid_actions:
+            child_game = parent.state.clone()
+            child_game.play(action)
+            child_state = Node(child_game, parent)
+            child_state.action_taken = action
+            parent.children[action] = child_state
 
     def select_action(self, game, root):
         visit_counts = [(child.n_visits, action)
@@ -94,42 +91,74 @@ class MCTS:
 
 
     # Select the child with the highest UCB score.
-    def select_child(self, node, game):
-        _, action, child = max((self.ucb_value(node, game), action, child)
+    def select_child(self, node):
+        _, action, child = max((self.ucb_value(node), action, child)
                              for action, child in node.children.items())
         return action, child
 
-    def ucb_value(self, node, game):
-        valid_actions = game.available_moves()
+    def ucb_value(self, node):
+        valid_actions = node.state.available_moves()
+        #print('dentro de ucb. Node:')
+        #node.state.board_game.print_board([])
+        #print('n visits: ', node.n_visits)
         if node.n_visits == 0:
             return float('inf')
         else:
-            if self.player == 0:
-                max_value_action = valid_actions[0] 
+            if node.state.player_turn == 1:
+                max_value_action = node.q_a[valid_actions[0]] + self.c * math.sqrt(
+                                    np.divide(math.log(node.n_visits),
+                                  node.n_a[valid_actions[0]]))
+                #print('max value action:', max_value_action)
                 for i in range(1, len(valid_actions)):
                     new_value = node.q_a[valid_actions[i]] + self.c * math.sqrt(
-                                math.log(node.n_visits)
-                                 / node.n_a[valid_actions[i]])
+                                    np.divide(math.log(node.n_visits),
+                                  node.n_a[valid_actions[i]]))
+                    #print('new value ', i, ':', new_value)
                     if new_value > max_value_action:
-                        max_value_action = valid_actions[i]
+                        max_value_action = new_value
                 return max_value_action
             else:
-                min_value_action = valid_actions[0] 
+                min_value_action = node.q_a[valid_actions[0]] - self.c * math.sqrt(
+                                    np.divide(math.log(node.n_visits),
+                                  node.n_a[valid_actions[0]]))
                 for i in range(1, len(valid_actions)):
                     new_value = node.q_a[valid_actions[i]] - self.c * math.sqrt(
-                                math.log(node.n_visits)
-                                 / node.n_a[valid_actions[i]])
+                                    np.divide(math.log(node.n_visits),
+                                  node.n_a[valid_actions[i]]))
                     if new_value < min_value_action:
-                        min_value_action = valid_actions[i]
+                        min_value_action = new_value
                 return min_value_action
 
 
     # At the end of a simulation, we propagate the evaluation all the way up the
     # tree to the root.
-    def backpropagate(self, search_path, value):
-        #TODO
-        return
+    def backpropagate(self, search_path, action, value):
+        #print(  'backpropagate de tamanho do search path:', len(search_path))
 
+        for node in search_path:
+            # Ignore the last one
+            if len(node.children) == 0:
+                continue
+            #node.state.board_game.print_board([])
+            #print('action taken of this node: ', node.action_taken)
+            node.n_visits += 1
+            node.n_a[node.action_taken] += 1 
+            node.q_a[node.action_taken] = (node.q_a[node.action_taken] * (node.n_visits - 1) 
+                                                                + value) / node.n_visits 
     def rollout(self, node, scratch_game):
-        return 1
+        end_game = False
+        #print('antes rollout')
+        #scratch_game.board_game.print_board(scratch_game.player_won_column)
+        while not end_game:
+            moves = scratch_game.available_moves()
+            if scratch_game.is_player_busted(moves):
+                continue
+            chosen_move = random.choice(moves)
+            scratch_game.play(chosen_move)
+            #scratch_game.board_game.print_board(scratch_game.player_won_column)
+            who_won, end_game = scratch_game.is_finished()
+        if who_won == 1:
+            return 1
+        else:
+            return -1
 
