@@ -7,7 +7,7 @@ if __name__ == "__main__":
     n_players = 2
     game = Game(n_players = n_players)
     is_over = False
-    uct = MCTS(1, 1000)
+    uct = MCTS(1, 100)
     
     while not is_over:
         print('player_id = ', game.player_turn)

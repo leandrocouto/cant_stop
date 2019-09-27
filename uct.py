@@ -72,7 +72,7 @@ class MCTS:
                 rollout_value = self.rollout(node_for_rollout, scratch_game)
                 self.backpropagate(search_path, action_for_rollout, rollout_value)
             action = self.select_action(game, root)
-        print('size of search path:', len(search_path))
+        #print('size of search path:', len(search_path))
         return action, root
     def expand_children(self, parent):
         valid_actions = parent.state.available_moves()
@@ -92,63 +92,52 @@ class MCTS:
 
     # Select the child with the highest UCB score.
     def select_child(self, node):
-        _, action, child = max((self.ucb_value(node), action, child)
-                             for action, child in node.children.items())
-        return action, child
-
-    def ucb_value(self, node):
-        valid_actions = node.state.available_moves()
-        #print('dentro de ucb. Node:')
-        #node.state.board_game.print_board([])
-        #print('n visits: ', node.n_visits)
-        if node.n_visits == 0:
-            return float('inf')
-        else:
+        ucb_values = []
+        for action, child in node.children.items():
             if node.state.player_turn == 1:
-                max_value_action = node.q_a[valid_actions[0]] + self.c * math.sqrt(
+                if child.n_visits == 0:
+                    ucb_max = float('inf')
+                else:
+                    ucb_max =  node.q_a[action] + self.c * math.sqrt(
                                     np.divide(math.log(node.n_visits),
-                                  node.n_a[valid_actions[0]]))
-                #print('max value action:', max_value_action)
-                for i in range(1, len(valid_actions)):
-                    new_value = node.q_a[valid_actions[i]] + self.c * math.sqrt(
-                                    np.divide(math.log(node.n_visits),
-                                  node.n_a[valid_actions[i]]))
-                    #print('new value ', i, ':', new_value)
-                    if new_value > max_value_action:
-                        max_value_action = new_value
-                return max_value_action
-            else:
-                min_value_action = node.q_a[valid_actions[0]] - self.c * math.sqrt(
-                                    np.divide(math.log(node.n_visits),
-                                  node.n_a[valid_actions[0]]))
-                for i in range(1, len(valid_actions)):
-                    new_value = node.q_a[valid_actions[i]] - self.c * math.sqrt(
-                                    np.divide(math.log(node.n_visits),
-                                  node.n_a[valid_actions[i]]))
-                    if new_value < min_value_action:
-                        min_value_action = new_value
-                return min_value_action
+                                  node.n_a[action]))
 
+                ucb_values.append((ucb_max, action, child))
+            else:
+                if child.n_visits == 0:
+                    ucb_min = float('-inf')
+                else:
+                    ucb_min =  node.q_a[action] - self.c * math.sqrt(
+                                    np.divide(math.log(node.n_visits),
+                                  node.n_a[action]))
+                ucb_values.append((ucb_min, action, child))
+        for values in ucb_values:
+            if values[1] in ['y', 'n'] and values[0] != float('inf'):
+                print('jogador', node.state.player_turn)
+                print('ucb: ', values[0])
+                print('action: ', values[1])
+                print('child')
+                child.state.board_game.print_board([])
+        if node.state.player_turn == 1:
+            best_ucb, best_action, best_child = max(ucb_values)
+        else:
+            best_ucb, best_action, best_child = min(ucb_values)
+        return best_action, best_child
 
     # At the end of a simulation, we propagate the evaluation all the way up the
     # tree to the root.
     def backpropagate(self, search_path, action, value):
-        #print(  'backpropagate de tamanho do search path:', len(search_path))
-
         for node in search_path:
             # Ignore the last one
             if len(node.children) == 0:
                 continue
-            #node.state.board_game.print_board([])
-            #print('action taken of this node: ', node.action_taken)
             node.n_visits += 1
             node.n_a[node.action_taken] += 1 
-            node.q_a[node.action_taken] = (node.q_a[node.action_taken] * (node.n_visits - 1) 
-                                                                + value) / node.n_visits 
+            node.q_a[node.action_taken] = (node.q_a[node.action_taken] * 
+                                            (node.n_visits - 1) + value) / \
+                                                node.n_visits 
     def rollout(self, node, scratch_game):
         end_game = False
-        #print('antes rollout')
-        #scratch_game.board_game.print_board(scratch_game.player_won_column)
         while not end_game:
             moves = scratch_game.available_moves()
             if scratch_game.is_player_busted(moves):
