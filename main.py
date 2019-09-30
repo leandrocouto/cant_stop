@@ -4,16 +4,19 @@ from game import Board, Game
 from uct import MCTS
 import time
 
-if __name__ == "__main__":
+def main():
     victory_1 = 0
     victory_2 = 0
+    c = 1
+    n_simulations = 10
+    n_games = 10
+    n_players = 2
     start = time.time()
-    for i in range(50):
-        n_players = 2
+    for i in range(n_games):
         game = Game(n_players = n_players)
         is_over = False
-        uct = MCTS(c=1, n_simulations=50)
-        print('Jogo', i, 'começou.')
+        uct = MCTS(c, n_simulations)
+        print('Game', i, 'has started.')
         while not is_over:
             #print('player_id = ', game.player_turn)
             #game.board_game.print_board(game.player_won_column)
@@ -24,13 +27,10 @@ if __name__ == "__main__":
                 #print('\nPlayer busted!\n')
                 continue
             else:
-                #print('antes run mcts')
                 if game.player_turn == 1:
                     chosen_play, root = uct.run_mcts(game)
                 else:
                     chosen_play = random.choice(moves)
-                #game = root.state
-                #print('depois run mcts')
                 #print('Chosen play:', chosen_play)
                 game.play(chosen_play)
             #print('Finished columns: ', game.finished_columns)
@@ -46,7 +46,10 @@ if __name__ == "__main__":
         #print()
         #game.board_game.print_board(game.player_won_column)
         #print('Finished columns: ', game.finished_columns)
-    print('Player 1 ganhou', victory_1,'vezes.')
-    print('Player 2 ganhou', victory_2,'vezes.')
+    print('Player 1 won', victory_1,'time(s).')
+    print('Player 2 won', victory_2,'time(s).')
     end = time.time()
-    print('time elapsed: ', end - start)
+    print('Time elapsed:', end - start)
+
+if __name__ == "__main__":
+    main()
