@@ -37,9 +37,8 @@ class Node:
 
 
 class MCTS:
-    def __init__(self, c, n_simulations):
-        self.c = c
-        self.n_simulations = n_simulations
+    def __init__(self, config):
+        self.config = config
         self.root = None
 
 
@@ -51,7 +50,8 @@ class MCTS:
             self.root.state = game.clone()
         #Expands the children of the root before the actual algorithm
         self.expand_children(self.root)
-        for _ in range(self.n_simulations):
+
+        for _ in range(self.config.n_simulations):
             node = self.root
             scratch_game = game.clone()
             search_path = [node]
@@ -73,7 +73,6 @@ class MCTS:
                 self.expand_children(node)
                 action_for_rollout, node_for_rollout = self.select_child(node)
                 search_path.append(node)
-
                 rollout_value = self.rollout(node_for_rollout, scratch_game)
                 self.backpropagate(search_path, action_for_rollout, rollout_value)
         action = self.select_action(game, self.root)
@@ -112,7 +111,7 @@ class MCTS:
                 if child.n_visits == 0:
                     ucb_max = float('inf')
                 else:
-                    ucb_max =  node.q_a[action] + self.c * math.sqrt(
+                    ucb_max =  node.q_a[action] + self.config.c * math.sqrt(
                                     np.divide(math.log(node.n_visits),
                                   node.n_a[action]))
 
@@ -121,7 +120,7 @@ class MCTS:
                 if child.n_visits == 0:
                     ucb_min = float('-inf')
                 else:
-                    ucb_min =  node.q_a[action] - self.c * math.sqrt(
+                    ucb_min =  node.q_a[action] - self.config.c * math.sqrt(
                                     np.divide(math.log(node.n_visits),
                                   node.n_a[action]))
                 ucb_values.append((ucb_min, action, child))
@@ -149,6 +148,8 @@ class MCTS:
         """Take random actions until a game is finished and return the value."""
         end_game = False
         while not end_game:
+            #avoid infinite loops in smaller boards
+            who_won, end_game = scratch_game.is_finished()
             moves = scratch_game.available_moves()
             if scratch_game.is_player_busted(moves):
                 continue
