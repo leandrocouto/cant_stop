@@ -55,6 +55,7 @@ def player_won_column_channels(state, channel):
                 channel_player_2[i][j] = 0
 
     return channel_player_1, channel_player_2
+
 class Config:
     """ General configuration class for the game board, UCT and NN """
     def __init__(self, c, n_simulations, n_games, n_players, dice_number,
@@ -83,47 +84,43 @@ class Config:
 def main():
     victory_1 = 0
     victory_2 = 0
-    config = Config(c =1, n_simulations = 100, n_games = 10, n_players = 2, 
+    config = Config(c =1, n_simulations = 10, n_games = 10, n_players = 2, 
                     dice_number = 4, dice_value = 3, column_range = [2,6], 
                     offset = 2, initial_height = 1)
+    dataset_for_network = []
     start = time.time()
     for i in range(config.n_games):
+        data_of_a_game = []
         game = Game(config)
         is_over = False
         uct = MCTS(config)
         print('Game', i, 'has started.')
         while not is_over:
-            #print('player_id = ', game.player_turn)
-            #game.board_game.print_board(game.player_won_column)
-            #print('Dice: ', game.current_roll)
             channel_valid = valid_positions_channel(config)
             channel_finished_1, channel_finished_2 = finished_columns_channels(game, channel_valid)
             channel_won_column_1, channel_won_column_2 = player_won_column_channels(game, channel_valid)
             moves = game.available_moves()
-            #print('Available plays: ', moves)
             if game.is_player_busted(moves):
-                #print('\nPlayer busted!\n')
                 continue
             else:
                 if game.player_turn == 1:
-                    chosen_play, root = uct.run_mcts(game)
+                    chosen_play, dist_probability = uct.run_mcts(game)
                 else:
-                    chosen_play, root = uct.run_mcts(game)#chosen_play = random.choice(moves)
-                #print('Chosen play:', chosen_play)
+                    chosen_play, dist_probability = uct.run_mcts(game)
+                current_play = [game, dist_probability]
+                data_of_a_game.append(current_play)
                 game.play(chosen_play)
-            #print('Finished columns: ', game.finished_columns)
-            #print('Player won column: ',game.player_won_column)
-            #game.board_game.print_board(game.player_won_column)
             who_won, is_over = game.is_finished()
-        #print()
-        #print('GAME', i ,'OVER - PLAYER', who_won, 'WON')
+        print()
+        print('GAME', i ,'OVER - PLAYER', who_won, 'WON')
         if who_won == 1:
             victory_1 += 1
         else:
             victory_2 += 1
-        #print()
-        #game.board_game.print_board(game.player_won_column)
-        #print('Finished columns: ', game.finished_columns)
+        for single_game in data_of_a_game:
+            print(single_game)
+            single_game.append(who_won)
+        #print(data_of_a_game)
     print('Player 1 won', victory_1,'time(s).')
     print('Player 2 won', victory_2,'time(s).')
     end = time.time()

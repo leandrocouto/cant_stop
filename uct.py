@@ -76,8 +76,9 @@ class MCTS:
                 rollout_value = self.rollout(node_for_rollout, scratch_game)
                 self.backpropagate(search_path, action_for_rollout, rollout_value)
         action = self.select_action(game, self.root)
+        dist_probability = self.distribution_probability()
         self.root = self.root.children[action]
-        return action, self.root
+        return action, dist_probability
 
 
     def expand_children(self, parent):
@@ -160,4 +161,15 @@ class MCTS:
             return 1
         else:
             return -1
+
+    def distribution_probability(self):
+        """
+        Return the distribution probability of choosing an action according
+        to the number of visits of the children.
+        """
+        dist_probability = {}
+        total_visits = sum(self.root.n_a.values())
+        for action, visits in self.root.n_a.items():
+            dist_probability[action] = visits/total_visits
+        return dist_probability
 
