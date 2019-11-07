@@ -23,11 +23,38 @@ def valid_positions_channel(config):
 def finished_columns_channels(state, channel):
     channel_player_1 = copy.deepcopy(channel)
     channel_player_2 = copy.deepcopy(channel)
-    finished_columns_player_1 = [item[0] if item[1] == 1 for item \
-                                    in state.finished_columns]
-    finished_columns_player_2 = [item[0] if item[1] == 2 for item \
-                                    in state.finished_columns]
+    finished_columns_player_1 = [item[0] for item in state.finished_columns if item[1] == 1]
+    finished_columns_player_2 = [item[0] for item in state.finished_columns if item[1] == 2]
+
     for i in range(channel_player_1.shape[0]):
+        if i+2 not in finished_columns_player_1:
+            for j in range(channel_player_1.shape[1]):
+                channel_player_1[i][j] = 0
+
+    for i in range(channel_player_2.shape[0]):
+        if i+2 not in finished_columns_player_2:
+            for j in range(channel_player_2.shape[1]):
+                channel_player_2[i][j] = 0
+
+    return channel_player_1, channel_player_2
+
+def player_won_column_channels(state, channel):
+    channel_player_1 = copy.deepcopy(channel)
+    channel_player_2 = copy.deepcopy(channel)
+    player_won_column_player_1 = [item[0] for item in state.player_won_column if item[1] == 1]
+    player_won_column_player_2 = [item[0] for item in state.player_won_column if item[1] == 2]
+
+    for i in range(channel_player_1.shape[0]):
+        if i+2 not in player_won_column_player_1:
+            for j in range(channel_player_1.shape[1]):
+                channel_player_1[i][j] = 0
+
+    for i in range(channel_player_2.shape[0]):
+        if i+2 not in player_won_column_player_2:
+            for j in range(channel_player_2.shape[1]):
+                channel_player_2[i][j] = 0
+
+    return channel_player_1, channel_player_2
 class Config:
     """ General configuration class for the game board, UCT and NN """
     def __init__(self, c, n_simulations, n_games, n_players, dice_number,
@@ -68,8 +95,11 @@ def main():
         print('Game', i, 'has started.')
         while not is_over:
             #print('player_id = ', game.player_turn)
-            #game.board_game.print_board(game.player_won_column)
+            game.board_game.print_board(game.player_won_column)
             #print('Dice: ', game.current_roll)
+            channel_valid = valid_positions_channel(config)
+            channel_finished_1, channel_finished_2 = finished_columns_channels(game, channel_valid)
+            channel_won_column_1, channel_won_column_2 = player_won_column_channels(game, channel_valid)
             moves = game.available_moves()
             #print('Available plays: ', moves)
             if game.is_player_busted(moves):
