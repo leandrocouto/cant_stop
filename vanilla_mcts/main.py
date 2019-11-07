@@ -6,55 +6,6 @@ import time
 import numpy as np
 import copy
 
-def valid_positions_channel(config):
-    rows = config.column_range[1] - config.column_range[0] + 1
-    columns = config.initial_height + config.offset * (rows//2)
-    channel = np.zeros((rows, columns), dtype=int)
-    height = config.initial_height
-    for i in range(rows):
-        for j in range(height):
-            channel[i][j] = 1
-        if i < rows//2:
-            height += config.offset
-        else:
-            height -= config.offset
-    return channel
-
-def finished_columns_channels(state, channel):
-    channel_player_1 = copy.deepcopy(channel)
-    channel_player_2 = copy.deepcopy(channel)
-    finished_columns_player_1 = [item[0] for item in state.finished_columns if item[1] == 1]
-    finished_columns_player_2 = [item[0] for item in state.finished_columns if item[1] == 2]
-
-    for i in range(channel_player_1.shape[0]):
-        if i+2 not in finished_columns_player_1:
-            for j in range(channel_player_1.shape[1]):
-                channel_player_1[i][j] = 0
-
-    for i in range(channel_player_2.shape[0]):
-        if i+2 not in finished_columns_player_2:
-            for j in range(channel_player_2.shape[1]):
-                channel_player_2[i][j] = 0
-
-    return channel_player_1, channel_player_2
-
-def player_won_column_channels(state, channel):
-    channel_player_1 = copy.deepcopy(channel)
-    channel_player_2 = copy.deepcopy(channel)
-    player_won_column_player_1 = [item[0] for item in state.player_won_column if item[1] == 1]
-    player_won_column_player_2 = [item[0] for item in state.player_won_column if item[1] == 2]
-
-    for i in range(channel_player_1.shape[0]):
-        if i+2 not in player_won_column_player_1:
-            for j in range(channel_player_1.shape[1]):
-                channel_player_1[i][j] = 0
-
-    for i in range(channel_player_2.shape[0]):
-        if i+2 not in player_won_column_player_2:
-            for j in range(channel_player_2.shape[1]):
-                channel_player_2[i][j] = 0
-
-    return channel_player_1, channel_player_2
 class Config:
     """ General configuration class for the game board, UCT and NN """
     def __init__(self, c, n_simulations, n_games, n_players, dice_number,
