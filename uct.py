@@ -13,6 +13,10 @@ class Node:
         - q_a is a dictionary {key, value} where key is the action taken from
           this node and value is the mean reward of the simulation that passed
           through this node and used action 'a'.
+        - p_a is a dictionary {key, value} where key is the action taken from
+          this node and value is the probability given by the trained network
+          to choose this action. Value updated in the expand_children() method
+          from the MCTS class.
         - parent is a Node object. 'None' if this node is the root of the tree.
         - children is a dictionary {key, value} where key is the action 
           taken from this node and value is the resulting node after applying 
@@ -23,9 +27,11 @@ class Node:
         self.n_visits = 0
         self.n_a = {}
         self.q_a = {}
+        self.p_a = {}
         # These will initialize value = 0 for whichever keys yet to be added.
         self.n_a = defaultdict(lambda: 0, self.n_a)
         self.q_a = defaultdict(lambda: 0, self.q_a)
+        self.p_a = defaultdict(lambda: 0, self.q_a)
         self.parent = parent
         self.children = {}
         self.action_taken = None
@@ -37,7 +43,7 @@ class Node:
 
 
 class MCTS:
-    def __init__(self, config):
+    def __init__(self, config, network):
         self.config = config
         self.root = None
 
@@ -73,7 +79,7 @@ class MCTS:
                 self.expand_children(node)
                 action_for_rollout, node_for_rollout = self.select_child(node)
                 search_path.append(node)
-                rollout_value = self.rollout(node_for_rollout, scratch_game)
+                rollout_value = ###Value from the network###
                 self.backpropagate(search_path, action_for_rollout, rollout_value)
         action = self.select_action(game, self.root)
         dist_probability = self.distribution_probability()
@@ -112,18 +118,18 @@ class MCTS:
                 if child.n_visits == 0:
                     ucb_max = float('inf')
                 else:
-                    ucb_max =  node.q_a[action] + self.config.c * math.sqrt(
-                                    np.divide(math.log(node.n_visits),
-                                  node.n_a[action]))
+                    ucb_max =  node.q_a[action] + self.config.c * node.p_a[action]
+                                 * np.divide(math.sqrt(math.log(node.n_visits)),
+                                  node.n_a[action])
 
                 ucb_values.append((ucb_max, action, child))
             else:
                 if child.n_visits == 0:
                     ucb_min = float('-inf')
                 else:
-                    ucb_min =  node.q_a[action] - self.config.c * math.sqrt(
-                                    np.divide(math.log(node.n_visits),
-                                  node.n_a[action]))
+                    ucb_min =  node.q_a[action] - self.config.c * node.p_a[action]
+                                 * np.divide(math.sqrt(math.log(node.n_visits)),
+                                  node.n_a[action])
                 ucb_values.append((ucb_min, action, child))
         # Sort the list based on the ucb score
         ucb_values.sort(key=lambda t: t[0])
@@ -143,24 +149,6 @@ class MCTS:
             node.q_a[node.action_taken] = (node.q_a[node.action_taken] * 
                                             (node.n_visits - 1) + value) / \
                                                 node.n_visits
-
-
-    def rollout(self, node, scratch_game):
-        """Take random actions until a game is finished and return the value."""
-        end_game = False
-        while not end_game:
-            #avoid infinite loops in smaller boards
-            who_won, end_game = scratch_game.is_finished()
-            moves = scratch_game.available_moves()
-            if scratch_game.is_player_busted(moves):
-                continue
-            chosen_move = random.choice(moves)
-            scratch_game.play(chosen_move)
-            who_won, end_game = scratch_game.is_finished()
-        if who_won == 1:
-            return 1
-        else:
-            return -1
 
     def distribution_probability(self):
         """
