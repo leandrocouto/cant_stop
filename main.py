@@ -5,6 +5,14 @@ from uct import MCTS
 import time
 import numpy as np
 import copy
+import tensorflow as tf
+from keras.utils import plot_model
+from keras.models import Model
+from keras.layers import Input
+from keras.layers import Dense
+from keras.layers import Flatten
+from keras.layers.convolutional import Conv2D
+from keras.layers.pooling import MaxPooling2D
 
 def valid_positions_channel(config):
     rows = config.column_range[1] - config.column_range[0] + 1
@@ -87,6 +95,25 @@ def main():
     config = Config(c =1, n_simulations = 10, n_games = 10, n_players = 2, 
                     dice_number = 4, dice_value = 3, column_range = [2,6], 
                     offset = 2, initial_height = 1)
+    #Neural network specification
+    state = Input(shape=(4,5,6))
+    conv = Conv2D(filters=10, kernel_size=2, activation='relu')(state)
+    pool = MaxPooling2D(pool_size=(2, 2))(conv)
+    flat = Flatten()(pool)
+    #Probability distribution over actions
+    hidden_fc_prob_dist_1 = Dense(100, activation='relu')(flat)
+    hidden_fc_prob_dist_2 = Dense(100, activation='relu')(hidden_fc_prob_dist_1)
+    output_prob_dist = Dense(27, activation='sigmoid')(hidden_fc_prob_dist_2)
+    #Value of a state
+    hidden_fc_value_1 = Dense(100, activation='relu')(flat)
+    hidden_fc_value_2 = Dense(100, activation='relu')(hidden_fc_value_1)
+    output_value = Dense(1, activation='sigmoid')(hidden_fc_value_2)
+
+    model = Model(inputs=state, outputs=[output_prob_dist, output_value])
+    # summarize layers
+    print(model.summary())
+    # plot graph
+    plot_model(model, to_file='multiple_outputs.png')
     dataset_for_network = []
     start = time.time()
     for i in range(config.n_games):
@@ -97,9 +124,11 @@ def main():
         print('Game', i, 'has started.')
         while not is_over:
             channel_valid = valid_positions_channel(config)
+            print(channel_valid)
             channel_finished_1, channel_finished_2 = finished_columns_channels(game, channel_valid)
             channel_won_column_1, channel_won_column_2 = player_won_column_channels(game, channel_valid)
             moves = game.available_moves()
+            print(moves)
             if game.is_player_busted(moves):
                 continue
             else:

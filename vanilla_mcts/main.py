@@ -45,11 +45,8 @@ def main():
         print('Game', i, 'has started.')
         while not is_over:
             #print('player_id = ', game.player_turn)
-            #game.board_game.print_board(game.player_won_column)
+            game.board_game.print_board(game.player_won_column)
             #print('Dice: ', game.current_roll)
-            channel_valid = valid_positions_channel(config)
-            channel_finished_1, channel_finished_2 = finished_columns_channels(game, channel_valid)
-            channel_won_column_1, channel_won_column_2 = player_won_column_channels(game, channel_valid)
             moves = game.available_moves()
             #print('Available plays: ', moves)
             if game.is_player_busted(moves):

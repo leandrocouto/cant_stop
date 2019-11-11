@@ -43,7 +43,7 @@ class Node:
 
 
 class MCTS:
-    def __init__(self, config, network):
+    def __init__(self, config):
         self.config = config
         self.root = None
 
@@ -79,7 +79,7 @@ class MCTS:
                 self.expand_children(node)
                 action_for_rollout, node_for_rollout = self.select_child(node)
                 search_path.append(node)
-                rollout_value = ###Value from the network###
+                rollout_value = 1###Value from the network###
                 self.backpropagate(search_path, action_for_rollout, rollout_value)
         action = self.select_action(game, self.root)
         dist_probability = self.distribution_probability()
@@ -118,18 +118,14 @@ class MCTS:
                 if child.n_visits == 0:
                     ucb_max = float('inf')
                 else:
-                    ucb_max =  node.q_a[action] + self.config.c * node.p_a[action]
-                                 * np.divide(math.sqrt(math.log(node.n_visits)),
-                                  node.n_a[action])
+                    ucb_max =  node.q_a[action] + self.config.c * node.p_a[action] * np.divide(math.sqrt(math.log(node.n_visits)), node.n_a[action])
 
                 ucb_values.append((ucb_max, action, child))
             else:
                 if child.n_visits == 0:
                     ucb_min = float('-inf')
                 else:
-                    ucb_min =  node.q_a[action] - self.config.c * node.p_a[action]
-                                 * np.divide(math.sqrt(math.log(node.n_visits)),
-                                  node.n_a[action])
+                    ucb_min =  node.q_a[action] - self.config.c * node.p_a[action] * np.divide(math.sqrt(math.log(node.n_visits)), node.n_a[action])
                 ucb_values.append((ucb_min, action, child))
         # Sort the list based on the ucb score
         ucb_values.sort(key=lambda t: t[0])
