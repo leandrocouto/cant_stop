@@ -64,6 +64,12 @@ def player_won_column_channels(state, channel):
 
     return channel_player_1, channel_player_2
 
+def player_turn_channel(state, channel):
+    shape = channel.shape
+    if state.player_turn == 1:
+        return np.ones(shape, dtype=int)
+    else:
+        return np.zeros(shape, dtype=int)
 class Config:
     """ General configuration class for the game board, UCT and NN """
     def __init__(self, c, n_simulations, n_games, n_players, dice_number,
@@ -96,7 +102,7 @@ def main():
                     dice_number = 4, dice_value = 3, column_range = [2,6], 
                     offset = 2, initial_height = 1)
     #Neural network specification
-    state = Input(shape=(4,5,6))
+    state = Input(shape=(5,5,6))
     conv = Conv2D(filters=10, kernel_size=2, activation='relu')(state)
     pool = MaxPooling2D(pool_size=(2, 2))(conv)
     flat = Flatten()(pool)
@@ -112,8 +118,7 @@ def main():
     model = Model(inputs=state, outputs=[output_prob_dist, output_value])
     # summarize layers
     print(model.summary())
-    # plot graph
-    plot_model(model, to_file='multiple_outputs.png')
+    
     dataset_for_network = []
     start = time.time()
     for i in range(config.n_games):
@@ -127,6 +132,8 @@ def main():
             print(channel_valid)
             channel_finished_1, channel_finished_2 = finished_columns_channels(game, channel_valid)
             channel_won_column_1, channel_won_column_2 = player_won_column_channels(game, channel_valid)
+            channel_turn = player_turn_channel(game, channel_valid)
+            print(channel_turn)
             moves = game.available_moves()
             print(moves)
             if game.is_player_busted(moves):

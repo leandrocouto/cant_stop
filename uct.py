@@ -73,13 +73,13 @@ class MCTS:
             #If it has been visited, then expand its children, choose the one
             #with the highest ucb score and do a rollout from there.
             if node.n_visits == 0:
-                rollout_value = self.rollout(node, scratch_game)
+                rollout_value = 1 #Value from the network
                 self.backpropagate(search_path, action, rollout_value)
             else:
                 self.expand_children(node)
                 action_for_rollout, node_for_rollout = self.select_child(node)
                 search_path.append(node)
-                rollout_value = 1###Value from the network###
+                rollout_value = 1 #Value from the network
                 self.backpropagate(search_path, action_for_rollout, rollout_value)
         action = self.select_action(game, self.root)
         dist_probability = self.distribution_probability()
