@@ -43,9 +43,10 @@ class Node:
 
 
 class MCTS:
-    def __init__(self, config):
+    def __init__(self, config, network):
         self.config = config
         self.root = None
+        self.network = network
 
 
     def run_mcts(self, game):
