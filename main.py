@@ -16,8 +16,26 @@ from keras.layers.convolutional import Conv2D
 from keras.layers.pooling import MaxPooling2D
 from keras import backend as K
 from keras import regularizers
-from keras.layers import concatenate
+from collections import Counter
 
+def transform_dist_prob(dist_prob):
+    standard_dist = {(2,2):0, (2,3):0, (2,4):0, (2,5):0, (2,6):0,
+                     (3,2):0, (3,3):0, (3,4):0, (3,5):0, (3,6):0,
+                     (4,2):0, (4,3):0, (4,4):0, (4,5):0, (4,6):0,
+                     (5,2):0, (5,3):0, (5,4):0, (5,5):0, (5,6):0,
+                     (6,2):0, (6,3):0, (6,4):0, (6,5):0, (6,6):0,
+                     (2,):0, (3,):0, (4,):0, (5,):0, (6,):0,
+                    'y':0, 'n':0}
+
+
+    print('antes - type', type(dist_prob))
+    print(dist_prob)
+    print('padrao - type', type(standard_dist))
+    print(standard_dist)
+    complete_dict = dict(Counter(standard_dist) + Counter(dist_prob))
+    print('dps')
+    print(complete_dict)
+    return complete_dict
 
 def alphazero_loss_function(mcts_dist_prob, network_dist_prob):
     '''Custom loss function used in the AlphaGo Zero paper.'''
@@ -28,50 +46,21 @@ def alphazero_loss_function(mcts_dist_prob, network_dist_prob):
     return custom_loss
 
 def define_model(config, mcts_dist_prob, network_dist_prob):
-    '''Neural Network model implementation using Keras + Tensorflow'''
-    #Valid positions channel
-    state1 = Input(shape=(5,5,1))
-    conv1 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(state1)
-    pool1 = MaxPooling2D(pool_size=(2, 2))(conv1)
-    flat1 = Flatten()(pool1)
-    #Finished columns channel 1
-    state2 = Input(shape=(5,5,1))
-    conv2 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(state2)
-    pool2 = MaxPooling2D(pool_size=(2, 2))(conv2)
-    flat2 = Flatten()(pool2)
-    #Finished columns channel 2
-    state3 = Input(shape=(5,5,1))
-    conv3 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(state3)
-    pool3 = MaxPooling2D(pool_size=(2, 2))(conv3)
-    flat3 = Flatten()(pool3)
-    #Player won columns channel 1
-    state4 = Input(shape=(5,5,1))
-    conv4 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(state4)
-    pool4 = MaxPooling2D(pool_size=(2, 2))(conv4)
-    flat4 = Flatten()(pool4)
-    #Player won columns channel 2
-    state5 = Input(shape=(5,5,1))
-    conv5 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(state5)
-    pool5 = MaxPooling2D(pool_size=(2, 2))(conv5)
-    flat5 = Flatten()(pool5)
-    #Player turn channel
-    state6 = Input(shape=(5,5,1))
-    conv6 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(state6)
-    pool6 = MaxPooling2D(pool_size=(2, 2))(conv6)
-    flat6 = Flatten()(pool6)
-    # merge
-    merged = concatenate([flat1, flat2, flat3, flat4, flat5, flat6])
+    '''Neural Network model implementation using Keras + Tensorflow.'''
+    state = Input(shape=(5,5,6))
+    conv = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(state)
+    pool = MaxPooling2D(pool_size=(2, 2))(conv)
+    flat = Flatten()(pool)
     #Probability distribution over actions
-    hidden_fc_prob_dist_1 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(merged)
+    hidden_fc_prob_dist_1 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(flat)
     hidden_fc_prob_dist_2 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(hidden_fc_prob_dist_1)
     output_prob_dist = Dense(27, kernel_regularizer=regularizers.l2(config.reg), activation='softmax')(hidden_fc_prob_dist_2)
     #Value of a state
-    hidden_fc_value_1 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(merged)
+    hidden_fc_value_1 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(flat)
     hidden_fc_value_2 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(hidden_fc_value_1)
     output_value = Dense(1, kernel_regularizer=regularizers.l2(config.reg), activation='tanh')(hidden_fc_value_2)
 
-    model = Model(inputs=[state1, state2, state3, state4, state5, state6], 
-                    outputs=[output_prob_dist, output_value])
+    model = Model(inputs=state, outputs=[output_prob_dist, output_value])
 
     model.compile(loss=alphazero_loss_function(mcts_dist_prob, network_dist_prob), optimizer='adam')
     
@@ -122,7 +111,7 @@ class Config:
 def main():
     victory_1 = 0
     victory_2 = 0
-    config = Config(c =1, n_simulations = 10, n_games = 50, n_players = 2, 
+    config = Config(c =1, n_simulations = 10, n_games = 2, n_players = 2, 
                     dice_number = 4, dice_value = 3, column_range = [2,6], 
                     offset = 2, initial_height = 1, mini_batch = 4, 
                     sample_size = 100, n_games_evaluate= 50, victory_rate = .55,
@@ -130,7 +119,7 @@ def main():
     #Neural network specification
     model = define_model(config, np.ndarray(shape=(27,1)), np.ndarray(shape=(27,1)))
     # summarize layers
-    print(model.summary())
+    #print(model.summary())
     #
     # Main loop of the algorithm
     #
@@ -144,7 +133,7 @@ def main():
             data_of_a_game = []
             game = Game(config)
             is_over = False
-            uct = MCTS(config)
+            uct = MCTS(config, model)
             print('Game', i, 'has started.')
             while not is_over:
                 channel_valid = valid_positions_channel(config)
@@ -189,19 +178,24 @@ def main():
         # Training loop
         #
         channels = [play[0] for game in dataset_for_network for play in game]
+        channels = np.array(channels)
         dist_probs = [play[1] for game in dataset_for_network for play in game]
+        #print(dist_probs)
+        #print('DEPOIS')
+        transform_dist_prob(dist_probs[0])
+        #dist_probs = [transform_dist_prob(dist_dict) for dist_dict in dist_probs]
+        #dist_probs = np.array(dist_probs)
+        #print(dist_probs)
+        #print('new')
+        #print()
         labels = [play[2] for game in dataset_for_network for play in game]
-
-        channel_1 = [channel[0] for channel in channels]
-        channel_2 = [channel[1] for channel in channels]
-        channel_3 = [channel[2] for channel in channels]
-        channel_4 = [channel[3] for channel in channels]
-        channel_5 = [channel[4] for channel in channels]
-        channel_6 = [channel[5] for channel in channels]
+        labels = np.array(labels)
+        print(labels)
         
-        x_train = [channel_1, channel_2, channel_3, channel_4, channel_5, channel_6]
+        x_train = channels.reshape(channels.shape[0], channels.shape[2], channels.shape[3], -1)
+        print(x_train.shape)
         y_train = [dist_probs, labels]
-        model.fit(x_train, y_train, nb_epoch=1000, batch_size=config.mini_batch)
+        model.fit(x_train, y_train, epochs=1000, batch_size=config.mini_batch)
 
 if __name__ == "__main__":
     main()
