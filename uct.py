@@ -1,5 +1,6 @@
 from collections import defaultdict
 from game import Game
+from utils import transform_to_input
 import math, random
 import numpy as np
 import copy
@@ -74,13 +75,17 @@ class MCTS:
             #If it has been visited, then expand its children, choose the one
             #with the highest ucb score and do a rollout from there.
             if node.n_visits == 0:
-                rollout_value = 1 #Value from the network
+                network_input = transform_to_input(scratch_game, self.config)
+                network_output = self.network.predict(network_input, batch_size=1)#1 #Value from the network
+                rollout_value = network_output[1]
                 self.backpropagate(search_path, action, rollout_value)
             else:
                 self.expand_children(node)
                 action_for_rollout, node_for_rollout = self.select_child(node)
                 search_path.append(node)
-                rollout_value = 1 #Value from the network
+                network_input = transform_to_input(scratch_game, self.config)
+                network_output = self.network.predict(network_input, batch_size=1)#1 #Value from the network
+                rollout_value = network_output[1]
                 self.backpropagate(search_path, action_for_rollout, rollout_value)
         action = self.select_action(game, self.root)
         dist_probability = self.distribution_probability()

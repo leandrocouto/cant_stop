@@ -73,3 +73,16 @@ def player_turn_channel(state, channel):
         return np.ones(shape, dtype=int)
     else:
         return np.zeros(shape, dtype=int)
+
+def transform_to_input(game, config):
+    channel_valid = valid_positions_channel(config)
+    channel_finished_1, channel_finished_2 = finished_columns_channels(game, channel_valid)
+    channel_won_column_1, channel_won_column_2 = player_won_column_channels(game, channel_valid)
+    channel_turn = player_turn_channel(game, channel_valid)
+    list_of_channels = [channel_valid, channel_finished_1, channel_finished_2,
+                        channel_won_column_1, channel_won_column_2, channel_turn]
+    list_of_channels = np.array(list_of_channels)
+    list_of_channels = np.expand_dims(list_of_channels, axis=0)
+    list_of_channels = list_of_channels.reshape(list_of_channels.shape[0], 
+                        list_of_channels.shape[2], list_of_channels.shape[3], -1)
+    return list_of_channels

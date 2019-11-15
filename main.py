@@ -4,6 +4,7 @@ import time
 import numpy as np
 import copy
 import random
+import collections
 from game import Board, Game
 from utils import valid_positions_channel, finished_columns_channels
 from utils import player_won_column_channels, player_turn_channel
@@ -19,22 +20,23 @@ from keras import regularizers
 from collections import Counter
 
 def transform_dist_prob(dist_prob):
-    standard_dist = {(2,2):0, (2,3):0, (2,4):0, (2,5):0, (2,6):0,
-                     (3,2):0, (3,3):0, (3,4):0, (3,5):0, (3,6):0,
-                     (4,2):0, (4,3):0, (4,4):0, (4,5):0, (4,6):0,
-                     (5,2):0, (5,3):0, (5,4):0, (5,5):0, (5,6):0,
-                     (6,2):0, (6,3):0, (6,4):0, (6,5):0, (6,6):0,
-                     (2,):0, (3,):0, (4,):0, (5,):0, (6,):0,
-                    'y':0, 'n':0}
-
-
-    print('antes - type', type(dist_prob))
-    print(dist_prob)
-    print('padrao - type', type(standard_dist))
-    print(standard_dist)
-    complete_dict = dict(Counter(standard_dist) + Counter(dist_prob))
-    print('dps')
-    print(complete_dict)
+    standard_dist = [((2,2),0), ((2,3),0), ((2,4),0), ((2,5),0), ((2,6),0),
+                     ((3,2),0), ((3,3),0), ((3,4),0), ((3,5),0), ((3,6),0),
+                     ((4,2),0), ((4,3),0), ((4,4),0), ((4,5),0), ((4,6),0),
+                     ((5,2),0), ((5,3),0), ((5,4),0), ((5,5),0), ((5,6),0),
+                     ((6,2),0), ((6,3),0), ((6,4),0), ((6,5),0), ((6,6),0),
+                     ((2,),0), ((3,),0), ((4,),0), ((5,),0), ((6,),0),
+                    ('y',0), ('n',0)]
+    complete_dict = collections.OrderedDict(standard_dist)
+    for key, value in complete_dict.items():
+        for key_2, value_2 in dist_prob.items():
+            if key == key_2:
+                complete_dict[key] += dist_prob[key_2]
+    #print('antes')
+    #print(complete_dict)
+    complete_dict = [value for _, value in complete_dict.items()]
+    #print('dps')
+    #print(complete_dict)
     return complete_dict
 
 def alphazero_loss_function(mcts_dist_prob, network_dist_prob):
@@ -54,7 +56,7 @@ def define_model(config, mcts_dist_prob, network_dist_prob):
     #Probability distribution over actions
     hidden_fc_prob_dist_1 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(flat)
     hidden_fc_prob_dist_2 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(hidden_fc_prob_dist_1)
-    output_prob_dist = Dense(27, kernel_regularizer=regularizers.l2(config.reg), activation='softmax')(hidden_fc_prob_dist_2)
+    output_prob_dist = Dense(32, kernel_regularizer=regularizers.l2(config.reg), activation='softmax')(hidden_fc_prob_dist_2)
     #Value of a state
     hidden_fc_value_1 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(flat)
     hidden_fc_value_2 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(hidden_fc_value_1)
@@ -62,7 +64,7 @@ def define_model(config, mcts_dist_prob, network_dist_prob):
 
     model = Model(inputs=state, outputs=[output_prob_dist, output_value])
 
-    model.compile(loss=alphazero_loss_function(mcts_dist_prob, network_dist_prob), optimizer='adam')
+    model.compile(loss=alphazero_loss_function(mcts_dist_prob, network_dist_prob), optimizer='adam', metrics=['accuracy'])
     
     return model
     
@@ -162,13 +164,6 @@ def main():
                 victory_2 += 1
             for single_game in data_of_a_game:
                 single_game.append(who_won)
-                #print('LIST OF CHANNELS')
-                #print(single_game[0])
-                #print('DIST PROB')
-                #print(single_game[1])
-                #print('Z')
-                #print(single_game[2])
-            #print(data_of_a_game)
             dataset_for_network.append(data_of_a_game)
         print('Player 1 won', victory_1,'time(s).')
         print('Player 2 won', victory_2,'time(s).')
@@ -179,15 +174,11 @@ def main():
         #
         channels = [play[0] for game in dataset_for_network for play in game]
         channels = np.array(channels)
+        print('aqui', channels.shape)
         dist_probs = [play[1] for game in dataset_for_network for play in game]
-        #print(dist_probs)
-        #print('DEPOIS')
-        transform_dist_prob(dist_probs[0])
-        #dist_probs = [transform_dist_prob(dist_dict) for dist_dict in dist_probs]
-        #dist_probs = np.array(dist_probs)
-        #print(dist_probs)
-        #print('new')
-        #print()
+        dist_probs = [transform_dist_prob(dist_dict) for dist_dict in dist_probs]
+        dist_probs = np.array(dist_probs)
+
         labels = [play[2] for game in dataset_for_network for play in game]
         labels = np.array(labels)
         print(labels)
@@ -195,7 +186,7 @@ def main():
         x_train = channels.reshape(channels.shape[0], channels.shape[2], channels.shape[3], -1)
         print(x_train.shape)
         y_train = [dist_probs, labels]
-        model.fit(x_train, y_train, epochs=1000, batch_size=config.mini_batch)
+        model.fit(x_train, y_train, epochs=10, batch_size=config.mini_batch)
 
 if __name__ == "__main__":
     main()
