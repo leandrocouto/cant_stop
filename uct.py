@@ -1,9 +1,10 @@
 from collections import defaultdict
 from game import Game
-from utils import transform_to_input
+from utils import transform_to_input, remove_invalid_actions
 import math, random
 import numpy as np
 import copy
+import collections
 
 class Node:
     def __init__(self, state, parent=None):
@@ -56,7 +57,7 @@ class MCTS:
             self.root = Node(game.clone())
         else:
             self.root.state = game.clone()
-        #Expands the children of the root before the actual algorithm
+        #Expand the children of the root before the actual algorithm
         self.expand_children(self.root)
 
         for _ in range(self.config.n_simulations):
@@ -70,22 +71,26 @@ class MCTS:
                 search_path.append(new_node)
                 node = copy.deepcopy(new_node)
             #At this point, a leaf was reached.
-            #If it was not visited yet, then perform the rollout and
-            #backpropagates the reward returned from the end of the simulation.
+            #If it was not visited yet, then get the calculated rollout value
+            #from the network and backpropagates the reward returned from the
+            #end of the simulation.
             #If it has been visited, then expand its children, choose the one
-            #with the highest ucb score and do a rollout from there.
+            #with the highest ucb score and calculated rollout value from the
+            #network.
             if node.n_visits == 0:
                 network_input = transform_to_input(scratch_game, self.config)
-                network_output = self.network.predict(network_input, batch_size=1)#1 #Value from the network
-                rollout_value = network_output[1]
+                _, network_value_output = self.network.predict(network_input, batch_size=1)
+                # Network return a matrix, hence the [0][0]
+                rollout_value = network_value_output[0][0]
                 self.backpropagate(search_path, action, rollout_value)
             else:
                 self.expand_children(node)
                 action_for_rollout, node_for_rollout = self.select_child(node)
                 search_path.append(node)
                 network_input = transform_to_input(scratch_game, self.config)
-                network_output = self.network.predict(network_input, batch_size=1)#1 #Value from the network
-                rollout_value = network_output[1]
+                _, network_value_output = self.network.predict(network_input, batch_size=1)
+                # Network return a matrix, hence the [0][0]
+                rollout_value = network_value_output[0][0]
                 self.backpropagate(search_path, action_for_rollout, rollout_value)
         action = self.select_action(game, self.root)
         dist_probability = self.distribution_probability()
@@ -104,6 +109,12 @@ class MCTS:
             child_state = Node(child_game, parent)
             child_state.action_taken = action
             parent.children[action] = child_state
+
+        #Update the  distribution probability of the children (node.p_a)
+        network_input_parent = transform_to_input(parent.state, self.config)
+        dist_prob, _ = self.network.predict(network_input_parent, batch_size=1)
+        dist_prob = remove_invalid_actions(dist_prob[0], parent.children.keys())
+        self.add_dist_prob_to_children(parent, dist_prob)
 
 
     def select_action(self, game, root):
@@ -163,3 +174,19 @@ class MCTS:
             dist_probability[action] = visits/total_visits
         return dist_probability
 
+    def add_dist_prob_to_children(self, node, dist_prob):
+        """
+        Add the probability distribution given from the network to 
+        node's children. This probability is used later to calculate
+        he selection phase of the UCT algorithm.
+        """
+        standard_dist = [((2,2),0), ((2,3),1), ((2,4),2), ((2,5),3), ((2,6),4),
+                     ((3,2),5), ((3,3),6), ((3,4),7), ((3,5),8), ((3,6),9),
+                     ((4,2),10), ((4,3),11), ((4,4),12), ((4,5),13), ((4,6),14),
+                     ((5,2),15), ((5,3),16), ((5,4),17), ((5,5),18), ((5,6),19),
+                     ((6,2),20), ((6,3),21), ((6,4),22), ((6,5),23), ((6,6),24),
+                     ((2,),25), ((3,),26), ((4,),27), ((5,),28), ((6,),29),
+                    ('y',30), ('n',31)]
+        standard_dist = collections.OrderedDict(standard_dist)
+        for key in node.children.keys():
+            node.p_a[key] = dist_prob[standard_dist[key]]

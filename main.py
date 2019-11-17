@@ -40,7 +40,7 @@ def transform_dist_prob(dist_prob):
     return complete_dict
 
 def alphazero_loss_function(mcts_dist_prob, network_dist_prob):
-    '''Custom loss function used in the AlphaGo Zero paper.'''
+    """Custom loss function used in the AlphaGo Zero paper."""
     def custom_loss(y_true, y_pred):
         mse = K.mean((y_true - y_pred)**2, keepdims=True)
         cross_entropy = np.dot(mcts_dist_prob.T, network_dist_prob) 
@@ -48,7 +48,7 @@ def alphazero_loss_function(mcts_dist_prob, network_dist_prob):
     return custom_loss
 
 def define_model(config, mcts_dist_prob, network_dist_prob):
-    '''Neural Network model implementation using Keras + Tensorflow.'''
+    """Neural Network model implementation using Keras + Tensorflow."""
     state = Input(shape=(5,5,6))
     conv = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(state)
     pool = MaxPooling2D(pool_size=(2, 2))(conv)
@@ -113,11 +113,11 @@ class Config:
 def main():
     victory_1 = 0
     victory_2 = 0
-    config = Config(c =1, n_simulations = 10, n_games = 2, n_players = 2, 
+    config = Config(c =1, n_simulations = 30, n_games = 100, n_players = 2, 
                     dice_number = 4, dice_value = 3, column_range = [2,6], 
-                    offset = 2, initial_height = 1, mini_batch = 4, 
+                    offset = 2, initial_height = 1, mini_batch = 25, 
                     sample_size = 100, n_games_evaluate= 50, victory_rate = .55,
-                    alphazero_iterations = 1, reg = 0.0001)
+                    alphazero_iterations = 10, reg = 0.0001)
     #Neural network specification
     model = define_model(config, np.ndarray(shape=(27,1)), np.ndarray(shape=(27,1)))
     # summarize layers
@@ -125,7 +125,8 @@ def main():
     #
     # Main loop of the algorithm
     #
-    for _ in range(config.alphazero_iterations):
+    for count in range(config.alphazero_iterations):
+        print('ALPHAZERO ITERATION ', count)
         dataset_for_network = []
         start = time.time()
         #
@@ -172,21 +173,19 @@ def main():
         #
         # Training loop
         #
+        print('TRAINING LOOP')
         channels = [play[0] for game in dataset_for_network for play in game]
         channels = np.array(channels)
-        print('aqui', channels.shape)
         dist_probs = [play[1] for game in dataset_for_network for play in game]
         dist_probs = [transform_dist_prob(dist_dict) for dist_dict in dist_probs]
         dist_probs = np.array(dist_probs)
 
         labels = [play[2] for game in dataset_for_network for play in game]
         labels = np.array(labels)
-        print(labels)
         
         x_train = channels.reshape(channels.shape[0], channels.shape[2], channels.shape[3], -1)
-        print(x_train.shape)
         y_train = [dist_probs, labels]
-        model.fit(x_train, y_train, epochs=10, batch_size=config.mini_batch)
+        model.fit(x_train, y_train, epochs=100, batch_size=config.mini_batch)
 
 if __name__ == "__main__":
     main()

@@ -1,5 +1,7 @@
 import copy
 import numpy as np
+import collections
+
 
 def valid_positions_channel(config):
     """
@@ -75,6 +77,7 @@ def player_turn_channel(state, channel):
         return np.zeros(shape, dtype=int)
 
 def transform_to_input(game, config):
+    """Receive the game state and return the six channels used as input for the network"""
     channel_valid = valid_positions_channel(config)
     channel_finished_1, channel_finished_2 = finished_columns_channels(game, channel_valid)
     channel_won_column_1, channel_won_column_2 = player_won_column_channels(game, channel_valid)
@@ -86,3 +89,33 @@ def transform_to_input(game, config):
     list_of_channels = list_of_channels.reshape(list_of_channels.shape[0], 
                         list_of_channels.shape[2], list_of_channels.shape[3], -1)
     return list_of_channels
+
+def remove_invalid_actions(dist_prob, keys):
+    """Re-normalize the distribution based only on the valid actions."""
+    standard_dist = [((2,2),0), ((2,3),1), ((2,4),2), ((2,5),3), ((2,6),4),
+                     ((3,2),5), ((3,3),6), ((3,4),7), ((3,5),8), ((3,6),9),
+                     ((4,2),10), ((4,3),11), ((4,4),12), ((4,5),13), ((4,6),14),
+                     ((5,2),15), ((5,3),16), ((5,4),17), ((5,5),18), ((5,6),19),
+                     ((6,2),20), ((6,3),21), ((6,4),22), ((6,5),23), ((6,6),24),
+                     ((2,),25), ((3,),26), ((4,),27), ((5,),28), ((6,),29),
+                    ('y',30), ('n',31)]
+    standard_dist = collections.OrderedDict(standard_dist)
+    indexes_of_dist = [standard_dist[key] for key in keys if key in standard_dist]
+    sum_not_valid = 0
+    sum_valid = 0
+
+    for i in range(len(dist_prob)):
+        if i in indexes_of_dist:
+            sum_valid += dist_prob[i]
+        else:
+            sum_not_valid += dist_prob[i]
+    for i in range(len(dist_prob)):
+        if i in indexes_of_dist:
+            dist_prob[i] += sum_not_valid / (sum_valid / dist_prob[i])
+        else:
+            dist_prob[i] = 0.
+
+    return dist_prob
+
+
+
