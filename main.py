@@ -13,28 +13,39 @@ from uct import MCTS
 import tensorflow as tf
 from keras.utils import plot_model
 from keras.models import Model
-from keras.layers import Input, Dense, Flatten
+from keras.layers import Input, Dense, Flatten, concatenate
 from keras.layers.convolutional import Conv2D
 from keras.layers.pooling import MaxPooling2D
 from keras import backend as K
 from keras import regularizers
+from keras.losses import mse
 from collections import Counter
+
+def custom_loss(y_true, y_pred):
+    print('teste')
+    print(y_true)
+    y2_pred = y_pred[0]
+    y2_true = y_true[0]
+
+
+    loss = K.mean(K.square(y2_true - y2_pred), axis=-1)
+    return loss
 
 def define_model(config):
     """Neural Network model implementation using Keras + Tensorflow."""
-    state = Input(shape = (5,5,6), name='States_Channels_Input')
-    dist_prob = Input(shape = (1,32), name='Distribution_Probabilities_Input') 
-    labels = Input(shape = (1,), name='Labels_Input')
+    state_channels = Input(shape = (5,5,6), name='States_Channels_Input')
+    valid_actions_dist = Input(shape = (32,), name='Valid_Actions_Input')
 
-    print('shape state', state.shape)
-    print('shape dist', dist_prob.shape)
-    print('shape labels', labels.shape)
+    
+    #print('shape dist', dist_prob.shape)
+    #print('shape labels', labels.shape)
 
-    conv = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer')(state)
+    conv = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer')(state_channels)
     pool = MaxPooling2D(pool_size=(2, 2), name='Pooling_Layer')(conv)
     flat = Flatten(name='Flatten_Layer')(pool)
     #Probability distribution over actions
-    hidden_fc_prob_dist_1 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_1')(flat)
+    merge = concatenate([flat, valid_actions_dist])
+    hidden_fc_prob_dist_1 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_1')(merge)
     hidden_fc_prob_dist_2 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_2')(hidden_fc_prob_dist_1)
     output_prob_dist = Dense(32, kernel_regularizer=regularizers.l2(config.reg), activation='softmax', name='Output_Dist')(hidden_fc_prob_dist_2)
     #Value of a state
@@ -42,18 +53,22 @@ def define_model(config):
     hidden_fc_value_2 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_2')(hidden_fc_value_1)
     output_value = Dense(1, kernel_regularizer=regularizers.l2(config.reg), activation='tanh', name='Output_Value')(hidden_fc_value_2)
 
-    mse_loss = K.mean(K.square(output_value - labels), axis=-1)
-    print('mse shape', mse_loss.shape)
-    cross_entropy_loss = K.dot(K.transpose(output_prob_dist), output_prob_dist)
-    custom_loss = mse_loss - cross_entropy_loss
-    print('custom_loss shape', custom_loss.shape)
+    
 
-    model = Model(inputs=[state, dist_prob, labels], outputs=[output_prob_dist, output_value])
+    #mse_loss = K.mean(K.square(output_value - labels), axis=-1)
+    #print('mse shape', mse_loss.shape)
+    #cross_entropy_loss = K.dot(K.transpose(output_prob_dist), output_prob_dist)
+    #custom_loss = mse_loss - cross_entropy_loss
+    #print('custom_loss shape', custom_loss.shape)
 
+    print('shape state_channels', state_channels.shape)
+    print('shape valid_actions_dist', valid_actions_dist.shape)
+    print('shape output_prob_dist', output_prob_dist.shape)
+    print('shape output_value', output_value.shape)
 
-    model.add_loss(custom_loss)
+    model = Model(inputs=[state_channels, valid_actions_dist], outputs=[output_prob_dist, output_value])
 
-    model.compile(optimizer='adam', metrics=['accuracy'])
+    model.compile(loss=custom_loss, optimizer='adam', metrics=['accuracy'])
     
     return model
     
@@ -128,6 +143,7 @@ def main():
             uct = MCTS(config, model)
             print('Game', i, 'has started.')
             while not is_over:
+                # Collecting data for later input to the NN
                 channel_valid = valid_positions_channel(config)
                 channel_finished_1, channel_finished_2 = finished_columns_channels(game, channel_valid)
                 channel_won_column_1, channel_won_column_2 = player_won_column_channels(game, channel_valid)
@@ -138,13 +154,22 @@ def main():
                 if game.is_player_busted(moves):
                     continue
                 else:
+                    #print('antes run')
                     if game.player_turn == 1:
                         chosen_play, dist_probability = uct.run_mcts(game)
                     else:
                         chosen_play, dist_probability = uct.run_mcts(game)
+                    #print('dps run')
+                    # Collecting data for later input to the NN
                     current_play = [list_of_channels, dist_probability]
                     data_of_a_game.append(current_play)
+                    #print('antes play, chosen play = ', chosen_play, 'avaiable plays: ', moves)
+                    #print('player ', game.player_turn)
+                    #print('finished columns: ', game.finished_columns)
+                    #print('won columns: ', game.player_won_column)
                     game.play(chosen_play)
+                    #game.board_game.print_board([])
+                    #print('dps play')
                 who_won, is_over = game.is_finished()
             print()
             print('GAME', i ,'OVER - PLAYER', who_won, 'WON')
@@ -152,6 +177,9 @@ def main():
                 victory_1 += 1
             else:
                 victory_2 += 1
+            # After the game is finished, we now know who won the game.
+            # Therefore, save this info in all instances saved so far
+            # for later use as input for the NN.
             for single_game in data_of_a_game:
                 single_game.append(who_won)
             dataset_for_network.append(data_of_a_game)
@@ -163,28 +191,41 @@ def main():
         # Training loop
         #
         print('TRAINING LOOP')
-        channels = [play[0] for game in dataset_for_network for play in game]
-        channels = np.array(channels)
-        channels = channels.reshape(channels.shape[0], channels.shape[2], channels.shape[3], -1)
 
-        print('shape channels')
-        print(channels.shape)
+        #Get the channels of the states (Input for the NN)
+        channels_input = [play[0] for game in dataset_for_network for play in game]
+        channels_input = np.array(channels_input)
+        channels_input = channels_input.reshape(channels_input.shape[0], channels_input.shape[2], channels_input.shape[3], -1)
 
-        dist_probs = [play[1] for game in dataset_for_network for play in game]
-        dist_probs = [transform_dist_prob(dist_dict) for dist_dict in dist_probs]
-        dist_probs = np.array(dist_probs)
+        print('shape channels_input')
+        print(channels_input.shape)
 
-        print('shape dist')
-        print(dist_probs.shape)
+        #Get the probability distribution of the states (Label for the NN)
+        dist_probs_label = [play[1] for game in dataset_for_network for play in game]
+        dist_probs_label = [transform_dist_prob(dist_dict) for dist_dict in dist_probs_label]
+        dist_probs_label = np.array(dist_probs_label)
 
-        labels = [play[2] for game in dataset_for_network for play in game]
-        labels = np.array(labels)
+        print('shape dist_probs_label')
+        print(dist_probs_label.shape)
 
-        print('shape label')
-        print(labels.shape)
+        #Get the distribution vector of the valid actions states (Input for the NN)
+        valid_actions_dist_input = copy.copy(dist_probs_label)
+        valid_actions_dist_input[valid_actions_dist_input > 0] = 1
 
-        x_train = [channels, dist_probs, labels]
-        y_train = [dist_probs, labels]
+        print('shape valid action')
+        print(valid_actions_dist_input.shape)
+        print(valid_actions_dist_input)
+
+        #Get the info of who won the games relating to the state (Label for the NN)
+        who_won_label = [play[2] for game in dataset_for_network for play in game]
+        who_won_label = np.array(who_won_label)
+        who_won_label = np.expand_dims(who_won_label, axis=1)
+
+        print('shape who_won_label')
+        print(who_won_label.shape)
+
+        x_train = [channels_input, valid_actions_dist_input]
+        y_train = [dist_probs_label, who_won_label]
 
         model.fit(x_train, y_train, epochs=10)
 

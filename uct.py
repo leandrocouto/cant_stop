@@ -1,6 +1,7 @@
 from collections import defaultdict
 from game import Game
 from utils import transform_to_input, remove_invalid_actions
+from utils import transform_actions_to_dist
 import math, random
 import numpy as np
 import copy
@@ -60,7 +61,7 @@ class MCTS:
         #Expand the children of the root before the actual algorithm
         self.expand_children(self.root)
 
-        #print('antes for')
+        #print('dentro run antes for')
         for _ in range(self.config.n_simulations):
             node = self.root
             scratch_game = game.clone()
@@ -72,6 +73,7 @@ class MCTS:
                 scratch_game.play(action)
                 search_path.append(new_node)
                 node = copy.deepcopy(new_node)
+            #print('dps while')
             #At this point, a leaf was reached.
             #If it was not visited yet, then get the calculated rollout value
             #from the network and backpropagates the reward returned from the
@@ -81,19 +83,26 @@ class MCTS:
             #network.
             if node.n_visits == 0:
                 network_input = transform_to_input(scratch_game, self.config)
-                _, network_value_output = self.network.predict(network_input, batch_size=1)
+                valid_actions_dist = transform_actions_to_dist(node.state.available_moves())
+                #print('uct - shape valid actions_dist', valid_actions_dist.shape)
+                #print(valid_actions_dist)
+                _, network_value_output = self.network.predict([network_input,valid_actions_dist], batch_size=1)
                 # Network return a matrix, hence the [0][0]
                 rollout_value = network_value_output[0][0]
+                #print('VALOR ROLLOUT: ', rollout_value)
                 self.backpropagate(search_path, action, rollout_value)
             else:
                 self.expand_children(node)
                 action_for_rollout, node_for_rollout = self.select_child(node)
                 search_path.append(node)
                 network_input = transform_to_input(scratch_game, self.config)
-                _, network_value_output = self.network.predict(network_input, batch_size=1)
+                valid_actions_dist = transform_actions_to_dist(node.state.available_moves())
+                _, network_value_output = self.network.predict([network_input,valid_actions_dist], batch_size=1)
                 # Network return a matrix, hence the [0][0]
                 rollout_value = network_value_output[0][0]
+                #print('VALOR ROLLOUT: ', rollout_value)
                 self.backpropagate(search_path, action_for_rollout, rollout_value)
+        #print('dentro run dps for')
         action = self.select_action(game, self.root)
         dist_probability = self.distribution_probability()
         self.root = self.root.children[action]
@@ -114,9 +123,10 @@ class MCTS:
 
         #Update the  distribution probability of the children (node.p_a)
         network_input_parent = transform_to_input(parent.state, self.config)
-        print('network input parent')
-        print(network_input_parent)
-        dist_prob, _ = self.network.predict([network_input_parent, np.zeros((2, 1, 32)), np.array([])], batch_size=1)
+        #print('network input parent')
+        #print(network_input_parent)
+        valid_actions_dist = transform_actions_to_dist(valid_actions)
+        dist_prob, _ = self.network.predict([network_input_parent, valid_actions_dist], batch_size=1)
         dist_prob = remove_invalid_actions(dist_prob[0], parent.children.keys())
         self.add_dist_prob_to_children(parent, dist_prob)
 

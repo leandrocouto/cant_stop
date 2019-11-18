@@ -138,5 +138,29 @@ def transform_dist_prob(dist_prob):
     complete_dict = [value for _, value in complete_dict.items()]
     return complete_dict
 
+def transform_actions_to_dist(actions):
+    """
+    Given a list of possible actions in a certain state, return the dstribution
+    probability over all actions. Writes 1 if an action is valid, 0 otherwise.
+    """
+    standard_dist = [((2,2),0), ((2,3),1), ((2,4),2), ((2,5),3), ((2,6),4),
+                     ((3,2),5), ((3,3),6), ((3,4),7), ((3,5),8), ((3,6),9),
+                     ((4,2),10), ((4,3),11), ((4,4),12), ((4,5),13), ((4,6),14),
+                     ((5,2),15), ((5,3),16), ((5,4),17), ((5,5),18), ((5,6),19),
+                     ((6,2),20), ((6,3),21), ((6,4),22), ((6,5),23), ((6,6),24),
+                     ((2,),25), ((3,),26), ((4,),27), ((5,),28), ((6,),29),
+                    ('y',30), ('n',31)]
+    standard_dist = collections.OrderedDict(standard_dist)
+
+    valid_actions_dist = np.zeros(32)
+
+    for action in actions:
+        valid_actions_dist[standard_dist[action]] = 1
+
+    valid_actions_dist = np.expand_dims(valid_actions_dist, axis=0)
+    
+    return valid_actions_dist
+
+
 
 
