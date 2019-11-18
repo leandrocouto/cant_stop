@@ -117,5 +117,26 @@ def remove_invalid_actions(dist_prob, keys):
 
     return dist_prob
 
+def transform_dist_prob(dist_prob):
+    """
+    Transform a list of the only possible action probability distributions
+    into a fully distribution (with all the invalid actions). This is needed
+    for the loss function that expects full distributions on all actions.
+    """
+    standard_dist = [((2,2),0), ((2,3),0), ((2,4),0), ((2,5),0), ((2,6),0),
+                     ((3,2),0), ((3,3),0), ((3,4),0), ((3,5),0), ((3,6),0),
+                     ((4,2),0), ((4,3),0), ((4,4),0), ((4,5),0), ((4,6),0),
+                     ((5,2),0), ((5,3),0), ((5,4),0), ((5,5),0), ((5,6),0),
+                     ((6,2),0), ((6,3),0), ((6,4),0), ((6,5),0), ((6,6),0),
+                     ((2,),0), ((3,),0), ((4,),0), ((5,),0), ((6,),0),
+                    ('y',0), ('n',0)]
+    complete_dict = collections.OrderedDict(standard_dist)
+    for key, value in complete_dict.items():
+        for key_2, value_2 in dist_prob.items():
+            if key == key_2:
+                complete_dict[key] += dist_prob[key_2]
+    complete_dict = [value for _, value in complete_dict.items()]
+    return complete_dict
+
 
 

@@ -8,6 +8,7 @@ import collections
 from game import Board, Game
 from utils import valid_positions_channel, finished_columns_channels
 from utils import player_won_column_channels, player_turn_channel
+from utils import transform_dist_prob
 from uct import MCTS
 import tensorflow as tf
 from keras.utils import plot_model
@@ -19,52 +20,40 @@ from keras import backend as K
 from keras import regularizers
 from collections import Counter
 
-def transform_dist_prob(dist_prob):
-    standard_dist = [((2,2),0), ((2,3),0), ((2,4),0), ((2,5),0), ((2,6),0),
-                     ((3,2),0), ((3,3),0), ((3,4),0), ((3,5),0), ((3,6),0),
-                     ((4,2),0), ((4,3),0), ((4,4),0), ((4,5),0), ((4,6),0),
-                     ((5,2),0), ((5,3),0), ((5,4),0), ((5,5),0), ((5,6),0),
-                     ((6,2),0), ((6,3),0), ((6,4),0), ((6,5),0), ((6,6),0),
-                     ((2,),0), ((3,),0), ((4,),0), ((5,),0), ((6,),0),
-                    ('y',0), ('n',0)]
-    complete_dict = collections.OrderedDict(standard_dist)
-    for key, value in complete_dict.items():
-        for key_2, value_2 in dist_prob.items():
-            if key == key_2:
-                complete_dict[key] += dist_prob[key_2]
-    #print('antes')
-    #print(complete_dict)
-    complete_dict = [value for _, value in complete_dict.items()]
-    #print('dps')
-    #print(complete_dict)
-    return complete_dict
-
-def alphazero_loss_function(mcts_dist_prob, network_dist_prob):
-    """Custom loss function used in the AlphaGo Zero paper."""
-    def custom_loss(y_true, y_pred):
-        mse = K.mean((y_true - y_pred)**2, keepdims=True)
-        cross_entropy = np.dot(mcts_dist_prob.T, network_dist_prob) 
-        return mse - cross_entropy
-    return custom_loss
-
-def define_model(config, mcts_dist_prob, network_dist_prob):
+def define_model(config):
     """Neural Network model implementation using Keras + Tensorflow."""
-    state = Input(shape=(5,5,6))
-    conv = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(state)
-    pool = MaxPooling2D(pool_size=(2, 2))(conv)
-    flat = Flatten()(pool)
+    state = Input(shape = (5,5,6), name='States_Channels_Input')
+    dist_prob = Input(shape = (1,32), name='Distribution_Probabilities_Input') 
+    labels = Input(shape = (1,), name='Labels_Input')
+
+    print('shape state', state.shape)
+    print('shape dist', dist_prob.shape)
+    print('shape labels', labels.shape)
+
+    conv = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer')(state)
+    pool = MaxPooling2D(pool_size=(2, 2), name='Pooling_Layer')(conv)
+    flat = Flatten(name='Flatten_Layer')(pool)
     #Probability distribution over actions
-    hidden_fc_prob_dist_1 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(flat)
-    hidden_fc_prob_dist_2 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(hidden_fc_prob_dist_1)
-    output_prob_dist = Dense(32, kernel_regularizer=regularizers.l2(config.reg), activation='softmax')(hidden_fc_prob_dist_2)
+    hidden_fc_prob_dist_1 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_1')(flat)
+    hidden_fc_prob_dist_2 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_2')(hidden_fc_prob_dist_1)
+    output_prob_dist = Dense(32, kernel_regularizer=regularizers.l2(config.reg), activation='softmax', name='Output_Dist')(hidden_fc_prob_dist_2)
     #Value of a state
-    hidden_fc_value_1 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(flat)
-    hidden_fc_value_2 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu')(hidden_fc_value_1)
-    output_value = Dense(1, kernel_regularizer=regularizers.l2(config.reg), activation='tanh')(hidden_fc_value_2)
+    hidden_fc_value_1 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_1')(flat)
+    hidden_fc_value_2 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_2')(hidden_fc_value_1)
+    output_value = Dense(1, kernel_regularizer=regularizers.l2(config.reg), activation='tanh', name='Output_Value')(hidden_fc_value_2)
 
-    model = Model(inputs=state, outputs=[output_prob_dist, output_value])
+    mse_loss = K.mean(K.square(output_value - labels), axis=-1)
+    print('mse shape', mse_loss.shape)
+    cross_entropy_loss = K.dot(K.transpose(output_prob_dist), output_prob_dist)
+    custom_loss = mse_loss - cross_entropy_loss
+    print('custom_loss shape', custom_loss.shape)
 
-    model.compile(loss=alphazero_loss_function(mcts_dist_prob, network_dist_prob), optimizer='adam', metrics=['accuracy'])
+    model = Model(inputs=[state, dist_prob, labels], outputs=[output_prob_dist, output_value])
+
+
+    model.add_loss(custom_loss)
+
+    model.compile(optimizer='adam', metrics=['accuracy'])
     
     return model
     
@@ -113,13 +102,13 @@ class Config:
 def main():
     victory_1 = 0
     victory_2 = 0
-    config = Config(c =1, n_simulations = 30, n_games = 100, n_players = 2, 
+    config = Config(c = 1, n_simulations = 10, n_games = 2, n_players = 2, 
                     dice_number = 4, dice_value = 3, column_range = [2,6], 
-                    offset = 2, initial_height = 1, mini_batch = 25, 
+                    offset = 2, initial_height = 1, mini_batch = 2, 
                     sample_size = 100, n_games_evaluate= 50, victory_rate = .55,
-                    alphazero_iterations = 10, reg = 0.0001)
+                    alphazero_iterations = 1, reg = 0.0001)
     #Neural network specification
-    model = define_model(config, np.ndarray(shape=(27,1)), np.ndarray(shape=(27,1)))
+    model = define_model(config)
     # summarize layers
     #print(model.summary())
     #
@@ -176,16 +165,32 @@ def main():
         print('TRAINING LOOP')
         channels = [play[0] for game in dataset_for_network for play in game]
         channels = np.array(channels)
+        channels = channels.reshape(channels.shape[0], channels.shape[2], channels.shape[3], -1)
+
+        print('shape channels')
+        print(channels.shape)
+
         dist_probs = [play[1] for game in dataset_for_network for play in game]
         dist_probs = [transform_dist_prob(dist_dict) for dist_dict in dist_probs]
         dist_probs = np.array(dist_probs)
 
+        print('shape dist')
+        print(dist_probs.shape)
+
         labels = [play[2] for game in dataset_for_network for play in game]
         labels = np.array(labels)
-        
-        x_train = channels.reshape(channels.shape[0], channels.shape[2], channels.shape[3], -1)
+
+        print('shape label')
+        print(labels.shape)
+
+        x_train = [channels, dist_probs, labels]
         y_train = [dist_probs, labels]
-        model.fit(x_train, y_train, epochs=100, batch_size=config.mini_batch)
+
+        model.fit(x_train, y_train, epochs=10)
+
+
+    results = model.evaluate(x_train, y_train, batch_size=4)
+    print('test loss, test acc:', results)
 
 if __name__ == "__main__":
     main()

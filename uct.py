@@ -60,10 +60,12 @@ class MCTS:
         #Expand the children of the root before the actual algorithm
         self.expand_children(self.root)
 
+        #print('antes for')
         for _ in range(self.config.n_simulations):
             node = self.root
             scratch_game = game.clone()
             search_path = [node]
+            #print('antes while')
             while node.is_expanded():
                 action, new_node = self.select_child(node)
                 node.action_taken = action 
@@ -112,7 +114,9 @@ class MCTS:
 
         #Update the  distribution probability of the children (node.p_a)
         network_input_parent = transform_to_input(parent.state, self.config)
-        dist_prob, _ = self.network.predict(network_input_parent, batch_size=1)
+        print('network input parent')
+        print(network_input_parent)
+        dist_prob, _ = self.network.predict([network_input_parent, np.zeros((2, 1, 32)), np.array([])], batch_size=1)
         dist_prob = remove_invalid_actions(dist_prob[0], parent.children.keys())
         self.add_dist_prob_to_children(parent, dist_prob)
 
