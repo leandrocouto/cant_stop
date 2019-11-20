@@ -22,14 +22,19 @@ from keras.losses import mse
 from collections import Counter
 
 def custom_loss(y_true, y_pred):
-    print('teste')
-    print(y_true)
-    y2_pred = y_pred[0]
-    y2_true = y_true[0]
 
+    output_prob_dist = y_pred[0]
+    output_value = y_pred[1]
 
-    loss = K.mean(K.square(y2_true - y2_pred), axis=-1)
-    return loss
+    print('output prob dist', output_prob_dist)
+
+    label_prob_dist = y_true[0]
+    label_value = y_pred[1]
+
+    mse_loss = K.mean(K.square(label_value - output_value), axis=-1)
+    cross_entropy_loss = K.dot(K.transpose(label_prob_dist), output_prob_dist)
+
+    return mse_loss - cross_entropy_loss
 
 def define_model(config):
     """Neural Network model implementation using Keras + Tensorflow."""
@@ -43,17 +48,24 @@ def define_model(config):
     conv = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer')(state_channels)
     pool = MaxPooling2D(pool_size=(2, 2), name='Pooling_Layer')(conv)
     flat = Flatten(name='Flatten_Layer')(pool)
-    #Probability distribution over actions
+
+    # Merge of the flattened channels (after pooling) and the valid action
+    # distribution. Used only as input in the probability distribution head.
     merge = concatenate([flat, valid_actions_dist])
+
+    #Probability distribution over actions
     hidden_fc_prob_dist_1 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_1')(merge)
     hidden_fc_prob_dist_2 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_2')(hidden_fc_prob_dist_1)
     output_prob_dist = Dense(32, kernel_regularizer=regularizers.l2(config.reg), activation='softmax', name='Output_Dist')(hidden_fc_prob_dist_2)
+    
     #Value of a state
     hidden_fc_value_1 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_1')(flat)
     hidden_fc_value_2 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_2')(hidden_fc_value_1)
     output_value = Dense(1, kernel_regularizer=regularizers.l2(config.reg), activation='tanh', name='Output_Value')(hidden_fc_value_2)
 
-    
+    #final_output = concatenate([output_prob_dist, output_value])
+
+    #print('shape final: ', final_output.shape)
 
     #mse_loss = K.mean(K.square(output_value - labels), axis=-1)
     #print('mse shape', mse_loss.shape)
@@ -66,9 +78,10 @@ def define_model(config):
     print('shape output_prob_dist', output_prob_dist.shape)
     print('shape output_value', output_value.shape)
 
-    model = Model(inputs=[state_channels, valid_actions_dist], outputs=[output_prob_dist, output_value])
+    model = Model(inputs=[state_channels, valid_actions_dist], outputs=[output_prob_dist, output_value])#final_output)
 
-    model.compile(loss=custom_loss, optimizer='adam', metrics=['accuracy'])
+    model.compile(optimizer='adam', metrics=['accuracy'])
+    #model.compile(loss=custom_loss, optimizer='adam', metrics=['accuracy'])
     
     return model
     
@@ -226,6 +239,8 @@ def main():
 
         x_train = [channels_input, valid_actions_dist_input]
         y_train = [dist_probs_label, who_won_label]
+
+        print('y_train: ', y_train)
 
         model.fit(x_train, y_train, epochs=10)
 
