@@ -18,23 +18,26 @@ from keras.layers.convolutional import Conv2D
 from keras.layers.pooling import MaxPooling2D
 from keras import backend as K
 from keras import regularizers
-from keras.losses import mse
+from keras.losses import mse, categorical_crossentropy
 from collections import Counter
 
 def custom_loss(y_true, y_pred):
 
-    output_prob_dist = y_pred[0]
-    output_value = y_pred[1]
+    #output_prob_dist = y_pred[0]
+    #output_value = y_pred[1]
+    print('dentro custom')
+    print(y_true)
+    print(y_pred)
+    K.print_tensor(y_true, message='\n\n\ny_true\n\n\n')
+    #print('custom loss output prob dist', output_prob_dist)
 
-    print('output prob dist', output_prob_dist)
+    #label_prob_dist = y_true[0]
+    #label_value = y_pred[1]
 
-    label_prob_dist = y_true[0]
-    label_value = y_pred[1]
+    #mse_loss = K.mean(K.square(label_value - output_value), axis=-1)
+    cross_entropy_loss = K.categorical_crossentropy(y_true, y_pred)#K.dot(K.transpose(y_true), y_pred)
 
-    mse_loss = K.mean(K.square(label_value - output_value), axis=-1)
-    cross_entropy_loss = K.dot(K.transpose(label_prob_dist), output_prob_dist)
-
-    return mse_loss - cross_entropy_loss
+    return cross_entropy_loss
 
 def define_model(config):
     """Neural Network model implementation using Keras + Tensorflow."""
@@ -78,10 +81,10 @@ def define_model(config):
     print('shape output_prob_dist', output_prob_dist.shape)
     print('shape output_value', output_value.shape)
 
-    model = Model(inputs=[state_channels, valid_actions_dist], outputs=[output_prob_dist, output_value])#final_output)
+    model = Model(inputs=[state_channels, valid_actions_dist], outputs=output_prob_dist)#final_output)
 
-    model.compile(optimizer='adam', metrics=['accuracy'])
-    #model.compile(loss=custom_loss, optimizer='adam', metrics=['accuracy'])
+    #model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+    model.compile(loss=custom_loss, optimizer='adam', metrics=['accuracy'])
     
     return model
     
@@ -130,7 +133,7 @@ class Config:
 def main():
     victory_1 = 0
     victory_2 = 0
-    config = Config(c = 1, n_simulations = 10, n_games = 2, n_players = 2, 
+    config = Config(c = 10, n_simulations = 10, n_games = 5, n_players = 2, 
                     dice_number = 4, dice_value = 3, column_range = [2,6], 
                     offset = 2, initial_height = 1, mini_batch = 2, 
                     sample_size = 100, n_games_evaluate= 50, victory_rate = .55,
@@ -227,7 +230,7 @@ def main():
 
         print('shape valid action')
         print(valid_actions_dist_input.shape)
-        print(valid_actions_dist_input)
+        #print(valid_actions_dist_input)
 
         #Get the info of who won the games relating to the state (Label for the NN)
         who_won_label = [play[2] for game in dataset_for_network for play in game]
@@ -238,11 +241,12 @@ def main():
         print(who_won_label.shape)
 
         x_train = [channels_input, valid_actions_dist_input]
-        y_train = [dist_probs_label, who_won_label]
+        y_train = [dist_probs_label]
 
-        print('y_train: ', y_train)
+        #print('x_train shape: ', x_train.shape)
+        #print('y_train shape: ', y_train.shape)
 
-        model.fit(x_train, y_train, epochs=10)
+        model.fit(x_train, y_train, epochs=100)
 
 
     results = model.evaluate(x_train, y_train, batch_size=4)

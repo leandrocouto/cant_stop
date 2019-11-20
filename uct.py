@@ -86,9 +86,11 @@ class MCTS:
                 valid_actions_dist = transform_actions_to_dist(node.state.available_moves())
                 #print('uct - shape valid actions_dist', valid_actions_dist.shape)
                 #print(valid_actions_dist)
-                _, network_value_output = self.network.predict([network_input,valid_actions_dist], batch_size=1)
+                dist = self.network.predict([network_input,valid_actions_dist], batch_size=1)
+                #print('dist: ', dist)
                 # Network return a matrix, hence the [0][0]
-                rollout_value = network_value_output[0][0]
+                #rollout_value = network_value_output[0][0]
+                rollout_value = 1
                 #print('VALOR ROLLOUT: ', rollout_value)
                 self.backpropagate(search_path, action, rollout_value)
             else:
@@ -97,9 +99,11 @@ class MCTS:
                 search_path.append(node)
                 network_input = transform_to_input(scratch_game, self.config)
                 valid_actions_dist = transform_actions_to_dist(node.state.available_moves())
-                _, network_value_output = self.network.predict([network_input,valid_actions_dist], batch_size=1)
+                dist = self.network.predict([network_input,valid_actions_dist], batch_size=1)
+                #print('dist: ', dist)
+                network_value_output = 1
                 # Network return a matrix, hence the [0][0]
-                rollout_value = network_value_output[0][0]
+                #rollout_value = network_value_output[0][0]
                 #print('VALOR ROLLOUT: ', rollout_value)
                 self.backpropagate(search_path, action_for_rollout, rollout_value)
         #print('dentro run dps for')
@@ -126,7 +130,7 @@ class MCTS:
         #print('network input parent')
         #print(network_input_parent)
         valid_actions_dist = transform_actions_to_dist(valid_actions)
-        dist_prob, _ = self.network.predict([network_input_parent, valid_actions_dist], batch_size=1)
+        dist_prob = self.network.predict([network_input_parent, valid_actions_dist], batch_size=1)
         dist_prob = remove_invalid_actions(dist_prob[0], parent.children.keys())
         self.add_dist_prob_to_children(parent, dist_prob)
 
