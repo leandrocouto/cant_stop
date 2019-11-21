@@ -18,35 +18,20 @@ from keras.layers.convolutional import Conv2D
 from keras.layers.pooling import MaxPooling2D
 from keras import backend as K
 from keras import regularizers
-from keras.losses import mse, categorical_crossentropy
+from keras.losses import mean_squared_error, categorical_crossentropy
 from collections import Counter
 
-def custom_loss(y_true, y_pred):
+def custom_loss_crossentropy(y_true, y_pred):
+    return K.categorical_crossentropy(y_true, y_pred)
 
-    #output_prob_dist = y_pred[0]
-    #output_value = y_pred[1]
-    print('dentro custom')
-    print(y_true)
-    print(y_pred)
-    K.print_tensor(y_true, message='\n\n\ny_true\n\n\n')
-    #print('custom loss output prob dist', output_prob_dist)
 
-    #label_prob_dist = y_true[0]
-    #label_value = y_pred[1]
-
-    #mse_loss = K.mean(K.square(label_value - output_value), axis=-1)
-    cross_entropy_loss = K.categorical_crossentropy(y_true, y_pred)#K.dot(K.transpose(y_true), y_pred)
-
-    return cross_entropy_loss
+def custom_loss_mse(y_true, y_pred):
+    return K.mean(K.square(y_pred - y_true), axis=-1)
 
 def define_model(config):
     """Neural Network model implementation using Keras + Tensorflow."""
     state_channels = Input(shape = (5,5,6), name='States_Channels_Input')
     valid_actions_dist = Input(shape = (32,), name='Valid_Actions_Input')
-
-    
-    #print('shape dist', dist_prob.shape)
-    #print('shape labels', labels.shape)
 
     conv = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer')(state_channels)
     pool = MaxPooling2D(pool_size=(2, 2), name='Pooling_Layer')(conv)
@@ -66,25 +51,9 @@ def define_model(config):
     hidden_fc_value_2 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_2')(hidden_fc_value_1)
     output_value = Dense(1, kernel_regularizer=regularizers.l2(config.reg), activation='tanh', name='Output_Value')(hidden_fc_value_2)
 
-    #final_output = concatenate([output_prob_dist, output_value])
+    model = Model(inputs=[state_channels, valid_actions_dist], outputs=[output_prob_dist, output_value])#final_output)
 
-    #print('shape final: ', final_output.shape)
-
-    #mse_loss = K.mean(K.square(output_value - labels), axis=-1)
-    #print('mse shape', mse_loss.shape)
-    #cross_entropy_loss = K.dot(K.transpose(output_prob_dist), output_prob_dist)
-    #custom_loss = mse_loss - cross_entropy_loss
-    #print('custom_loss shape', custom_loss.shape)
-
-    print('shape state_channels', state_channels.shape)
-    print('shape valid_actions_dist', valid_actions_dist.shape)
-    print('shape output_prob_dist', output_prob_dist.shape)
-    print('shape output_value', output_value.shape)
-
-    model = Model(inputs=[state_channels, valid_actions_dist], outputs=output_prob_dist)#final_output)
-
-    #model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
-    model.compile(loss=custom_loss, optimizer='adam', metrics=['accuracy'])
+    model.compile(loss={'Output_Dist': custom_loss_crossentropy, 'Output_Value': custom_loss_mse}, optimizer='adam', metrics=['accuracy'])
     
     return model
     
@@ -133,7 +102,7 @@ class Config:
 def main():
     victory_1 = 0
     victory_2 = 0
-    config = Config(c = 10, n_simulations = 10, n_games = 5, n_players = 2, 
+    config = Config(c = 1, n_simulations = 10, n_games = 10, n_players = 2, 
                     dice_number = 4, dice_value = 3, column_range = [2,6], 
                     offset = 2, initial_height = 1, mini_batch = 2, 
                     sample_size = 100, n_games_evaluate= 50, victory_rate = .55,
@@ -213,23 +182,23 @@ def main():
         channels_input = np.array(channels_input)
         channels_input = channels_input.reshape(channels_input.shape[0], channels_input.shape[2], channels_input.shape[3], -1)
 
-        print('shape channels_input')
-        print(channels_input.shape)
+        #print('shape channels_input')
+        #print(channels_input.shape)
 
         #Get the probability distribution of the states (Label for the NN)
         dist_probs_label = [play[1] for game in dataset_for_network for play in game]
         dist_probs_label = [transform_dist_prob(dist_dict) for dist_dict in dist_probs_label]
         dist_probs_label = np.array(dist_probs_label)
 
-        print('shape dist_probs_label')
-        print(dist_probs_label.shape)
+        #print('shape dist_probs_label')
+        #print(dist_probs_label.shape)
 
         #Get the distribution vector of the valid actions states (Input for the NN)
         valid_actions_dist_input = copy.copy(dist_probs_label)
         valid_actions_dist_input[valid_actions_dist_input > 0] = 1
 
-        print('shape valid action')
-        print(valid_actions_dist_input.shape)
+        #print('shape valid action')
+        #print(valid_actions_dist_input.shape)
         #print(valid_actions_dist_input)
 
         #Get the info of who won the games relating to the state (Label for the NN)
@@ -237,11 +206,11 @@ def main():
         who_won_label = np.array(who_won_label)
         who_won_label = np.expand_dims(who_won_label, axis=1)
 
-        print('shape who_won_label')
-        print(who_won_label.shape)
+        #print('shape who_won_label')
+        #print(who_won_label.shape)
 
         x_train = [channels_input, valid_actions_dist_input]
-        y_train = [dist_probs_label]
+        y_train = [dist_probs_label, who_won_label]
 
         #print('x_train shape: ', x_train.shape)
         #print('y_train shape: ', y_train.shape)
@@ -249,8 +218,8 @@ def main():
         model.fit(x_train, y_train, epochs=100)
 
 
-    results = model.evaluate(x_train, y_train, batch_size=4)
-    print('test loss, test acc:', results)
+    #results = model.evaluate(x_train, y_train, batch_size=4)
+    #print('test loss, test acc:', results)
 
 if __name__ == "__main__":
     main()

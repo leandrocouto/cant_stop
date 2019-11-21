@@ -84,14 +84,8 @@ class MCTS:
             if node.n_visits == 0:
                 network_input = transform_to_input(scratch_game, self.config)
                 valid_actions_dist = transform_actions_to_dist(node.state.available_moves())
-                #print('uct - shape valid actions_dist', valid_actions_dist.shape)
-                #print(valid_actions_dist)
-                dist = self.network.predict([network_input,valid_actions_dist], batch_size=1)
-                #print('dist: ', dist)
-                # Network return a matrix, hence the [0][0]
-                #rollout_value = network_value_output[0][0]
-                rollout_value = 1
-                #print('VALOR ROLLOUT: ', rollout_value)
+                _, network_value_output = self.network.predict([network_input,valid_actions_dist], batch_size=1)
+                rollout_value = network_value_output[0][0]
                 self.backpropagate(search_path, action, rollout_value)
             else:
                 self.expand_children(node)
@@ -99,14 +93,9 @@ class MCTS:
                 search_path.append(node)
                 network_input = transform_to_input(scratch_game, self.config)
                 valid_actions_dist = transform_actions_to_dist(node.state.available_moves())
-                dist = self.network.predict([network_input,valid_actions_dist], batch_size=1)
-                #print('dist: ', dist)
-                network_value_output = 1
-                # Network return a matrix, hence the [0][0]
-                #rollout_value = network_value_output[0][0]
-                #print('VALOR ROLLOUT: ', rollout_value)
+                _, network_value_output = self.network.predict([network_input,valid_actions_dist], batch_size=1)
+                rollout_value = network_value_output[0][0]
                 self.backpropagate(search_path, action_for_rollout, rollout_value)
-        #print('dentro run dps for')
         action = self.select_action(game, self.root)
         dist_probability = self.distribution_probability()
         self.root = self.root.children[action]
@@ -127,10 +116,8 @@ class MCTS:
 
         #Update the  distribution probability of the children (node.p_a)
         network_input_parent = transform_to_input(parent.state, self.config)
-        #print('network input parent')
-        #print(network_input_parent)
         valid_actions_dist = transform_actions_to_dist(valid_actions)
-        dist_prob = self.network.predict([network_input_parent, valid_actions_dist], batch_size=1)
+        dist_prob, _= self.network.predict([network_input_parent, valid_actions_dist], batch_size=1)
         dist_prob = remove_invalid_actions(dist_prob[0], parent.children.keys())
         self.add_dist_prob_to_children(parent, dist_prob)
 
