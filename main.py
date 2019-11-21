@@ -8,7 +8,8 @@ import collections
 from game import Board, Game
 from utils import valid_positions_channel, finished_columns_channels
 from utils import player_won_column_channels, player_turn_channel
-from utils import transform_dist_prob
+from utils import transform_dist_prob, transform_to_input
+from utils import transform_actions_to_dist
 from uct import MCTS
 import tensorflow as tf
 from keras.utils import plot_model
@@ -18,7 +19,7 @@ from keras.layers.convolutional import Conv2D
 from keras.layers.pooling import MaxPooling2D
 from keras import backend as K
 from keras import regularizers
-from keras.losses import mean_squared_error, categorical_crossentropy
+from keras.losses import categorical_crossentropy
 from collections import Counter
 
 def custom_loss_crossentropy(y_true, y_pred):
@@ -53,20 +54,23 @@ def define_model(config):
 
     model = Model(inputs=[state_channels, valid_actions_dist], outputs=[output_prob_dist, output_value])#final_output)
 
-    model.compile(loss={'Output_Dist': custom_loss_crossentropy, 'Output_Value': custom_loss_mse}, optimizer='adam', metrics=['accuracy'])
+    model.compile(loss={'Output_Dist': custom_loss_crossentropy, 'Output_Value': custom_loss_mse}, loss_weights={'Output_Dist':0.5,
+          'Output_Value':0.5}, optimizer='adam', metrics=['accuracy'])
     
     return model
     
 class Config:
     """ General configuration class for the game board, UCT and NN """
-    def __init__(self, c, n_simulations, n_games, n_players, dice_number,
-                    dice_value, column_range, offset, initial_height,
+    def __init__(self, c, n_simulations, n_games, maximum_game_length, n_players,
+                     dice_number, dice_value, column_range, offset, initial_height,
                     mini_batch, sample_size, n_games_evaluate, victory_rate,
                     alphazero_iterations, reg):
         """
         - c is the constant the balance exploration and exploitation.
         - n_simulations is the number of simulations made in the UCT algorithm.
         - n_games is the number of games played in the self-play scheme.
+        - maximum_game_length is the max number of plays in a game by both
+          players (avoids infinite loop).
         - n_players is the number of players (At the moment, only 2 is possible).
         - dice_number is the number of dice used in the Can't Stop game.
         - dice_value is the number of sides of a single die.
@@ -86,6 +90,7 @@ class Config:
         self.c = c
         self.n_simulations = n_simulations
         self.n_games = n_games
+        self.maximum_game_length = maximum_game_length
         self.n_players = n_players
         self.dice_number = dice_number
         self.dice_value = dice_value
@@ -102,11 +107,11 @@ class Config:
 def main():
     victory_1 = 0
     victory_2 = 0
-    config = Config(c = 1, n_simulations = 10, n_games = 10, n_players = 2, 
-                    dice_number = 4, dice_value = 3, column_range = [2,6], 
-                    offset = 2, initial_height = 1, mini_batch = 2, 
-                    sample_size = 100, n_games_evaluate= 50, victory_rate = .55,
-                    alphazero_iterations = 1, reg = 0.0001)
+    config = Config(c = 1, n_simulations = 100, n_games = 10, maximum_game_length = 100,
+                    n_players = 2, dice_number = 4, dice_value = 3, 
+                    column_range = [2,6], offset = 2, initial_height = 1, 
+                    mini_batch = 2, sample_size = 100, n_games_evaluate= 50, 
+                    victory_rate = .55, alphazero_iterations = 1, reg = 0.01)
     #Neural network specification
     model = define_model(config)
     # summarize layers
@@ -127,7 +132,9 @@ def main():
             is_over = False
             uct = MCTS(config, model)
             print('Game', i, 'has started.')
+            infinite_loop = 0
             while not is_over:
+                infinite_loop += 1
                 # Collecting data for later input to the NN
                 channel_valid = valid_positions_channel(config)
                 channel_finished_1, channel_finished_2 = finished_columns_channels(game, channel_valid)
@@ -155,9 +162,22 @@ def main():
                     game.play(chosen_play)
                     #game.board_game.print_board([])
                     #print('dps play')
-                who_won, is_over = game.is_finished()
-            print()
+                if infinite_loop > config.maximum_game_length:
+                    #print('chegou no maximo')
+                    network_input = transform_to_input(game, config)
+                    valid_actions_dist = transform_actions_to_dist(game.available_moves())
+                    _, network_value_output = model.predict([network_input,valid_actions_dist], batch_size=1)
+                    who_won = -1 if network_value_output[0][0] < 0 else 1
+                    #print('who_won:', who_won)
+                    #print('player ', game.player_turn)
+                    #print('finished columns: ', game.finished_columns)
+                    #print('won columns: ', game.player_won_column)
+                    #game.board_game.print_board([])
+                    is_over = True
+                else:
+                    who_won, is_over = game.is_finished()
             print('GAME', i ,'OVER - PLAYER', who_won, 'WON')
+            print()
             if who_won == -1:
                 victory_1 += 1
             else:
