@@ -340,7 +340,7 @@ class Game:
 
 
     def is_finished(self):
-        """Return two values: what player won (player = -1, player 2 = 1 and 0 
+        """Return two values: what player won (player 1 = 1, player 2 = 2 and 0 
         if the game is not over yet) and a boolean value representing if the 
         game is over or not.
         """
@@ -354,8 +354,8 @@ class Game:
         # >= because the player can have 2 columns and win another 2 columns
         # in one turn.
         if won_columns_player_1 >= 3:
-            return -1, True
-        elif  won_columns_player_2 >= 3:
             return 1, True
+        elif  won_columns_player_2 >= 3:
+            return 2, True
         else:
             return 0, False

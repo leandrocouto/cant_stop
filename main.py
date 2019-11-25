@@ -11,7 +11,9 @@ from utils import player_won_column_channels, player_turn_channel
 from utils import transform_dist_prob, transform_to_input
 from utils import transform_actions_to_dist
 from uct import MCTS
+from vanilla_uct import Vanilla_MCTS
 import tensorflow as tf
+import keras
 from keras.utils import plot_model
 from keras.models import Model
 from keras.layers import Input, Dense, Flatten, concatenate
@@ -64,12 +66,12 @@ def define_model(config):
 
     model = Model(inputs=[state_channels, valid_actions_dist], outputs=[output_prob_dist, output_value])#final_output)
 
-    #model.compile(loss={'Output_Dist': custom_loss_crossentropy, 'Output_Value': custom_loss_mse}, loss_weights={'Output_Dist':0.5,
-    #      'Output_Value':0.5}, optimizer='adam', metrics=['accuracy'])
+    #model.compile(loss={'Output_Dist': custom_loss_crossentropy, 'Output_Value': custom_loss_mse}, 
+                #loss_weights={'Output_Dist':0.5, 'Output_Value':0.5}, optimizer='adam', metrics=['accuracy'])
     #model.compile(loss=['kullback_leibler_divergence','mean_squared_error'], 
                         #optimizer='adam', metrics={'Output_Dist':'binary_accuracy', 'Output_Value':'accuracy'})
     model.compile(loss=['categorical_crossentropy','mean_squared_error'], 
-                        optimizer='adam', metrics=['binary_accuracy'])#{'Output_Dist':'binary_accuracy', 'Output_Value':'accuracy'})
+                        optimizer='adam', metrics={'Output_Dist':'binary_accuracy', 'Output_Value':'binary_accuracy'})
     return model
     
 class Config:
@@ -117,6 +119,85 @@ class Config:
         self.alphazero_iterations = alphazero_iterations
         self.reg = reg
 
+def play_single_game(config, model, net_vs_net_training, 
+                    net_vs_net_evaluation, net_vs_uct, uct_vs_uct, second_model):
+    """
+    - config is the configuration class responsible for alphazero parameters.
+    - model is the network for the first player (if applicable).
+    - net_vs_net_training is a boolean that represents if this game to be 
+      played is the current network (model) against itself. Used in the network 
+      training section.
+    - net_vs_net_evaluation is a boolean that represents if this game to be 
+      played is the current network (model) against the old network
+      (second_model). Used in the network evaluation section.
+    - net_vs_uct is a boolean that represents if this game to be played is the
+      the current network (model) against baseline UCT. Used for tests.
+    - uct_vs_uct is a boolean that represents if this game to be played is the
+      the baseline UCT against itself. Used for tests.
+    - second_model is the network for the second player (if applicable).
+    """
+    data_of_a_game = []
+    game = Game(config)
+    is_over = False
+    # UCT using new model (network training)
+    uct = MCTS(config, model)
+    # UCT using old model (network evaluation)
+    uct_2 = MCTS(config, second_model)
+    # Vanilla UCT (no networks, testing purpose)
+    uct_3 = Vanilla_MCTS(config)
+    infinite_loop = 0
+    while not is_over:
+        infinite_loop += 1
+        # Collecting data for later input to the NN
+        channel_valid = valid_positions_channel(config)
+        channel_finished_1, channel_finished_2 = finished_columns_channels(game, channel_valid)
+        channel_won_column_1, channel_won_column_2 = player_won_column_channels(game, channel_valid)
+        channel_turn = player_turn_channel(game, channel_valid)
+        list_of_channels = [channel_valid, channel_finished_1, channel_finished_2,
+                            channel_won_column_1, channel_won_column_2, channel_turn]
+        moves = game.available_moves()
+        if game.is_player_busted(moves):
+            continue
+        else:
+            if net_vs_net_training:
+                chosen_play, dist_probability = uct.run_mcts(game)
+            elif net_vs_net_evaluation:
+                if game.player_turn == 1:
+                    chosen_play, dist_probability = uct.run_mcts(game)
+                else:
+                    chosen_play, dist_probability = uct_2.run_mcts(game)
+            elif net_vs_uct:
+                if game.player_turn == 1:
+                    chosen_play, dist_probability = uct.run_mcts(game)
+                else:
+                    chosen_play, dist_probability = uct_3.run_mcts(game)
+            elif uct_vs_uct:
+                chosen_play, dist_probability = uct_3.run_mcts(game)
+            # Collecting data for later input to the NN
+            current_play = [list_of_channels, dist_probability]
+            data_of_a_game.append(current_play)
+            #print('antes play, chosen play = ', chosen_play, 'available plays: ', moves)
+            #print('player ', game.player_turn)
+            #print('finished columns: ', game.finished_columns)
+            #print('won columns: ', game.player_won_column)
+            game.play(chosen_play)
+            #game.board_game.print_board([])
+        if infinite_loop > config.maximum_game_length:
+            network_input = transform_to_input(game, config)
+            valid_actions_dist = transform_actions_to_dist(game.available_moves())
+            _, network_value_output = model.predict([network_input,valid_actions_dist], batch_size=1)
+            who_won = -1 if network_value_output[0][0] < 0 else 1
+            #print('who_won:', who_won)
+            #print('player ', game.player_turn)
+            #print('finished columns: ', game.finished_columns)
+            #print('won columns: ', game.player_won_column)
+            #game.board_game.print_board([])
+            is_over = True
+        else:
+            who_won, is_over = game.is_finished()
+
+    return data_of_a_game, who_won
+
 def main():
     victory_1 = 0
     victory_2 = 0
@@ -134,61 +215,19 @@ def main():
     #
     for count in range(config.alphazero_iterations):
         print('ALPHAZERO ITERATION ', count)
+     
+        #dataset_for_network saves a list of info used as input for the network.
+        #A list of: states of the game, distribution probability of the state
+        #returned by the UCT and who won the game this state is in.
         dataset_for_network = []
         start = time.time()
         #
         # Self-play
         #
         for i in range(config.n_games):
-            data_of_a_game = []
-            game = Game(config)
-            is_over = False
-            uct = MCTS(config, model)
-            print('Game', i, 'has started.')
-            infinite_loop = 0
-            while not is_over:
-                infinite_loop += 1
-                # Collecting data for later input to the NN
-                channel_valid = valid_positions_channel(config)
-                channel_finished_1, channel_finished_2 = finished_columns_channels(game, channel_valid)
-                channel_won_column_1, channel_won_column_2 = player_won_column_channels(game, channel_valid)
-                channel_turn = player_turn_channel(game, channel_valid)
-                list_of_channels = [channel_valid, channel_finished_1, channel_finished_2,
-                                    channel_won_column_1, channel_won_column_2, channel_turn]
-                moves = game.available_moves()
-                if game.is_player_busted(moves):
-                    continue
-                else:
-                    #print('antes run')
-                    if game.player_turn == 1:
-                        chosen_play, dist_probability = uct.run_mcts(game)
-                    else:
-                        chosen_play, dist_probability = uct.run_mcts(game)
-                    #print('dps run')
-                    # Collecting data for later input to the NN
-                    current_play = [list_of_channels, dist_probability]
-                    data_of_a_game.append(current_play)
-                    #print('antes play, chosen play = ', chosen_play, 'avaiable plays: ', moves)
-                    #print('player ', game.player_turn)
-                    #print('finished columns: ', game.finished_columns)
-                    #print('won columns: ', game.player_won_column)
-                    game.play(chosen_play)
-                    #game.board_game.print_board([])
-                    #print('dps play')
-                if infinite_loop > config.maximum_game_length:
-                    #print('chegou no maximo')
-                    network_input = transform_to_input(game, config)
-                    valid_actions_dist = transform_actions_to_dist(game.available_moves())
-                    _, network_value_output = model.predict([network_input,valid_actions_dist], batch_size=1)
-                    who_won = -1 if network_value_output[0][0] < 0 else 1
-                    #print('who_won:', who_won)
-                    #print('player ', game.player_turn)
-                    #print('finished columns: ', game.finished_columns)
-                    #print('won columns: ', game.player_won_column)
-                    #game.board_game.print_board([])
-                    is_over = True
-                else:
-                    who_won, is_over = game.is_finished()
+            data_of_a_game, who_won = play_single_game(config, model, 
+                net_vs_net_training = False, net_vs_net_evaluation = False, 
+                net_vs_uct = True, uct_vs_uct = False, second_model = None)
             print('GAME', i ,'OVER - PLAYER', who_won, 'WON')
             print()
             if who_won == -1:
@@ -238,7 +277,8 @@ def main():
         who_won_label = [play[2] for game in dataset_for_network for play in game]
         who_won_label = np.array(who_won_label)
         who_won_label = np.expand_dims(who_won_label, axis=1)
-
+        #print('who won label\n')
+        #print(who_won_label)
         #print('shape who_won_label')
         #print(who_won_label.shape)
 
@@ -251,6 +291,27 @@ def main():
         model.fit(x_train, y_train, epochs=100)
 
 
+    victory_11 = 0
+    victory_22 = 0
+
+    for i in range(50):
+            data_of_a_game, who_won = play_single_game(config, model, 
+                net_vs_net_training = False, net_vs_net_evaluation = False, 
+                net_vs_uct = True, uct_vs_uct = False, second_model = None)
+            print('GAME', i ,'OVER - PLAYER', who_won, 'WON')
+            print()
+            if who_won == -1:
+                victory_11 += 1
+            else:
+                victory_22 += 1
+            # After the game is finished, we now know who won the game.
+            # Therefore, save this info in all instances saved so far
+            # for later use as input for the NN.
+            for single_game in data_of_a_game:
+                single_game.append(who_won)
+            dataset_for_network.append(data_of_a_game)
+    print('Player 1 won', victory_11,'time(s).')
+    print('Player 2 won', victory_22,'time(s).')
     #results = model.evaluate(x_train, y_train, batch_size=4)
     #print('test loss, test acc:', results)
 
