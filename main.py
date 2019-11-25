@@ -23,10 +23,15 @@ from keras.losses import categorical_crossentropy
 from collections import Counter
 
 def custom_loss_crossentropy(y_true, y_pred):
+    #y_true = K.print_tensor(y_true, message='y_true = ')
+    #y_pred = K.print_tensor(y_pred,message='y_pred = ')
     return K.categorical_crossentropy(y_true, y_pred)
+    #return K.binary_crossentropy(y_true, y_pred)
 
 
 def custom_loss_mse(y_true, y_pred):
+    y_true = K.print_tensor(y_true, message='y_true = ')
+    y_pred = K.print_tensor(y_pred,message='y_pred = ')
     return K.mean(K.square(y_pred - y_true), axis=-1)
 
 def define_model(config):
@@ -35,8 +40,13 @@ def define_model(config):
     valid_actions_dist = Input(shape = (32,), name='Valid_Actions_Input')
 
     conv = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer')(state_channels)
-    pool = MaxPooling2D(pool_size=(2, 2), name='Pooling_Layer')(conv)
-    flat = Flatten(name='Flatten_Layer')(pool)
+    #conv2 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer2')(conv)
+    #conv3 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer3')(conv2)
+    #conv2 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), padding='same', activation='relu', name='Conv_Layer2')(conv)
+    #conv3 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), padding='same', activation='relu', name='Conv_Layer3')(conv2)
+    #conv4 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), padding='valid', activation='relu', name='Conv_Layer4')(conv3)
+    #pool = MaxPooling2D(pool_size=(2, 2), name='Pooling_Layer')(conv)
+    flat = Flatten(name='Flatten_Layer')(conv)
 
     # Merge of the flattened channels (after pooling) and the valid action
     # distribution. Used only as input in the probability distribution head.
@@ -54,9 +64,12 @@ def define_model(config):
 
     model = Model(inputs=[state_channels, valid_actions_dist], outputs=[output_prob_dist, output_value])#final_output)
 
-    model.compile(loss={'Output_Dist': custom_loss_crossentropy, 'Output_Value': custom_loss_mse}, loss_weights={'Output_Dist':0.5,
-          'Output_Value':0.5}, optimizer='adam', metrics=['accuracy'])
-    
+    #model.compile(loss={'Output_Dist': custom_loss_crossentropy, 'Output_Value': custom_loss_mse}, loss_weights={'Output_Dist':0.5,
+    #      'Output_Value':0.5}, optimizer='adam', metrics=['accuracy'])
+    #model.compile(loss=['kullback_leibler_divergence','mean_squared_error'], 
+                        #optimizer='adam', metrics={'Output_Dist':'binary_accuracy', 'Output_Value':'accuracy'})
+    model.compile(loss=['categorical_crossentropy','mean_squared_error'], 
+                        optimizer='adam', metrics=['binary_accuracy'])#{'Output_Dist':'binary_accuracy', 'Output_Value':'accuracy'})
     return model
     
 class Config:
@@ -107,7 +120,7 @@ class Config:
 def main():
     victory_1 = 0
     victory_2 = 0
-    config = Config(c = 1, n_simulations = 100, n_games = 10, maximum_game_length = 100,
+    config = Config(c = 1, n_simulations = 10, n_games = 100, maximum_game_length = 50,
                     n_players = 2, dice_number = 4, dice_value = 3, 
                     column_range = [2,6], offset = 2, initial_height = 1, 
                     mini_batch = 2, sample_size = 100, n_games_evaluate= 50, 
