@@ -24,6 +24,45 @@ from keras import regularizers
 from keras.losses import categorical_crossentropy
 from collections import Counter
 
+def transform_dataset_to_input(dataset_for_network):
+    #Get the channels of the states (Input for the NN)
+    channels_input = [play[0] for game in dataset_for_network for play in game]
+    channels_input = np.array(channels_input)
+    channels_input = channels_input.reshape(channels_input.shape[0], channels_input.shape[2], channels_input.shape[3], -1)
+
+    #print('shape channels_input')
+    #print(channels_input.shape)
+
+    #Get the probability distribution of the states (Label for the NN)
+    dist_probs_label = [play[1] for game in dataset_for_network for play in game]
+    dist_probs_label = [transform_dist_prob(dist_dict) for dist_dict in dist_probs_label]
+    dist_probs_label = np.array(dist_probs_label)
+
+    #print('shape dist_probs_label')
+    #print(dist_probs_label.shape)
+
+    #Get the distribution vector of the valid actions states (Input for the NN)
+    valid_actions_dist_input = copy.copy(dist_probs_label)
+    valid_actions_dist_input[valid_actions_dist_input > 0] = 1
+
+    #print('shape valid action')
+    #print(valid_actions_dist_input.shape)
+    #print(valid_actions_dist_input)
+
+    #Get the info of who won the games relating to the state (Label for the NN)
+    who_won_label = [play[2] for game in dataset_for_network for play in game]
+    who_won_label = np.array(who_won_label)
+    who_won_label = np.expand_dims(who_won_label, axis=1)
+    #print('who won label\n')
+    #print(who_won_label)
+    #print('shape who_won_label')
+    #print(who_won_label.shape)
+
+    x_train = [channels_input, valid_actions_dist_input]
+    y_train = [dist_probs_label, who_won_label]
+
+    return x_train, y_train
+
 def custom_loss_crossentropy(y_true, y_pred):
     #y_true = K.print_tensor(y_true, message='y_true = ')
     #y_pred = K.print_tensor(y_pred,message='y_pred = ')
@@ -186,7 +225,7 @@ def play_single_game(config, model, net_vs_net_training,
             network_input = transform_to_input(game, config)
             valid_actions_dist = transform_actions_to_dist(game.available_moves())
             _, network_value_output = model.predict([network_input,valid_actions_dist], batch_size=1)
-            who_won = -1 if network_value_output[0][0] < 0 else 1
+            who_won = 1 if network_value_output[0][0] < 0 else 2
             #print('who_won:', who_won)
             #print('player ', game.player_turn)
             #print('finished columns: ', game.finished_columns)
@@ -201,7 +240,7 @@ def play_single_game(config, model, net_vs_net_training,
 def main():
     victory_1 = 0
     victory_2 = 0
-    config = Config(c = 1, n_simulations = 10, n_games = 100, maximum_game_length = 50,
+    config = Config(c = 10, n_simulations = 100, n_games = 150, maximum_game_length = 50,
                     n_players = 2, dice_number = 4, dice_value = 3, 
                     column_range = [2,6], offset = 2, initial_height = 1, 
                     mini_batch = 2, sample_size = 100, n_games_evaluate= 50, 
@@ -226,11 +265,11 @@ def main():
         #
         for i in range(config.n_games):
             data_of_a_game, who_won = play_single_game(config, model, 
-                net_vs_net_training = False, net_vs_net_evaluation = False, 
-                net_vs_uct = True, uct_vs_uct = False, second_model = None)
+                net_vs_net_training = True, net_vs_net_evaluation = False, 
+                net_vs_uct = False, uct_vs_uct = False, second_model = None)
             print('GAME', i ,'OVER - PLAYER', who_won, 'WON')
             print()
-            if who_won == -1:
+            if who_won == 1:
                 victory_1 += 1
             else:
                 victory_2 += 1
@@ -249,71 +288,42 @@ def main():
         #
         print('TRAINING LOOP')
 
-        #Get the channels of the states (Input for the NN)
-        channels_input = [play[0] for game in dataset_for_network for play in game]
-        channels_input = np.array(channels_input)
-        channels_input = channels_input.reshape(channels_input.shape[0], channels_input.shape[2], channels_input.shape[3], -1)
-
-        #print('shape channels_input')
-        #print(channels_input.shape)
-
-        #Get the probability distribution of the states (Label for the NN)
-        dist_probs_label = [play[1] for game in dataset_for_network for play in game]
-        dist_probs_label = [transform_dist_prob(dist_dict) for dist_dict in dist_probs_label]
-        dist_probs_label = np.array(dist_probs_label)
-
-        #print('shape dist_probs_label')
-        #print(dist_probs_label.shape)
-
-        #Get the distribution vector of the valid actions states (Input for the NN)
-        valid_actions_dist_input = copy.copy(dist_probs_label)
-        valid_actions_dist_input[valid_actions_dist_input > 0] = 1
-
-        #print('shape valid action')
-        #print(valid_actions_dist_input.shape)
-        #print(valid_actions_dist_input)
-
-        #Get the info of who won the games relating to the state (Label for the NN)
-        who_won_label = [play[2] for game in dataset_for_network for play in game]
-        who_won_label = np.array(who_won_label)
-        who_won_label = np.expand_dims(who_won_label, axis=1)
-        #print('who won label\n')
-        #print(who_won_label)
-        #print('shape who_won_label')
-        #print(who_won_label.shape)
-
-        x_train = [channels_input, valid_actions_dist_input]
-        y_train = [dist_probs_label, who_won_label]
-
-        #print('x_train shape: ', x_train.shape)
-        #print('y_train shape: ', y_train.shape)
+        x_train, y_train = transform_dataset_to_input(dataset_for_network)
 
         model.fit(x_train, y_train, epochs=100)
 
-
+    #    
+    # Model evaluation
+    #
+    print('MODEL EVALUATION')
     victory_11 = 0
     victory_22 = 0
 
-    for i in range(50):
-            data_of_a_game, who_won = play_single_game(config, model, 
+    dataset_for_eval = []
+
+    for i in range(100):
+            data_of_a_game_eval, who_won = play_single_game(config, model, 
                 net_vs_net_training = False, net_vs_net_evaluation = False, 
                 net_vs_uct = True, uct_vs_uct = False, second_model = None)
             print('GAME', i ,'OVER - PLAYER', who_won, 'WON')
             print()
-            if who_won == -1:
+            if who_won == 1:
                 victory_11 += 1
             else:
                 victory_22 += 1
             # After the game is finished, we now know who won the game.
             # Therefore, save this info in all instances saved so far
             # for later use as input for the NN.
-            for single_game in data_of_a_game:
+            for single_game in data_of_a_game_eval:
                 single_game.append(who_won)
-            dataset_for_network.append(data_of_a_game)
+            dataset_for_eval.append(data_of_a_game_eval)
     print('Player 1 won', victory_11,'time(s).')
     print('Player 2 won', victory_22,'time(s).')
-    #results = model.evaluate(x_train, y_train, batch_size=4)
-    #print('test loss, test acc:', results)
+
+    x_train_eval, y_train_eval = transform_dataset_to_input(dataset_for_eval)
+
+    results = model.evaluate(x_train_eval, y_train_eval)
+    print('test loss, test acc:', results)
 
 if __name__ == "__main__":
     main()
