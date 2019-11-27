@@ -41,29 +41,29 @@ def define_model(config):
     valid_actions_dist = Input(shape = (32,), name='Valid_Actions_Input')
 
     conv = Conv2D(filters=10, kernel_size=2, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer')(state_channels)
-    conv2 = Conv2D(filters=10, kernel_size=2, kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer2')(conv)
+    #conv2 = Conv2D(filters=10, kernel_size=2, kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer2')(conv)
     #conv3 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer3')(conv2)
     #conv2 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), padding='same', activation='relu', name='Conv_Layer2')(conv)
     #conv3 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), padding='same', activation='relu', name='Conv_Layer3')(conv2)
     #conv4 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), padding='valid', activation='relu', name='Conv_Layer4')(conv3)
     #pool = MaxPooling2D(pool_size=(2, 2), name='Pooling_Layer')(conv)
-    flat = Flatten(name='Flatten_Layer')(conv2)
+    flat = Flatten(name='Flatten_Layer')(conv)
 
     # Merge of the flattened channels (after pooling) and the valid action
     # distribution. Used only as input in the probability distribution head.
     merge = concatenate([flat, valid_actions_dist])
 
     #Probability distribution over actions
-    hidden_fc_prob_dist_1 = Dense(100, kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_1')(merge)
-    hidden_fc_prob_dist_2 = Dense(100, kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_2')(hidden_fc_prob_dist_1)
-    output_prob_dist = Dense(32, kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(config.reg), activation='softmax', name='Output_Dist')(hidden_fc_prob_dist_2)
+    hidden_fc_prob_dist_1 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_1')(merge)
+    hidden_fc_prob_dist_2 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_2')(hidden_fc_prob_dist_1)
+    output_prob_dist = Dense(32, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='softmax', name='Output_Dist')(hidden_fc_prob_dist_2)
     
     #Value of a state
-    hidden_fc_value_1 = Dense(100, kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_1')(flat)
-    hidden_fc_value_2 = Dense(100, kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_2')(hidden_fc_value_1)
-    output_value = Dense(1, kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(config.reg), activation='tanh', name='Output_Value')(hidden_fc_value_2)
+    hidden_fc_value_1 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_1')(flat)
+    hidden_fc_value_2 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_2')(hidden_fc_value_1)
+    output_value = Dense(1, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='tanh', name='Output_Value')(hidden_fc_value_2)
 
-    model = Model(inputs=[state_channels, valid_actions_dist], outputs=[output_prob_dist, output_value])#final_output)
+    model = Model(inputs=[state_channels, valid_actions_dist], outputs=[output_prob_dist, output_value])
 
     #model.compile(loss={'Output_Dist': custom_loss_crossentropy, 'Output_Value': custom_loss_mse}, 
                 #loss_weights={'Output_Dist':0.5, 'Output_Value':0.5}, optimizer='adam', metrics=['accuracy'])
@@ -75,14 +75,17 @@ def define_model(config):
     
 class Config:
     """ General configuration class for the game board, UCT and NN """
-    def __init__(self, c, n_simulations, n_games, maximum_game_length, n_players,
-                     dice_number, dice_value, column_range, offset, initial_height,
-                    mini_batch, sample_size, n_games_evaluate, victory_rate,
-                    alphazero_iterations, reg):
+    def __init__(self, c, n_simulations, n_games, n_games_evaluate, 
+                    maximum_game_length, n_players, dice_number, dice_value, 
+                    column_range, offset, initial_height, mini_batch, sample_size,
+                    victory_rate, alphazero_iterations, reg, epochs, 
+                    net_vs_net_evaluation, net_vs_uct, uct_vs_uct):
         """
         - c is the constant the balance exploration and exploitation.
         - n_simulations is the number of simulations made in the UCT algorithm.
         - n_games is the number of games played in the self-play scheme.
+        - n_games_evaluate is the number of games played to evaluate the current
+          network against the previous one.
         - maximum_game_length is the max number of plays in a game by both
           players (avoids infinite loop).
         - n_players is the number of players (At the moment, only 2 is possible).
@@ -93,17 +96,24 @@ class Config:
         - initial_height is the height of the columns at the border of the board.
         - mini_batch is the number of inputs selected to train the network.
         - sample_size is the total number of inputs mini_batch is sampled from.
-        - n_games_evaluate is the number of the self-played games to evaluate
-          the new network vs the old one.
         - victory_rate is the % of victories necessary for the new network to
           overwrite the previously one.
         - alphazero_iterations is the total number of iterations of the learning
           algorithm: selfplay -> training loop -> evaluate network (repeat).
         - reg is the L2 regularization parameter.
+        - epochs is the number of training epochs.
+        - net_vs_net_evaluation is a boolean that represents if this game to be 
+          played is the current network (model) against the old network
+          (second_model). Used in the network evaluation section.
+        - net_vs_uct is a boolean that represents if this game to be played is the
+          the current network (model) against baseline UCT. Used for tests.
+        - uct_vs_uct is a boolean that represents if this game to be played is the
+          the baseline UCT against itself. Used for tests.
         """
         self.c = c
         self.n_simulations = n_simulations
         self.n_games = n_games
+        self.n_games_evaluate = n_games_evaluate
         self.maximum_game_length = maximum_game_length
         self.n_players = n_players
         self.dice_number = dice_number
@@ -113,27 +123,21 @@ class Config:
         self.initial_height = initial_height
         self.mini_batch = mini_batch
         self.sample_size = sample_size
-        self.n_games_evaluate = n_games_evaluate
         self.victory_rate = victory_rate
         self.alphazero_iterations = alphazero_iterations
         self.reg = reg
+        self.epochs = epochs
+        self.net_vs_net_evaluation = net_vs_net_evaluation
+        self.net_vs_uct = net_vs_uct
+        self.uct_vs_uct = uct_vs_uct
 
-def play_single_game(config, model, net_vs_net_training, 
-                    net_vs_net_evaluation, net_vs_uct, uct_vs_uct, second_model):
+def play_single_game(config, model, second_model, training):
     """
     - config is the configuration class responsible for alphazero parameters.
     - model is the network for the first player (if applicable).
-    - net_vs_net_training is a boolean that represents if this game to be 
-      played is the current network (model) against itself. Used in the network 
-      training section.
-    - net_vs_net_evaluation is a boolean that represents if this game to be 
-      played is the current network (model) against the old network
-      (second_model). Used in the network evaluation section.
-    - net_vs_uct is a boolean that represents if this game to be played is the
-      the current network (model) against baseline UCT. Used for tests.
-    - uct_vs_uct is a boolean that represents if this game to be played is the
-      the baseline UCT against itself. Used for tests.
     - second_model is the network for the second player (if applicable).
+    - training is a boolean representing if the game to e played is between the
+      same network.
     """
     data_of_a_game = []
     game = Game(config)
@@ -158,19 +162,19 @@ def play_single_game(config, model, net_vs_net_training,
         if game.is_player_busted(moves):
             continue
         else:
-            if net_vs_net_training:
+            if training:
                 chosen_play, dist_probability = uct.run_mcts(game)
-            elif net_vs_net_evaluation:
+            elif config.net_vs_net_evaluation:
                 if game.player_turn == 1:
                     chosen_play, dist_probability = uct.run_mcts(game)
                 else:
                     chosen_play, dist_probability = uct_2.run_mcts(game)
-            elif net_vs_uct:
+            elif config.net_vs_uct:
                 if game.player_turn == 1:
                     chosen_play, dist_probability = uct.run_mcts(game)
                 else:
                     chosen_play, dist_probability = uct_3.run_mcts(game)
-            elif uct_vs_uct:
+            elif config.uct_vs_uct:
                 chosen_play, dist_probability = uct_3.run_mcts(game)
             # Collecting data for later input to the NN
             current_play = [list_of_channels, dist_probability]
@@ -182,6 +186,7 @@ def play_single_game(config, model, net_vs_net_training,
             game.play(chosen_play)
             #game.board_game.print_board([])
         if infinite_loop > config.maximum_game_length:
+            print('\n\n LOOP \n\n')
             network_input = transform_to_input(game, config)
             valid_actions_dist = transform_actions_to_dist(game.available_moves())
             _, network_value_output = model.predict([network_input,valid_actions_dist], batch_size=1)
@@ -198,38 +203,47 @@ def play_single_game(config, model, net_vs_net_training,
     return data_of_a_game, who_won
 
 def main():
-    start_time = time.time()
-    victory_1 = 0
-    victory_2 = 0
-    config = Config(c = 10, n_simulations = 10, n_games = 1, maximum_game_length = 50,
-                    n_players = 2, dice_number = 4, dice_value = 3, 
-                    column_range = [2,6], offset = 2, initial_height = 1, 
-                    mini_batch = 2, sample_size = 100, n_games_evaluate= 50, 
-                    victory_rate = .55, alphazero_iterations = 20, reg = 0.01)
+    config = Config(c = 10, n_simulations = 10, n_games = 1, n_games_evaluate = 1,
+                    maximum_game_length = 50, n_players = 2, dice_number = 4, 
+                    dice_value = 3, column_range = [2,6], offset = 2, 
+                    initial_height = 1, mini_batch = 2, sample_size = 100, 
+                    victory_rate = 55, alphazero_iterations = 20, reg = 0.01,
+                    epochs = 1, net_vs_net_evaluation = False,
+                    net_vs_uct = True, uct_vs_uct = False)
+
     #Neural network specification
     model = define_model(config)
+    old_model = copy.deepcopy(model)
+
     # summarize layers
     #print(model.summary())
+
+    # dataset_for_network saves a list of info used as input for the network.
+    # A list of: states of the game, distribution probability of the state
+    # returned by the UCT and who won the game this state is in.
+    dataset_for_network = []
+
+    #
     #
     # Main loop of the algorithm
     #
-    dataset_for_network = []
+    #
+    
     for count in range(config.alphazero_iterations):
         print('ALPHAZERO ITERATION ', count)
-     
-        #dataset_for_network saves a list of info used as input for the network.
-        #A list of: states of the game, distribution probability of the state
-        #returned by the UCT and who won the game this state is in.
-        
+        victory_1 = 0
+        victory_2 = 0
         start = time.time()
+
+        #
         #
         # Self-play
         #
-        
+        #
+
         for i in range(config.n_games):
             data_of_a_game, who_won = play_single_game(config, model, 
-                net_vs_net_training = True, net_vs_net_evaluation = False, 
-                net_vs_uct = False, uct_vs_uct = False, second_model = None)
+                                        second_model = None, training = True)
             print('GAME', i ,'OVER - PLAYER', who_won, 'WON')
             print()
             if who_won == 1:
@@ -244,53 +258,63 @@ def main():
             dataset_for_network.append(data_of_a_game)
         print('Player 1 won', victory_1,'time(s).')
         print('Player 2 won', victory_2,'time(s).')
-        end = time.time()
-        print('Time elapsed:', end - start)
+
         #
-        # Training loop
         #
+        # Training
+        #
+        #
+
         print('TRAINING LOOP')
 
         x_train, y_train = transform_dataset_to_input(dataset_for_network)
 
         model.fit(x_train, y_train, epochs=1, shuffle=True)
 
-    #    
-    # Model evaluation
-    #
+        #
+        #    
+        # Model evaluation
+        #
+        #
+
         print('MODEL EVALUATION')
-        victory_11 = 0
-        victory_22 = 0
+        victory_1_eval = 0
+        victory_2_eval = 0
 
         dataset_for_eval = []
 
-        for i in range(10):
-                data_of_a_game_eval, who_won = play_single_game(config, model, 
-                    net_vs_net_training = False, net_vs_net_evaluation = False, 
-                    net_vs_uct = True, uct_vs_uct = False, second_model = None)
-                print('GAME', i ,'OVER - PLAYER', who_won, 'WON')
-                print()
-                if who_won == 1:
-                    victory_11 += 1
-                else:
-                    victory_22 += 1
-                # After the game is finished, we now know who won the game.
-                # Therefore, save this info in all instances saved so far
-                # for later use as input for the NN.
-                for single_game in data_of_a_game_eval:
-                    single_game.append(who_won)
-                dataset_for_eval.append(data_of_a_game_eval)
-                print('Player 1 won', victory_11,'time(s).')
-                print('Player 2 won', victory_22,'time(s).')
+        for i in range(config.n_games_evaluate):
+            data_of_a_game_eval, who_won = play_single_game(config, model,
+                                           second_model = None, training = False)
+            print('GAME', i ,'OVER - PLAYER', who_won, 'WON')
+            print()
+            if who_won == 1:
+                victory_1_eval += 1
+            else:
+                victory_2_eval += 1
+            # After the game is finished, we now know who won the game.
+            # Therefore, save this info in all instances saved so far
+            # for later use as input for the NN.
+            for single_game in data_of_a_game_eval:
+                single_game.append(who_won)
+            dataset_for_eval.append(data_of_a_game_eval)
+            print('Player 1 won', victory_1_eval,'time(s).')
+            print('Player 2 won', victory_2_eval,'time(s).')
 
-                x_train_eval, y_train_eval = transform_dataset_to_input(dataset_for_eval)
+            x_train_eval, y_train_eval = transform_dataset_to_input(dataset_for_eval)
 
-                results = model.evaluate(x_train_eval, y_train_eval)
-                print('test loss, test acc:', results)
-                elapsed_time = time.time() - start_time
-                print('elapsed time: ', elapsed_time)
-                print('n_games: ', config.n_games)
-                dataset_for_eval = []
+            results = model.evaluate(x_train_eval, y_train_eval)
+            print('test loss, test acc:', results)
+            dataset_for_eval = []
+
+        necessary_won_games = (config.victory_rate * config.n_games_evaluate) / 100
+        if victory_1_eval >  necessary_won_games:
+            old_model = copy.deepcopy(model)
+            print('New model is better and won ', victory_1_eval)
+        else:
+            print('New model is worse and won ', victory_1_eval)
+        elapsed_time = time.time() - start
+        print('elapsed time: ', elapsed_time)
 
 if __name__ == "__main__":
     main()
