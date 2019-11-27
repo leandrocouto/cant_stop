@@ -161,6 +161,31 @@ def transform_actions_to_dist(actions):
     
     return valid_actions_dist
 
+def transform_dataset_to_input(dataset_for_network):
+    #Get the channels of the states (Input for the NN)
+    channels_input = [play[0] for game in dataset_for_network for play in game]
+    channels_input = np.array(channels_input)
+    channels_input = channels_input.reshape(channels_input.shape[0], channels_input.shape[2], channels_input.shape[3], -1)
+
+    #Get the probability distribution of the states (Label for the NN)
+    dist_probs_label = [play[1] for game in dataset_for_network for play in game]
+    dist_probs_label = [transform_dist_prob(dist_dict) for dist_dict in dist_probs_label]
+    dist_probs_label = np.array(dist_probs_label)
+
+    #Get the distribution vector of the valid actions states (Input for the NN)
+    valid_actions_dist_input = copy.copy(dist_probs_label)
+    valid_actions_dist_input[valid_actions_dist_input > 0] = 1
+
+    #Get the info of who won the games relating to the state (Label for the NN)
+    who_won_label = [play[2] for game in dataset_for_network for play in game]
+    who_won_label = np.array(who_won_label)
+    who_won_label = np.expand_dims(who_won_label, axis=1)
+
+    x_train = [channels_input, valid_actions_dist_input]
+    y_train = [dist_probs_label, who_won_label]
+
+    return x_train, y_train
+
 
 
 

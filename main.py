@@ -9,11 +9,10 @@ from game import Board, Game
 from utils import valid_positions_channel, finished_columns_channels
 from utils import player_won_column_channels, player_turn_channel
 from utils import transform_dist_prob, transform_to_input
-from utils import transform_actions_to_dist
+from utils import transform_actions_to_dist, transform_dataset_to_input
 from uct import MCTS
 from vanilla_uct import Vanilla_MCTS
 import tensorflow as tf
-import keras
 from keras.utils import plot_model
 from keras.models import Model
 from keras.layers import Input, Dense, Flatten, concatenate
@@ -23,45 +22,6 @@ from keras import backend as K
 from keras import regularizers
 from keras.losses import categorical_crossentropy
 from collections import Counter
-
-def transform_dataset_to_input(dataset_for_network):
-    #Get the channels of the states (Input for the NN)
-    channels_input = [play[0] for game in dataset_for_network for play in game]
-    channels_input = np.array(channels_input)
-    channels_input = channels_input.reshape(channels_input.shape[0], channels_input.shape[2], channels_input.shape[3], -1)
-
-    #print('shape channels_input')
-    #print(channels_input.shape)
-
-    #Get the probability distribution of the states (Label for the NN)
-    dist_probs_label = [play[1] for game in dataset_for_network for play in game]
-    dist_probs_label = [transform_dist_prob(dist_dict) for dist_dict in dist_probs_label]
-    dist_probs_label = np.array(dist_probs_label)
-
-    #print('shape dist_probs_label')
-    #print(dist_probs_label.shape)
-
-    #Get the distribution vector of the valid actions states (Input for the NN)
-    valid_actions_dist_input = copy.copy(dist_probs_label)
-    valid_actions_dist_input[valid_actions_dist_input > 0] = 1
-
-    #print('shape valid action')
-    #print(valid_actions_dist_input.shape)
-    #print(valid_actions_dist_input)
-
-    #Get the info of who won the games relating to the state (Label for the NN)
-    who_won_label = [play[2] for game in dataset_for_network for play in game]
-    who_won_label = np.array(who_won_label)
-    who_won_label = np.expand_dims(who_won_label, axis=1)
-    #print('who won label\n')
-    #print(who_won_label)
-    #print('shape who_won_label')
-    #print(who_won_label.shape)
-
-    x_train = [channels_input, valid_actions_dist_input]
-    y_train = [dist_probs_label, who_won_label]
-
-    return x_train, y_train
 
 def custom_loss_crossentropy(y_true, y_pred):
     #y_true = K.print_tensor(y_true, message='y_true = ')
@@ -80,28 +40,28 @@ def define_model(config):
     state_channels = Input(shape = (5,5,6), name='States_Channels_Input')
     valid_actions_dist = Input(shape = (32,), name='Valid_Actions_Input')
 
-    conv = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer')(state_channels)
-    #conv2 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer2')(conv)
+    conv = Conv2D(filters=10, kernel_size=2, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer')(state_channels)
+    conv2 = Conv2D(filters=10, kernel_size=2, kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer2')(conv)
     #conv3 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer3')(conv2)
     #conv2 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), padding='same', activation='relu', name='Conv_Layer2')(conv)
     #conv3 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), padding='same', activation='relu', name='Conv_Layer3')(conv2)
     #conv4 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), padding='valid', activation='relu', name='Conv_Layer4')(conv3)
     #pool = MaxPooling2D(pool_size=(2, 2), name='Pooling_Layer')(conv)
-    flat = Flatten(name='Flatten_Layer')(conv)
+    flat = Flatten(name='Flatten_Layer')(conv2)
 
     # Merge of the flattened channels (after pooling) and the valid action
     # distribution. Used only as input in the probability distribution head.
     merge = concatenate([flat, valid_actions_dist])
 
     #Probability distribution over actions
-    hidden_fc_prob_dist_1 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_1')(merge)
-    hidden_fc_prob_dist_2 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_2')(hidden_fc_prob_dist_1)
-    output_prob_dist = Dense(32, kernel_regularizer=regularizers.l2(config.reg), activation='softmax', name='Output_Dist')(hidden_fc_prob_dist_2)
+    hidden_fc_prob_dist_1 = Dense(100, kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_1')(merge)
+    hidden_fc_prob_dist_2 = Dense(100, kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_2')(hidden_fc_prob_dist_1)
+    output_prob_dist = Dense(32, kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(config.reg), activation='softmax', name='Output_Dist')(hidden_fc_prob_dist_2)
     
     #Value of a state
-    hidden_fc_value_1 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_1')(flat)
-    hidden_fc_value_2 = Dense(100, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_2')(hidden_fc_value_1)
-    output_value = Dense(1, kernel_regularizer=regularizers.l2(config.reg), activation='tanh', name='Output_Value')(hidden_fc_value_2)
+    hidden_fc_value_1 = Dense(100, kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_1')(flat)
+    hidden_fc_value_2 = Dense(100, kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_2')(hidden_fc_value_1)
+    output_value = Dense(1, kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(config.reg), activation='tanh', name='Output_Value')(hidden_fc_value_2)
 
     model = Model(inputs=[state_channels, valid_actions_dist], outputs=[output_prob_dist, output_value])#final_output)
 
@@ -110,7 +70,7 @@ def define_model(config):
     #model.compile(loss=['kullback_leibler_divergence','mean_squared_error'], 
                         #optimizer='adam', metrics={'Output_Dist':'binary_accuracy', 'Output_Value':'accuracy'})
     model.compile(loss=['categorical_crossentropy','mean_squared_error'], 
-                        optimizer='adam', metrics={'Output_Dist':'binary_accuracy', 'Output_Value':'binary_accuracy'})
+                        optimizer='adam', metrics={'Output_Dist':'categorical_crossentropy', 'Output_Value':'mean_squared_error'})
     return model
     
 class Config:
@@ -238,13 +198,14 @@ def play_single_game(config, model, net_vs_net_training,
     return data_of_a_game, who_won
 
 def main():
+    start_time = time.time()
     victory_1 = 0
     victory_2 = 0
-    config = Config(c = 10, n_simulations = 100, n_games = 150, maximum_game_length = 50,
+    config = Config(c = 10, n_simulations = 10, n_games = 1, maximum_game_length = 50,
                     n_players = 2, dice_number = 4, dice_value = 3, 
                     column_range = [2,6], offset = 2, initial_height = 1, 
                     mini_batch = 2, sample_size = 100, n_games_evaluate= 50, 
-                    victory_rate = .55, alphazero_iterations = 1, reg = 0.01)
+                    victory_rate = .55, alphazero_iterations = 20, reg = 0.01)
     #Neural network specification
     model = define_model(config)
     # summarize layers
@@ -252,17 +213,19 @@ def main():
     #
     # Main loop of the algorithm
     #
+    dataset_for_network = []
     for count in range(config.alphazero_iterations):
         print('ALPHAZERO ITERATION ', count)
      
         #dataset_for_network saves a list of info used as input for the network.
         #A list of: states of the game, distribution probability of the state
         #returned by the UCT and who won the game this state is in.
-        dataset_for_network = []
+        
         start = time.time()
         #
         # Self-play
         #
+        
         for i in range(config.n_games):
             data_of_a_game, who_won = play_single_game(config, model, 
                 net_vs_net_training = True, net_vs_net_evaluation = False, 
@@ -290,40 +253,44 @@ def main():
 
         x_train, y_train = transform_dataset_to_input(dataset_for_network)
 
-        model.fit(x_train, y_train, epochs=100)
+        model.fit(x_train, y_train, epochs=1, shuffle=True)
 
     #    
     # Model evaluation
     #
-    print('MODEL EVALUATION')
-    victory_11 = 0
-    victory_22 = 0
+        print('MODEL EVALUATION')
+        victory_11 = 0
+        victory_22 = 0
 
-    dataset_for_eval = []
+        dataset_for_eval = []
 
-    for i in range(100):
-            data_of_a_game_eval, who_won = play_single_game(config, model, 
-                net_vs_net_training = False, net_vs_net_evaluation = False, 
-                net_vs_uct = True, uct_vs_uct = False, second_model = None)
-            print('GAME', i ,'OVER - PLAYER', who_won, 'WON')
-            print()
-            if who_won == 1:
-                victory_11 += 1
-            else:
-                victory_22 += 1
-            # After the game is finished, we now know who won the game.
-            # Therefore, save this info in all instances saved so far
-            # for later use as input for the NN.
-            for single_game in data_of_a_game_eval:
-                single_game.append(who_won)
-            dataset_for_eval.append(data_of_a_game_eval)
-    print('Player 1 won', victory_11,'time(s).')
-    print('Player 2 won', victory_22,'time(s).')
+        for i in range(10):
+                data_of_a_game_eval, who_won = play_single_game(config, model, 
+                    net_vs_net_training = False, net_vs_net_evaluation = False, 
+                    net_vs_uct = True, uct_vs_uct = False, second_model = None)
+                print('GAME', i ,'OVER - PLAYER', who_won, 'WON')
+                print()
+                if who_won == 1:
+                    victory_11 += 1
+                else:
+                    victory_22 += 1
+                # After the game is finished, we now know who won the game.
+                # Therefore, save this info in all instances saved so far
+                # for later use as input for the NN.
+                for single_game in data_of_a_game_eval:
+                    single_game.append(who_won)
+                dataset_for_eval.append(data_of_a_game_eval)
+                print('Player 1 won', victory_11,'time(s).')
+                print('Player 2 won', victory_22,'time(s).')
 
-    x_train_eval, y_train_eval = transform_dataset_to_input(dataset_for_eval)
+                x_train_eval, y_train_eval = transform_dataset_to_input(dataset_for_eval)
 
-    results = model.evaluate(x_train_eval, y_train_eval)
-    print('test loss, test acc:', results)
+                results = model.evaluate(x_train_eval, y_train_eval)
+                print('test loss, test acc:', results)
+                elapsed_time = time.time() - start_time
+                print('elapsed time: ', elapsed_time)
+                print('n_games: ', config.n_games)
+                dataset_for_eval = []
 
 if __name__ == "__main__":
     main()
