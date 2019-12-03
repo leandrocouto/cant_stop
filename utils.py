@@ -1,6 +1,10 @@
 import copy
+import matplotlib
+import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import numpy as np
 import collections
+import os
 
 
 def valid_positions_channel(config):
@@ -162,6 +166,12 @@ def transform_actions_to_dist(actions):
     return valid_actions_dist
 
 def transform_dataset_to_input(dataset_for_network):
+    """
+    Transform the dataset collected by the selfplay into
+    separated training and label data used as input for
+    the network.
+    """
+    
     #Get the channels of the states (Input for the NN)
     channels_input = [play[0] for game in dataset_for_network for play in game]
     channels_input = np.array(channels_input)
@@ -185,6 +195,229 @@ def transform_dataset_to_input(dataset_for_network):
     y_train = [dist_probs_label, who_won_label]
 
     return x_train, y_train
+
+def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
+    """Generate graphs based on alphazero iterations."""
+    save_path = 'graphs_'+str(config.n_simulations)+'_'+str(config.n_games) \
+                + '_' + str(config.alphazero_iterations) + '_' + str(config.conv_number) +  '/'
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+    # Data preparation
+
+    total_loss = []
+    output_dist_loss_history = []
+    output_value_loss_history = []
+    dist_metric_history = [] 
+    value_metric_history = [] 
+    victory_1 = [] 
+    victory_2 = [] 
+    loss_eval = [] 
+    dist_loss_eval = [] 
+    value_loss_eval = [] 
+    dist_metric_eval = [] 
+    value_metric_eval = [] 
+    victory_1_eval = [] 
+    victory_2_eval = []
+    victory_1_eval_net = [] 
+    victory_2_eval_net = []
+    for analysis in data_for_analysis:
+        total_loss.append(analysis[0])
+        output_dist_loss_history.append(analysis[1])
+        output_value_loss_history.append(analysis[2])
+        dist_metric_history.append(analysis[3])
+        value_metric_history.append(analysis[4])
+        victory_1.append(analysis[5])
+        victory_2.append(analysis[6])
+        loss_eval.append(analysis[7])
+        dist_loss_eval.append(analysis[8])
+        value_loss_eval.append(analysis[9])
+        dist_metric_eval.append(analysis[10])
+        value_metric_eval.append(analysis[11])
+        victory_1_eval.append(analysis[12])
+        victory_2_eval.append(analysis[13])
+
+    # Total loss
+    x = np.array(range(1, len(total_loss) + 1))
+    y = np.array(total_loss)
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+    ax.set(xlabel='Iterations', ylabel='Loss', 
+        title='Total loss in training')
+    ax.grid()
+    fig.savefig(save_path + "1_total_loss.png")
+
+    # Probability distribution loss
+    x = np.array(range(1, len(output_dist_loss_history) + 1))
+    y = np.array(output_dist_loss_history)
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+    ax.set(xlabel='Iterations', ylabel='Loss',
+            title='Probability distribution loss in training')
+    ax.grid()
+    fig.savefig(save_path + "2_output_dist_loss_history.png")
+
+    # Value loss
+    x = np.array(range(1, len(output_value_loss_history) + 1))
+    y = np.array(output_value_loss_history)
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+    ax.set(xlabel='Iterations', ylabel='Loss', 
+            title='Value loss in training')
+    ax.grid()
+    fig.savefig(save_path + "3_output_value_loss_history.png")
+
+    # Probability Distribution CE error
+    x = np.array(range(1, len(dist_metric_history) + 1))
+    y = np.array(dist_metric_history)
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+    ax.set(xlabel='Iterations', ylabel='Cross entropy error',
+            title='Probability Distribution CE error in training')
+    ax.grid()
+    fig.savefig(save_path + "4_dist_metric_history.png")
+
+    # Value MSE error
+    x = np.array(range(1, len(value_metric_history) + 1))
+    y = np.array(value_metric_history)
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+    ax.set(xlabel='Iterations', ylabel='MSE error',
+            title='Value MSE error in training')
+    ax.grid()
+    fig.savefig(save_path + "5_value_metric_history.png")
+
+    # Victory of player 1 in training
+    x = np.array(range(1, len(victory_1) + 1))
+    y = np.array(victory_1)
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+    ax.set(xlabel='Iterations', ylabel='Number of victories',
+            title='Victory of player 1 in training')
+    ax.grid()
+    fig.savefig(save_path + "6_victory_1.png")
+
+    # Victory of player 2 in training
+    x = np.array(range(1, len(victory_2) + 1))
+    y = np.array(victory_2)
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+    ax.set(xlabel='Iterations', ylabel='Number of victories',
+            title='Victory of player 2 in training')
+    ax.grid()
+    fig.savefig(save_path + "7_victory_2.png")
+
+    # Total loss in evaluation
+    x = np.array(range(1, len(loss_eval) + 1))
+    y = np.array(loss_eval)
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+    ax.set(xlabel='Iterations', ylabel='Loss',
+            title='Total loss in evaluation')
+    ax.grid()
+    fig.savefig(save_path + "8_loss_eval.png")
+
+    # Probability distribution loss in evaluation
+    x = np.array(range(1, len(dist_loss_eval) + 1))
+    y = np.array(dist_loss_eval)
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+    ax.set(xlabel='Iterations', ylabel='Loss',
+            title='Probability distribution loss in evaluation')
+    ax.grid()
+    fig.savefig(save_path + "9_dist_loss_eval.png")
+
+    # Value loss in evaluation
+    x = np.array(range(1, len(value_loss_eval) + 1))
+    y = np.array(value_loss_eval)
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+    ax.set(xlabel='Iterations', ylabel='Loss',
+            title='Value loss in evaluation')
+    ax.grid()
+    fig.savefig(save_path + "10_value_loss_eval.png")
+
+    # Probability Distribution CE error in evaluation
+    x = np.array(range(1, len(dist_metric_history) + 1))
+    y = np.array(dist_metric_history)
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+    ax.set(xlabel='Iterations', ylabel='Crossentropy error',
+            title='Probability Distribution CE error in evaluation')
+    ax.grid()
+    fig.savefig(save_path + "11_dist_metric_history.png")
+
+    # Value MSE error in evaluation
+    x = np.array(range(1, len(value_metric_eval) + 1))
+    y = np.array(value_metric_eval)
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+    ax.set(xlabel='Iterations', ylabel='MSE error',
+            title='Value MSE error in evaluation')
+    ax.grid()
+    fig.savefig(save_path + "12_value_metric_eval.png")
+
+    # Victory of player 1 in evaluation
+    x = np.array(range(1, len(victory_1_eval) + 1))
+    y = np.array(victory_1_eval)
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+    ax.set(xlabel='Iterations', ylabel='Number of victories',
+            title='Victory of player 1 in evaluation')
+    ax.grid()
+    fig.savefig(save_path + "13_victory_1_eval.png")
+
+    # Victory of player 2 in evaluation
+    x = np.array(range(1, len(victory_2_eval) + 1))
+    y = np.array(victory_2_eval)
+    fig, ax = plt.subplots()
+    ax.plot(x, y)
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+    ax.set(xlabel='Iterations', ylabel='Number of victories',
+            title='Victory of player 2 in evaluation')
+    ax.grid()
+    fig.savefig(save_path + "14_victory_2_eval.png")
+
+    # This can happen if the new network always lose to the
+    # previous one.
+    if len(victory_1_eval_net) != 0:
+        # Victory of player 1 in evaluation - net vs net
+        x = np.array(range(1, len(data_net_vs_net) + 1))
+        y = np.array(victory_1_eval_net)
+        fig, ax = plt.subplots()
+        ax.plot(x, y)
+        plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+        ax.set(xlabel='Iterations', ylabel='Number of victories',
+                title='Victory of player 1 in evaluation - Net vs. Net')
+        ax.grid()
+        fig.savefig(save_path + "15_victory_1_eval_net_vs_net.png")
+
+        # Victory of player 2 in evaluation - net vs net
+        x = np.array(range(1, len(data_net_vs_net) + 1))
+        y = np.array(victory_2_eval_net)
+        fig, ax = plt.subplots()
+        ax.plot(x, y)
+        plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+        ax.set(xlabel='Iterations', ylabel='Number of victories',
+                title='Victory of player 2 in evaluation - Net vs. Net')
+        ax.grid()
+        fig.savefig(save_path + "16_victory_2_eval_net_vs_net.png")
+
+    # Save the model
+    model.save(save_path + 'model.h5')
+
 
 
 
