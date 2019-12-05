@@ -222,7 +222,8 @@ def main():
 
     #Neural network specification
     model = define_model(config)
-    old_model = copy.deepcopy(model)
+    old_model = define_model(config)
+    old_model.set_weights(model.get_weights())
 
     # summarize layers
     #print(model.summary())
@@ -330,7 +331,7 @@ def main():
             print('New model is worse and won ', victory_1_eval_net)
         else:
             # Overwrites the old model with the current one.
-            old_model = copy.deepcopy(model)
+            old_model.set_weights(model.get_weights())
             print('New model is better and won ', victory_1_eval_net)
 
             # The new model is better. Therefore, evaluate it against
