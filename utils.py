@@ -235,13 +235,15 @@ def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
         value_metric_eval.append(analysis[11])
         victory_1_eval.append(analysis[12])
         victory_2_eval.append(analysis[13])
+    for analysis in data_net_vs_net:
+        victory_1_eval_net.append(analysis[0])
+        victory_2_eval_net.append(analysis[1])
 
     # Total loss
     x = np.array(range(1, len(total_loss) + 1))
     y = np.array(total_loss)
     fig, ax = plt.subplots()
     ax.plot(x, y)
-    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     ax.set(xlabel='Iterations', ylabel='Loss', 
         title='Total loss in training')
     ax.grid()
@@ -252,7 +254,6 @@ def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
     y = np.array(output_dist_loss_history)
     fig, ax = plt.subplots()
     ax.plot(x, y)
-    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     ax.set(xlabel='Iterations', ylabel='Loss',
             title='Probability distribution loss in training')
     ax.grid()
@@ -263,7 +264,6 @@ def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
     y = np.array(output_value_loss_history)
     fig, ax = plt.subplots()
     ax.plot(x, y)
-    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     ax.set(xlabel='Iterations', ylabel='Loss', 
             title='Value loss in training')
     ax.grid()
@@ -274,7 +274,6 @@ def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
     y = np.array(dist_metric_history)
     fig, ax = plt.subplots()
     ax.plot(x, y)
-    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     ax.set(xlabel='Iterations', ylabel='Cross entropy error',
             title='Probability Distribution CE error in training')
     ax.grid()
@@ -285,7 +284,6 @@ def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
     y = np.array(value_metric_history)
     fig, ax = plt.subplots()
     ax.plot(x, y)
-    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     ax.set(xlabel='Iterations', ylabel='MSE error',
             title='Value MSE error in training')
     ax.grid()
@@ -296,7 +294,6 @@ def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
     y = np.array(victory_1)
     fig, ax = plt.subplots()
     ax.plot(x, y)
-    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     ax.set(xlabel='Iterations', ylabel='Number of victories',
             title='Victory of player 1 in training')
     ax.grid()
@@ -307,7 +304,6 @@ def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
     y = np.array(victory_2)
     fig, ax = plt.subplots()
     ax.plot(x, y)
-    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     ax.set(xlabel='Iterations', ylabel='Number of victories',
             title='Victory of player 2 in training')
     ax.grid()
@@ -318,7 +314,6 @@ def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
     y = np.array(loss_eval)
     fig, ax = plt.subplots()
     ax.plot(x, y)
-    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     ax.set(xlabel='Iterations', ylabel='Loss',
             title='Total loss in evaluation')
     ax.grid()
@@ -329,7 +324,6 @@ def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
     y = np.array(dist_loss_eval)
     fig, ax = plt.subplots()
     ax.plot(x, y)
-    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     ax.set(xlabel='Iterations', ylabel='Loss',
             title='Probability distribution loss in evaluation')
     ax.grid()
@@ -340,7 +334,6 @@ def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
     y = np.array(value_loss_eval)
     fig, ax = plt.subplots()
     ax.plot(x, y)
-    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     ax.set(xlabel='Iterations', ylabel='Loss',
             title='Value loss in evaluation')
     ax.grid()
@@ -351,7 +344,6 @@ def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
     y = np.array(dist_metric_history)
     fig, ax = plt.subplots()
     ax.plot(x, y)
-    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     ax.set(xlabel='Iterations', ylabel='Crossentropy error',
             title='Probability Distribution CE error in evaluation')
     ax.grid()
@@ -362,7 +354,6 @@ def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
     y = np.array(value_metric_eval)
     fig, ax = plt.subplots()
     ax.plot(x, y)
-    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     ax.set(xlabel='Iterations', ylabel='MSE error',
             title='Value MSE error in evaluation')
     ax.grid()
@@ -373,9 +364,8 @@ def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
     y = np.array(victory_1_eval)
     fig, ax = plt.subplots()
     ax.plot(x, y)
-    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     ax.set(xlabel='Iterations', ylabel='Number of victories',
-            title='Victory of player 1 in evaluation')
+            title='Victory of player 1 in evaluation - Net vs. UCT')
     ax.grid()
     fig.savefig(save_path + "13_victory_1_eval.png")
 
@@ -384,9 +374,8 @@ def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
     y = np.array(victory_2_eval)
     fig, ax = plt.subplots()
     ax.plot(x, y)
-    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     ax.set(xlabel='Iterations', ylabel='Number of victories',
-            title='Victory of player 2 in evaluation')
+            title='Victory of player 2 in evaluation - Net vs. UCT')
     ax.grid()
     fig.savefig(save_path + "14_victory_2_eval.png")
 
@@ -398,7 +387,6 @@ def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
         y = np.array(victory_1_eval_net)
         fig, ax = plt.subplots()
         ax.plot(x, y)
-        plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
         ax.set(xlabel='Iterations', ylabel='Number of victories',
                 title='Victory of player 1 in evaluation - Net vs. Net')
         ax.grid()
@@ -409,7 +397,6 @@ def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
         y = np.array(victory_2_eval_net)
         fig, ax = plt.subplots()
         ax.plot(x, y)
-        plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
         ax.set(xlabel='Iterations', ylabel='Number of victories',
                 title='Victory of player 2 in evaluation - Net vs. Net')
         ax.grid()
