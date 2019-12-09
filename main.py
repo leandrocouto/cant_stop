@@ -112,20 +112,21 @@ class Config:
         self.epochs = epochs
         self.conv_number = conv_number
 
-def play_single_game(config, model, second_model, net_vs_net_training, 
-                    net_vs_net_evaluation, net_vs_uct, uct_vs_uct):
+def play_single_game(config, model, second_model, type_of_game):
     """
     - config is the configuration class responsible for alphazero parameters.
     - model is the network for the first player (if applicable).
     - second_model is the network for the second player (if applicable).
-    - net_vs_net_training is a boolean representing if the game to be played is 
-      between the same network in the training phase.
-    - net_vs_net_evaluation is a boolean representing if the game to be played is 
-      between the same new and old network.
-    - net_vs_uct is a boolean representing if the game to e played is between
-      the current network and vanilla UCT.
-    - uct_vs_uct is a boolean representing if the game to e played is between
-      two vanilla UCT instances.
+    - type_of_game is an integer representing who are the players in this
+      particular game:
+      - type_of_game == 0: if the game to be played is between the same network
+                           in the training phase.
+      - type_of_game == 1: if the game to be played is between the new and 
+                           old network.
+      - type_of_game == 2: if the game to be played is between the current 
+                           network and vanilla UCT.
+      - type_of_game == 3: if the game to be played is between two vanilla 
+                           UCT instances.
     """
     data_of_a_game = []
     game = Game(config)
@@ -150,19 +151,19 @@ def play_single_game(config, model, second_model, net_vs_net_training,
         if game.is_player_busted(moves):
             continue
         else:
-            if net_vs_net_training:
+            if type_of_game == 0:
                 chosen_play, dist_probability = uct.run_mcts(game)
-            elif net_vs_net_evaluation:
+            elif type_of_game == 1:
                 if game.player_turn == 1:
                     chosen_play, dist_probability = uct.run_mcts(game)
                 else:
                     chosen_play, dist_probability = uct_2.run_mcts(game)
-            elif net_vs_uct:
+            elif type_of_game == 2:
                 if game.player_turn == 1:
                     chosen_play, dist_probability = uct.run_mcts(game)
                 else:
                     chosen_play, dist_probability = uct_3.run_mcts(game)
-            elif uct_vs_uct:
+            elif type_of_game == 3:
                 chosen_play, dist_probability = uct_3.run_mcts(game)
             # Collecting data for later input to the NN
             current_play = [list_of_channels, dist_probability]
@@ -259,9 +260,7 @@ def main():
 
         for i in range(config.n_games):
             data_of_a_game, who_won = play_single_game(config, model, 
-                                    second_model = None, net_vs_net_training = True, 
-                                    net_vs_net_evaluation = False, net_vs_uct = False, 
-                                    uct_vs_uct = False)
+                                    second_model = None, type_of_game = 0)
             print('Self-play - GAME', i ,'OVER - PLAYER', who_won, 'WON')
             if who_won == 1:
                 victory_1 += 1
@@ -316,9 +315,7 @@ def main():
 
         for i in range(config.n_games_evaluate):
             _, who_won = play_single_game(config, model, 
-                                    second_model = old_model, net_vs_net_training = False, 
-                                    net_vs_net_evaluation = True, net_vs_uct = False, 
-                                    uct_vs_uct = False)
+                                    second_model = old_model, type_of_game = 1)
             if who_won == 1:
                 victory_1_eval_net += 1
             else:
@@ -352,9 +349,7 @@ def main():
             print()
             for i in range(config.n_games_evaluate):
                 data_of_a_game_eval, who_won = play_single_game(config, model, 
-                                    second_model = None, net_vs_net_training = False, 
-                                    net_vs_net_evaluation = False, net_vs_uct = True, 
-                                    uct_vs_uct = False)
+                                    second_model = None, type_of_game = 2)
                 print('Net vs UCT - GAME', i ,'OVER - PLAYER', who_won, 'WON')
                 if who_won == 1:
                     victory_1_eval += 1
