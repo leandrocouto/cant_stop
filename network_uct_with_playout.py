@@ -45,15 +45,15 @@ class Node:
         return len(self.children) > 0
 
 
-class MCTS:
+class Network_UCT_With_Playout:
     def __init__(self, config, network):
         self.config = config
         self.root = None
         self.network = network
 
 
-    def run_mcts(self, game):
-        """Main routine of the MCTS algoritm."""
+    def run_UCT(self, game):
+        """Main routine of the UCT algoritm."""
         if self.root == None:
             self.root = Node(game.clone())
         else:
@@ -80,19 +80,13 @@ class MCTS:
             #with the highest ucb score and calculated rollout value from the
             #network.
             if node.n_visits == 0:
-                network_input = transform_to_input(scratch_game, self.config)
-                valid_actions_dist = transform_actions_to_dist(node.state.available_moves())
-                _, network_value_output = self.network.predict([network_input,valid_actions_dist], batch_size=1)
-                rollout_value = network_value_output[0][0]
+                rollout_value = self.rollout(node, scratch_game)
                 self.backpropagate(search_path, action, rollout_value)
             else:
                 self.expand_children(node)
                 action_for_rollout, node_for_rollout = self.select_child(node)
                 search_path.append(node)
-                network_input = transform_to_input(scratch_game, self.config)
-                valid_actions_dist = transform_actions_to_dist(node.state.available_moves())
-                _, network_value_output = self.network.predict([network_input,valid_actions_dist], batch_size=1)
-                rollout_value = network_value_output[0][0]
+                rollout_value = self.rollout(node, scratch_game)
                 self.backpropagate(search_path, action_for_rollout, rollout_value)
         action = self.select_action(game, self.root)
         dist_probability = self.distribution_probability()
@@ -129,6 +123,22 @@ class MCTS:
         _, action = visit_counts[-1]
         return action
 
+    def rollout(self, node, scratch_game):
+        """Take random actions until a game is finished and return the value."""
+        end_game = False
+        while not end_game:
+            #avoid infinite loops in smaller boards
+            who_won, end_game = scratch_game.is_finished()
+            moves = scratch_game.available_moves()
+            if scratch_game.is_player_busted(moves):
+                continue
+            chosen_move = random.choice(moves)
+            scratch_game.play(chosen_move)
+            who_won, end_game = scratch_game.is_finished()
+        if who_won == 1:
+            return 1
+        else:
+            return -1
 
     def select_child(self, node):
         """Return the child Node with the highest UCB score."""

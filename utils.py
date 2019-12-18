@@ -3,6 +3,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
+import tensorflow as tf
 import collections
 import os
 
@@ -92,6 +93,7 @@ def transform_to_input(game, config):
     list_of_channels = np.expand_dims(list_of_channels, axis=0)
     list_of_channels = list_of_channels.reshape(list_of_channels.shape[0], 
                         list_of_channels.shape[2], list_of_channels.shape[3], -1)
+    list_of_channels = tf.cast(list_of_channels, tf.float64)
     return list_of_channels
 
 def remove_invalid_actions(dist_prob, keys):

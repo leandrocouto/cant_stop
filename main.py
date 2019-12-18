@@ -11,53 +11,41 @@ from utils import player_won_column_channels, player_turn_channel
 from utils import transform_dist_prob, transform_to_input
 from utils import transform_actions_to_dist, transform_dataset_to_input
 from utils import generate_graphs
-from uct import MCTS
-from vanilla_uct import Vanilla_MCTS
+from network_uct import Network_UCT
+from vanilla_uct import Vanilla_UCT
+from network_uct_with_playout import Network_UCT_With_Playout
 import tensorflow as tf
-from keras.utils import plot_model
-from keras.models import Model
-from keras.layers import Input, Dense, Flatten, concatenate
-from keras.layers.convolutional import Conv2D
-from keras.layers.pooling import MaxPooling2D
-from keras import backend as K
-from keras import regularizers
-from keras.losses import categorical_crossentropy
 from collections import Counter
 import sys
 
 def define_model(config):
     """Neural Network model implementation using Keras + Tensorflow."""
-    state_channels = Input(shape = (5,5,6), name='States_Channels_Input')
-    valid_actions_dist = Input(shape = (32,), name='Valid_Actions_Input')
+    state_channels = tf.keras.layers.Input(shape = (5,5,6), name='States_Channels_Input')
+    valid_actions_dist = tf.keras.layers.Input(shape = (32,), name='Valid_Actions_Input')
 
-    conv = Conv2D(filters=10, kernel_size=2, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer')(state_channels)
+    conv = tf.keras.layers.Conv2D(filters=10, kernel_size=2, kernel_initializer='glorot_normal', kernel_regularizer=tf.keras.regularizers.l2(config.reg), activation='relu', name='Conv_Layer')(state_channels)
     if config.conv_number == 2:
-        conv2 = Conv2D(filters=10, kernel_size=2, kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer2')(conv)
-    #conv3 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer3')(conv2)
-    #conv2 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), padding='same', activation='relu', name='Conv_Layer2')(conv)
-    #conv3 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), padding='same', activation='relu', name='Conv_Layer3')(conv2)
-    #conv4 = Conv2D(filters=10, kernel_size=2, kernel_regularizer=regularizers.l2(config.reg), padding='valid', activation='relu', name='Conv_Layer4')(conv3)
-    #pool = MaxPooling2D(pool_size=(2, 2), name='Pooling_Layer')(conv)
+        conv2 = tf.keras.layers.Conv2D(filters=10, kernel_size=2, kernel_initializer='glorot_normal',kernel_regularizer=tf.keras.regularizers.l2(config.reg), activation='relu', name='Conv_Layer2')(conv)
     if config.conv_number == 1:
-        flat = Flatten(name='Flatten_Layer')(conv)
+        flat = tf.keras.layers.Flatten(name='Flatten_Layer')(conv)
     else:
-        flat = Flatten(name='Flatten_Layer')(conv2)
+        flat = tf.keras.layers.Flatten(name='Flatten_Layer')(conv2)
 
     # Merge of the flattened channels (after pooling) and the valid action
     # distribution. Used only as input in the probability distribution head.
-    merge = concatenate([flat, valid_actions_dist])
+    merge = tf.keras.layers.concatenate([flat, valid_actions_dist])
 
     #Probability distribution over actions
-    hidden_fc_prob_dist_1 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_1')(merge)
-    hidden_fc_prob_dist_2 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_2')(hidden_fc_prob_dist_1)
-    output_prob_dist = Dense(32, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='softmax', name='Output_Dist')(hidden_fc_prob_dist_2)
+    hidden_fc_prob_dist_1 = tf.keras.layers.Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=tf.keras.regularizers.l2(config.reg), activation='relu', name='FC_Prob_1')(merge)
+    hidden_fc_prob_dist_2 = tf.keras.layers.Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=tf.keras.regularizers.l2(config.reg), activation='relu', name='FC_Prob_2')(hidden_fc_prob_dist_1)
+    output_prob_dist = tf.keras.layers.Dense(32, kernel_initializer='glorot_normal', kernel_regularizer=tf.keras.regularizers.l2(config.reg), activation='softmax', name='Output_Dist')(hidden_fc_prob_dist_2)
     
     #Value of a state
-    hidden_fc_value_1 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_1')(flat)
-    hidden_fc_value_2 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_2')(hidden_fc_value_1)
-    output_value = Dense(1, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='tanh', name='Output_Value')(hidden_fc_value_2)
+    hidden_fc_value_1 = tf.keras.layers.Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=tf.keras.regularizers.l2(config.reg), activation='relu', name='FC_Value_1')(flat)
+    hidden_fc_value_2 = tf.keras.layers.Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=tf.keras.regularizers.l2(config.reg), activation='relu', name='FC_Value_2')(hidden_fc_value_1)
+    output_value = tf.keras.layers.Dense(1, kernel_initializer='glorot_normal', kernel_regularizer=tf.keras.regularizers.l2(config.reg), activation='tanh', name='Output_Value')(hidden_fc_value_2)
 
-    model = Model(inputs=[state_channels, valid_actions_dist], outputs=[output_prob_dist, output_value])
+    model = tf.keras.models.Model(inputs=[state_channels, valid_actions_dist], outputs=[output_prob_dist, output_value])
 
     model.compile(loss=['categorical_crossentropy','mean_squared_error'], 
                         optimizer='adam', metrics={'Output_Dist':'categorical_crossentropy', 'Output_Value':'mean_squared_error'})
@@ -68,7 +56,8 @@ class Config:
     def __init__(self, c, n_simulations, n_games, n_games_evaluate, 
                     maximum_game_length, n_players, dice_number, dice_value, 
                     column_range, offset, initial_height, mini_batch, sample_size,
-                    victory_rate, alphazero_iterations, reg, epochs, conv_number):
+                    victory_rate, alphazero_iterations, reg, epochs, conv_number,
+                    use_playout):
         """
         - c is the constant the balance exploration and exploitation.
         - n_simulations is the number of simulations made in the UCT algorithm.
@@ -92,6 +81,9 @@ class Config:
         - reg is the L2 regularization parameter.
         - epochs is the number of training epochs.
         - conv_number is the number of convolutional layers in the network.
+        - use_playout is a boolean that allows the program to also calculate the 
+          MSE playout in the network (besides using the network to estimate who
+          won the game). Used for result analysis.
         """
         self.c = c
         self.n_simulations = n_simulations
@@ -111,6 +103,7 @@ class Config:
         self.reg = reg
         self.epochs = epochs
         self.conv_number = conv_number
+        self.use_playout = use_playout
 
 def play_single_game(config, model, second_model, type_of_game):
     """
@@ -121,22 +114,34 @@ def play_single_game(config, model, second_model, type_of_game):
       particular game:
       - type_of_game == 0: if the game to be played is between the same network
                            in the training phase.
-      - type_of_game == 1: if the game to be played is between the new and 
+      - type_of_game == 1: if the game to be played is between the same network
+                           in the training phase using playout simulations.
+      - type_of_game == 2: if the game to be played is between the new and 
                            old network.
-      - type_of_game == 2: if the game to be played is between the current 
+      - type_of_game == 3: if the game to be played is between the current 
                            network and vanilla UCT.
-      - type_of_game == 3: if the game to be played is between two vanilla 
+      - type_of_game == 4: if the game to be played is between two vanilla 
                            UCT instances.
+      - type_of_game == 5: if the game to be played is between the new and 
+                           old network using playout simulations (instead of
+                           fetching the value from the net).
+      - type_of_game == 6: if the game to be played is between the network
+                           using playout simulations (instead of fetching 
+                           the value from the net) and vanilla UCT.
     """
     data_of_a_game = []
     game = Game(config)
     is_over = False
     # UCT using new model (network training)
-    uct = MCTS(config, model)
+    uct_0 = Network_UCT(config, model)
+    # UCT using new model with playout simulations (network training)
+    uct_1 = Network_UCT_With_Playout(config, model)
     # UCT using old model (network evaluation)
-    uct_2 = MCTS(config, second_model)
+    uct_2 = Network_UCT(config, second_model)
+    # UCT using old model with playout simulations (network evaluation)
+    uct_3 = Network_UCT_With_Playout(config, second_model)
     # Vanilla UCT (no networks, testing purpose)
-    uct_3 = Vanilla_MCTS(config)
+    uct_4 = Vanilla_UCT(config)
     infinite_loop = 0
     while not is_over:
         infinite_loop += 1
@@ -152,19 +157,31 @@ def play_single_game(config, model, second_model, type_of_game):
             continue
         else:
             if type_of_game == 0:
-                chosen_play, dist_probability = uct.run_mcts(game)
-            elif type_of_game == 1:
-                if game.player_turn == 1:
-                    chosen_play, dist_probability = uct.run_mcts(game)
-                else:
-                    chosen_play, dist_probability = uct_2.run_mcts(game)
+                chosen_play, dist_probability = uct_0.run_UCT(game)
+            if type_of_game == 1:
+                chosen_play, dist_probability = uct_1.run_UCT(game)
             elif type_of_game == 2:
                 if game.player_turn == 1:
-                    chosen_play, dist_probability = uct.run_mcts(game)
+                    chosen_play, dist_probability = uct_0.run_UCT(game)
                 else:
-                    chosen_play, dist_probability = uct_3.run_mcts(game)
+                    chosen_play, dist_probability = uct_2.run_UCT(game)
             elif type_of_game == 3:
-                chosen_play, dist_probability = uct_3.run_mcts(game)
+                if game.player_turn == 1:
+                    chosen_play, dist_probability = uct_0.run_UCT(game)
+                else:
+                    chosen_play, dist_probability = uct_4.run_UCT(game)
+            elif type_of_game == 4:
+                chosen_play, dist_probability = uct_4.run_UCT(game)
+            elif type_of_game == 5:
+                if game.player_turn == 1:
+                    chosen_play, dist_probability = uct_1.run_UCT(game)
+                else:
+                    chosen_play, dist_probability = uct_3.run_UCT(game)
+            elif type_of_game == 6:
+                if game.player_turn == 1:
+                    chosen_play, dist_probability = uct_1.run_UCT(game)
+                else:
+                    chosen_play, dist_probability = uct_4.run_UCT(game)
             # Collecting data for later input to the NN
             current_play = [list_of_channels, dist_probability]
             data_of_a_game.append(current_play)
@@ -191,7 +208,7 @@ def play_single_game(config, model, second_model, type_of_game):
     return data_of_a_game, who_won
 
 def main():
-    # Command line parameters: n_simulations, n_games, alpha_zero, conv_number
+    # Command line parameters: n_simulations, n_games, alpha_zero, conv_number, use_playout
     # Print total number of arguments
     print ('Total number of arguments:', format(len(sys.argv)))
 
@@ -203,7 +220,7 @@ def main():
     if int(sys.argv[1]) == 1: n_simulations = 50
     if int(sys.argv[1]) == 2: n_simulations = 100
     if int(sys.argv[1]) == 3: n_simulations = 500
-    if int(sys.argv[2]) == 0: n_games = 5
+    if int(sys.argv[2]) == 0: n_games = 10
     if int(sys.argv[2]) == 1: n_games = 500
     if int(sys.argv[2]) == 2: n_games = 1000
     if int(sys.argv[2]) == 3: n_games = 2000
@@ -213,13 +230,15 @@ def main():
     if int(sys.argv[3]) == 3: alphazero_iterations = 500
     if int(sys.argv[4]) == 0: conv_number = 1
     if int(sys.argv[4]) == 1: conv_number = 2
+    if int(sys.argv[5]) == 0: use_playout = True
+    if int(sys.argv[5]) == 1: use_playout = False
 
-    config = Config(c = 10, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = 5,
+    config = Config(c = 10, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = 1,
                     maximum_game_length = 50, n_players = 2, dice_number = 4, 
                     dice_value = 3, column_range = [2,6], offset = 2, 
                     initial_height = 1, mini_batch = 2, sample_size = 100, 
                     victory_rate = 55, alphazero_iterations = alphazero_iterations, reg = 0.01,
-                    epochs = 1, conv_number = conv_number)
+                    epochs = 1, conv_number = conv_number, use_playout = use_playout)
 
     #Neural network specification
     model = define_model(config)
@@ -259,7 +278,11 @@ def main():
         #
 
         for i in range(config.n_games):
-            data_of_a_game, who_won = play_single_game(config, model, 
+            if config.use_playout:
+                data_of_a_game, who_won = play_single_game(config, model, 
+                                    second_model = None, type_of_game = 1)
+            else:
+                data_of_a_game, who_won = play_single_game(config, model, 
                                     second_model = None, type_of_game = 0)
             print('Self-play - GAME', i ,'OVER - PLAYER', who_won, 'WON')
             if who_won == 1:
@@ -314,8 +337,12 @@ def main():
         victory_2_eval_net = 0
 
         for i in range(config.n_games_evaluate):
-            _, who_won = play_single_game(config, model, 
-                                    second_model = old_model, type_of_game = 1)
+            if config.use_playout:
+                _, who_won = play_single_game(config, model, 
+                                    second_model = old_model, type_of_game = 5)
+            else:
+                _, who_won = play_single_game(config, model, 
+                                    second_model = old_model, type_of_game = 2)
             if who_won == 1:
                 victory_1_eval_net += 1
             else:
@@ -348,8 +375,12 @@ def main():
             print('MODEL EVALUATION - Network vs. UCT')
             print()
             for i in range(config.n_games_evaluate):
-                data_of_a_game_eval, who_won = play_single_game(config, model, 
-                                    second_model = None, type_of_game = 2)
+                if config.use_playout:
+                    data_of_a_game_eval, who_won = play_single_game(config, model, 
+                                    second_model = None, type_of_game = 6)
+                else:
+                    data_of_a_game_eval, who_won = play_single_game(config, model, 
+                                    second_model = None, type_of_game = 3)
                 print('Net vs UCT - GAME', i ,'OVER - PLAYER', who_won, 'WON')
                 if who_won == 1:
                     victory_1_eval += 1
