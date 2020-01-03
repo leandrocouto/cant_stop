@@ -1,12 +1,61 @@
 import copy
-import matplotlib
-import matplotlib.pyplot as plt
-import matplotlib.ticker as mticker
-import numpy as np
 import tensorflow as tf
 import collections
 import os
 
+class Config:
+    """ General configuration class for the game board, UCT and NN """
+    def __init__(self, c, n_simulations, n_games, n_games_evaluate, 
+                    maximum_game_length, n_players, dice_number, dice_value, 
+                    column_range, offset, initial_height, mini_batch, sample_size,
+                    victory_rate, alphazero_iterations, reg, epochs, conv_number,
+                    use_playout):
+        """
+        - c is the constant the balance exploration and exploitation.
+        - n_simulations is the number of simulations made in the UCT algorithm.
+        - n_games is the number of games played in the self-play scheme.
+        - n_games_evaluate is the number of games played to evaluate the current
+          network against the previous one.
+        - maximum_game_length is the max number of plays in a game by both
+          players (avoids infinite loop).
+        - n_players is the number of players (At the moment, only 2 is possible).
+        - dice_number is the number of dice used in the Can't Stop game.
+        - dice_value is the number of sides of a single die.
+        - column_range is a list denoting the range of the board game columns.
+        - offset is the height difference between columns.
+        - initial_height is the height of the columns at the border of the board.
+        - mini_batch is the number of inputs selected to train the network.
+        - sample_size is the total number of inputs mini_batch is sampled from.
+        - victory_rate is the % of victories necessary for the new network to
+          overwrite the previously one.
+        - alphazero_iterations is the total number of iterations of the learning
+          algorithm: selfplay -> training loop -> evaluate network (repeat).
+        - reg is the L2 regularization parameter.
+        - epochs is the number of training epochs.
+        - conv_number is the number of convolutional layers in the network.
+        - use_playout is a boolean that allows the program to also calculate the 
+          MSE playout in the network (besides using the network to estimate who
+          won the game). Used for result analysis.
+        """
+        self.c = c
+        self.n_simulations = n_simulations
+        self.n_games = n_games
+        self.n_games_evaluate = n_games_evaluate
+        self.maximum_game_length = maximum_game_length
+        self.n_players = n_players
+        self.dice_number = dice_number
+        self.dice_value = dice_value
+        self.column_range = column_range 
+        self.offset = offset
+        self.initial_height = initial_height
+        self.mini_batch = mini_batch
+        self.sample_size = sample_size
+        self.victory_rate = victory_rate
+        self.alphazero_iterations = alphazero_iterations
+        self.reg = reg
+        self.epochs = epochs
+        self.conv_number = conv_number
+        self.use_playout = use_playout
 
 def valid_positions_channel(config):
     """
@@ -197,217 +246,3 @@ def transform_dataset_to_input(dataset_for_network):
     y_train = [dist_probs_label, who_won_label]
 
     return x_train, y_train
-
-def generate_graphs(data_for_analysis, data_net_vs_net, config, model):
-    """Generate graphs based on alphazero iterations."""
-    save_path = 'graphs_'+str(config.n_simulations)+'_'+str(config.n_games) \
-                + '_' + str(config.alphazero_iterations) + '_' + str(config.conv_number) +  '/'
-    if not os.path.exists(save_path):
-        os.makedirs(save_path)
-    # Data preparation
-
-    total_loss = []
-    output_dist_loss_history = []
-    output_value_loss_history = []
-    dist_metric_history = [] 
-    value_metric_history = [] 
-    victory_1 = [] 
-    victory_2 = [] 
-    loss_eval = [] 
-    dist_loss_eval = [] 
-    value_loss_eval = [] 
-    dist_metric_eval = [] 
-    value_metric_eval = [] 
-    victory_1_eval = [] 
-    victory_2_eval = []
-    victory_1_eval_net = [] 
-    victory_2_eval_net = []
-    for analysis in data_for_analysis:
-        total_loss.append(analysis[0])
-        output_dist_loss_history.append(analysis[1])
-        output_value_loss_history.append(analysis[2])
-        dist_metric_history.append(analysis[3])
-        value_metric_history.append(analysis[4])
-        victory_1.append(analysis[5])
-        victory_2.append(analysis[6])
-        loss_eval.append(analysis[7])
-        dist_loss_eval.append(analysis[8])
-        value_loss_eval.append(analysis[9])
-        dist_metric_eval.append(analysis[10])
-        value_metric_eval.append(analysis[11])
-        victory_1_eval.append(analysis[12])
-        victory_2_eval.append(analysis[13])
-    for analysis in data_net_vs_net:
-        victory_1_eval_net.append(analysis[0])
-        victory_2_eval_net.append(analysis[1])
-
-    # Total loss
-    x = np.array(range(1, len(total_loss) + 1))
-    y = np.array(total_loss)
-    fig, ax = plt.subplots()
-    ax.plot(x, y)
-    ax.set(xlabel='Iterations', ylabel='Loss', 
-        title='Total loss in training')
-    ax.grid()
-    fig.savefig(save_path + "1_total_loss.png")
-
-    # Probability distribution loss
-    x = np.array(range(1, len(output_dist_loss_history) + 1))
-    y = np.array(output_dist_loss_history)
-    fig, ax = plt.subplots()
-    ax.plot(x, y)
-    ax.set(xlabel='Iterations', ylabel='Loss',
-            title='Probability distribution loss in training')
-    ax.grid()
-    fig.savefig(save_path + "2_output_dist_loss_history.png")
-
-    # Value loss
-    x = np.array(range(1, len(output_value_loss_history) + 1))
-    y = np.array(output_value_loss_history)
-    fig, ax = plt.subplots()
-    ax.plot(x, y)
-    ax.set(xlabel='Iterations', ylabel='Loss', 
-            title='Value loss in training')
-    ax.grid()
-    fig.savefig(save_path + "3_output_value_loss_history.png")
-
-    # Probability Distribution CE error
-    x = np.array(range(1, len(dist_metric_history) + 1))
-    y = np.array(dist_metric_history)
-    fig, ax = plt.subplots()
-    ax.plot(x, y)
-    ax.set(xlabel='Iterations', ylabel='Cross entropy error',
-            title='Probability Distribution CE error in training')
-    ax.grid()
-    fig.savefig(save_path + "4_dist_metric_history.png")
-
-    # Value MSE error
-    x = np.array(range(1, len(value_metric_history) + 1))
-    y = np.array(value_metric_history)
-    fig, ax = plt.subplots()
-    ax.plot(x, y)
-    ax.set(xlabel='Iterations', ylabel='MSE error',
-            title='Value MSE error in training')
-    ax.grid()
-    fig.savefig(save_path + "5_value_metric_history.png")
-
-    # Victory of player 1 in training
-    x = np.array(range(1, len(victory_1) + 1))
-    y = np.array(victory_1)
-    fig, ax = plt.subplots()
-    ax.plot(x, y)
-    ax.set(xlabel='Iterations', ylabel='Number of victories',
-            title='Victory of player 1 in training')
-    ax.grid()
-    fig.savefig(save_path + "6_victory_1.png")
-
-    # Victory of player 2 in training
-    x = np.array(range(1, len(victory_2) + 1))
-    y = np.array(victory_2)
-    fig, ax = plt.subplots()
-    ax.plot(x, y)
-    ax.set(xlabel='Iterations', ylabel='Number of victories',
-            title='Victory of player 2 in training')
-    ax.grid()
-    fig.savefig(save_path + "7_victory_2.png")
-
-    # Total loss in evaluation
-    x = np.array(range(1, len(loss_eval) + 1))
-    y = np.array(loss_eval)
-    fig, ax = plt.subplots()
-    ax.plot(x, y)
-    ax.set(xlabel='Iterations', ylabel='Loss',
-            title='Total loss in evaluation')
-    ax.grid()
-    fig.savefig(save_path + "8_loss_eval.png")
-
-    # Probability distribution loss in evaluation
-    x = np.array(range(1, len(dist_loss_eval) + 1))
-    y = np.array(dist_loss_eval)
-    fig, ax = plt.subplots()
-    ax.plot(x, y)
-    ax.set(xlabel='Iterations', ylabel='Loss',
-            title='Probability distribution loss in evaluation')
-    ax.grid()
-    fig.savefig(save_path + "9_dist_loss_eval.png")
-
-    # Value loss in evaluation
-    x = np.array(range(1, len(value_loss_eval) + 1))
-    y = np.array(value_loss_eval)
-    fig, ax = plt.subplots()
-    ax.plot(x, y)
-    ax.set(xlabel='Iterations', ylabel='Loss',
-            title='Value loss in evaluation')
-    ax.grid()
-    fig.savefig(save_path + "10_value_loss_eval.png")
-
-    # Probability Distribution CE error in evaluation
-    x = np.array(range(1, len(dist_metric_history) + 1))
-    y = np.array(dist_metric_history)
-    fig, ax = plt.subplots()
-    ax.plot(x, y)
-    ax.set(xlabel='Iterations', ylabel='Crossentropy error',
-            title='Probability Distribution CE error in evaluation')
-    ax.grid()
-    fig.savefig(save_path + "11_dist_metric_history.png")
-
-    # Value MSE error in evaluation
-    x = np.array(range(1, len(value_metric_eval) + 1))
-    y = np.array(value_metric_eval)
-    fig, ax = plt.subplots()
-    ax.plot(x, y)
-    ax.set(xlabel='Iterations', ylabel='MSE error',
-            title='Value MSE error in evaluation')
-    ax.grid()
-    fig.savefig(save_path + "12_value_metric_eval.png")
-
-    # Victory of player 1 in evaluation
-    x = np.array(range(1, len(victory_1_eval) + 1))
-    y = np.array(victory_1_eval)
-    fig, ax = plt.subplots()
-    ax.plot(x, y)
-    ax.set(xlabel='Iterations', ylabel='Number of victories',
-            title='Victory of player 1 in evaluation - Net vs. UCT')
-    ax.grid()
-    fig.savefig(save_path + "13_victory_1_eval.png")
-
-    # Victory of player 2 in evaluation
-    x = np.array(range(1, len(victory_2_eval) + 1))
-    y = np.array(victory_2_eval)
-    fig, ax = plt.subplots()
-    ax.plot(x, y)
-    ax.set(xlabel='Iterations', ylabel='Number of victories',
-            title='Victory of player 2 in evaluation - Net vs. UCT')
-    ax.grid()
-    fig.savefig(save_path + "14_victory_2_eval.png")
-
-    # This can happen if the new network always lose to the
-    # previous one.
-    if len(victory_1_eval_net) != 0:
-        # Victory of player 1 in evaluation - net vs net
-        x = np.array(range(1, len(data_net_vs_net) + 1))
-        y = np.array(victory_1_eval_net)
-        fig, ax = plt.subplots()
-        ax.plot(x, y)
-        ax.set(xlabel='Iterations', ylabel='Number of victories',
-                title='Victory of player 1 in evaluation - Net vs. Net')
-        ax.grid()
-        fig.savefig(save_path + "15_victory_1_eval_net_vs_net.png")
-
-        # Victory of player 2 in evaluation - net vs net
-        x = np.array(range(1, len(data_net_vs_net) + 1))
-        y = np.array(victory_2_eval_net)
-        fig, ax = plt.subplots()
-        ax.plot(x, y)
-        ax.set(xlabel='Iterations', ylabel='Number of victories',
-                title='Victory of player 2 in evaluation - Net vs. Net')
-        ax.grid()
-        fig.savefig(save_path + "16_victory_2_eval_net_vs_net.png")
-
-    # Save the model
-    model.save(save_path + 'model.h5')
-
-
-
-
-

@@ -10,13 +10,15 @@ from utils import valid_positions_channel, finished_columns_channels
 from utils import player_won_column_channels, player_turn_channel
 from utils import transform_dist_prob, transform_to_input
 from utils import transform_actions_to_dist, transform_dataset_to_input
-from utils import generate_graphs
+from utils import Config
+from statistics import Statistic
 from network_uct import Network_UCT
 from vanilla_uct import Vanilla_UCT
 from network_uct_with_playout import Network_UCT_With_Playout
 import tensorflow as tf
 from collections import Counter
 import sys
+import tkinter.filedialog
 
 def define_model(config):
     """Neural Network model implementation using Keras + Tensorflow."""
@@ -51,60 +53,6 @@ def define_model(config):
                         optimizer='adam', metrics={'Output_Dist':'categorical_crossentropy', 'Output_Value':'mean_squared_error'})
     return model
     
-class Config:
-    """ General configuration class for the game board, UCT and NN """
-    def __init__(self, c, n_simulations, n_games, n_games_evaluate, 
-                    maximum_game_length, n_players, dice_number, dice_value, 
-                    column_range, offset, initial_height, mini_batch, sample_size,
-                    victory_rate, alphazero_iterations, reg, epochs, conv_number,
-                    use_playout):
-        """
-        - c is the constant the balance exploration and exploitation.
-        - n_simulations is the number of simulations made in the UCT algorithm.
-        - n_games is the number of games played in the self-play scheme.
-        - n_games_evaluate is the number of games played to evaluate the current
-          network against the previous one.
-        - maximum_game_length is the max number of plays in a game by both
-          players (avoids infinite loop).
-        - n_players is the number of players (At the moment, only 2 is possible).
-        - dice_number is the number of dice used in the Can't Stop game.
-        - dice_value is the number of sides of a single die.
-        - column_range is a list denoting the range of the board game columns.
-        - offset is the height difference between columns.
-        - initial_height is the height of the columns at the border of the board.
-        - mini_batch is the number of inputs selected to train the network.
-        - sample_size is the total number of inputs mini_batch is sampled from.
-        - victory_rate is the % of victories necessary for the new network to
-          overwrite the previously one.
-        - alphazero_iterations is the total number of iterations of the learning
-          algorithm: selfplay -> training loop -> evaluate network (repeat).
-        - reg is the L2 regularization parameter.
-        - epochs is the number of training epochs.
-        - conv_number is the number of convolutional layers in the network.
-        - use_playout is a boolean that allows the program to also calculate the 
-          MSE playout in the network (besides using the network to estimate who
-          won the game). Used for result analysis.
-        """
-        self.c = c
-        self.n_simulations = n_simulations
-        self.n_games = n_games
-        self.n_games_evaluate = n_games_evaluate
-        self.maximum_game_length = maximum_game_length
-        self.n_players = n_players
-        self.dice_number = dice_number
-        self.dice_value = dice_value
-        self.column_range = column_range 
-        self.offset = offset
-        self.initial_height = initial_height
-        self.mini_batch = mini_batch
-        self.sample_size = sample_size
-        self.victory_rate = victory_rate
-        self.alphazero_iterations = alphazero_iterations
-        self.reg = reg
-        self.epochs = epochs
-        self.conv_number = conv_number
-        self.use_playout = use_playout
-
 def play_single_game(config, model, second_model, type_of_game):
     """
     - config is the configuration class responsible for alphazero parameters.
@@ -209,9 +157,20 @@ def play_single_game(config, model, second_model, type_of_game):
 
 def main():
     # Command line parameters: n_simulations, n_games, alpha_zero, conv_number, use_playout
+    
     # Print total number of arguments
     print ('Total number of arguments:', format(len(sys.argv)))
-
+    # If the user does not pass any extra command line arguments,
+    # then it will open the dialog to generate graphs.
+    if len(sys.argv) == 1:
+        root = tkinter.Tk()
+        root.withdraw()
+        file_path = tkinter.filedialog.askopenfilename()
+        print(file_path)
+        stats = Statistic()
+        stats.load_from_file(file_path)
+        stats.generate_graphs()
+        exit()
     # Print all arguments
     print ('Argument List:', str(sys.argv))
 
@@ -224,7 +183,7 @@ def main():
     if int(sys.argv[2]) == 1: n_games = 500
     if int(sys.argv[2]) == 2: n_games = 1000
     if int(sys.argv[2]) == 3: n_games = 2000
-    if int(sys.argv[3]) == 0: alphazero_iterations = 5
+    if int(sys.argv[3]) == 0: alphazero_iterations = 10
     if int(sys.argv[3]) == 1: alphazero_iterations = 100
     if int(sys.argv[3]) == 2: alphazero_iterations = 250
     if int(sys.argv[3]) == 3: alphazero_iterations = 500
@@ -233,7 +192,7 @@ def main():
     if int(sys.argv[5]) == 0: use_playout = True
     if int(sys.argv[5]) == 1: use_playout = False
 
-    config = Config(c = 10, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = 1,
+    config = Config(c = 10, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = 10,
                     maximum_game_length = 50, n_players = 2, dice_number = 4, 
                     dice_value = 3, column_range = [2,6], offset = 2, 
                     initial_height = 1, mini_batch = 2, sample_size = 100, 
@@ -351,6 +310,10 @@ def main():
         data_net_vs_net.append((victory_1_eval_net, victory_2_eval_net))
 
         necessary_won_games = (config.victory_rate * config.n_games_evaluate) / 100
+
+        print('TAMANHO NET VS UCT: ', len(data_net_vs_uct))
+        print('TAMANHO NET VS NET: ', len(data_net_vs_net))
+
         if victory_1_eval_net <= necessary_won_games:
             print('New model is worse and won ', victory_1_eval_net)
         else:
@@ -423,7 +386,9 @@ def main():
             elapsed_time = time.time() - start
             print('Time elapsed of AlphaZero iteration', count, ': ', elapsed_time)
 
-    generate_graphs(data_net_vs_uct, data_net_vs_net, config, model)
+            stats = Statistic(data_net_vs_net, data_net_vs_uct, config)
+            stats.save_to_file(count)
+            stats.save_model_to_file(model, count)
 
         
 
