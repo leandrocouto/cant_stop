@@ -71,7 +71,6 @@ class Network_UCT_With_Playout:
                 scratch_game.play(action)
                 search_path.append(new_node)
                 node = copy.deepcopy(new_node)
-            #print('dps while')
             #At this point, a leaf was reached.
             #If it was not visited yet, then get the calculated rollout value
             #from the network and backpropagates the reward returned from the

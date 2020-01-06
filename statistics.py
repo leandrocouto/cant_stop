@@ -16,9 +16,6 @@ class Statistic:
 
     def save_to_file(self, alphazero_iteration):
         """Save the analysis data of this iteration to file."""
-        print('ANTES DE SALVAR')
-        print('net vs net: ', self.eval_net_vs_net)
-        print('net vs uct:', self.eval_net_vs_uct)
         if not os.path.exists(self.path):
             os.makedirs(self.path)
         filename = self.path + '/' + str(self.config.n_simulations)+'_'+str(self.config.n_games) \
@@ -35,7 +32,6 @@ class Statistic:
         print('pathe aqui:', path)
         with open(path, 'rb') as file:
             stats = pickle.load(file)
-            print('teste')
             self.eval_net_vs_net = stats['eval_net_vs_net']
             self.eval_net_vs_uct = stats['eval_net_vs_uct']
             self.config = stats['config']
@@ -57,6 +53,7 @@ class Statistic:
                     + '_' + str(self.config.alphazero_iterations) + '_' + str(self.config.conv_number) +  '/'
         if not os.path.exists(save_path):
             os.makedirs(save_path)
+            
         # Data preparation
 
         total_loss = []

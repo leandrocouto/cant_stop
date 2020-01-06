@@ -19,40 +19,50 @@ import tensorflow as tf
 from collections import Counter
 import sys
 import tkinter.filedialog
+from guppy import hpy
+
+from keras.utils import plot_model
+from keras.models import Model
+from keras.layers import Input, Dense, Flatten, concatenate
+from keras.layers.convolutional import Conv2D
+from keras.layers.pooling import MaxPooling2D
+from keras import backend as K
+from keras import regularizers
+from keras.losses import categorical_crossentropy
 
 def define_model(config):
     """Neural Network model implementation using Keras + Tensorflow."""
-    state_channels = tf.keras.layers.Input(shape = (5,5,6), name='States_Channels_Input')
-    valid_actions_dist = tf.keras.layers.Input(shape = (32,), name='Valid_Actions_Input')
+    state_channels = Input(shape = (5,5,6), name='States_Channels_Input')
+    valid_actions_dist = Input(shape = (32,), name='Valid_Actions_Input')
 
-    conv = tf.keras.layers.Conv2D(filters=10, kernel_size=2, kernel_initializer='glorot_normal', kernel_regularizer=tf.keras.regularizers.l2(config.reg), activation='relu', name='Conv_Layer')(state_channels)
+    conv = Conv2D(filters=10, kernel_size=2, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer')(state_channels)
     if config.conv_number == 2:
-        conv2 = tf.keras.layers.Conv2D(filters=10, kernel_size=2, kernel_initializer='glorot_normal',kernel_regularizer=tf.keras.regularizers.l2(config.reg), activation='relu', name='Conv_Layer2')(conv)
+        conv2 = Conv2D(filters=10, kernel_size=2, kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='Conv_Layer2')(conv)
     if config.conv_number == 1:
-        flat = tf.keras.layers.Flatten(name='Flatten_Layer')(conv)
+        flat = Flatten(name='Flatten_Layer')(conv)
     else:
-        flat = tf.keras.layers.Flatten(name='Flatten_Layer')(conv2)
+        flat = Flatten(name='Flatten_Layer')(conv2)
 
     # Merge of the flattened channels (after pooling) and the valid action
     # distribution. Used only as input in the probability distribution head.
-    merge = tf.keras.layers.concatenate([flat, valid_actions_dist])
+    merge = concatenate([flat, valid_actions_dist])
 
     #Probability distribution over actions
-    hidden_fc_prob_dist_1 = tf.keras.layers.Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=tf.keras.regularizers.l2(config.reg), activation='relu', name='FC_Prob_1')(merge)
-    hidden_fc_prob_dist_2 = tf.keras.layers.Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=tf.keras.regularizers.l2(config.reg), activation='relu', name='FC_Prob_2')(hidden_fc_prob_dist_1)
-    output_prob_dist = tf.keras.layers.Dense(32, kernel_initializer='glorot_normal', kernel_regularizer=tf.keras.regularizers.l2(config.reg), activation='softmax', name='Output_Dist')(hidden_fc_prob_dist_2)
+    hidden_fc_prob_dist_1 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_1')(merge)
+    hidden_fc_prob_dist_2 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Prob_2')(hidden_fc_prob_dist_1)
+    output_prob_dist = Dense(32, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='softmax', name='Output_Dist')(hidden_fc_prob_dist_2)
     
     #Value of a state
-    hidden_fc_value_1 = tf.keras.layers.Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=tf.keras.regularizers.l2(config.reg), activation='relu', name='FC_Value_1')(flat)
-    hidden_fc_value_2 = tf.keras.layers.Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=tf.keras.regularizers.l2(config.reg), activation='relu', name='FC_Value_2')(hidden_fc_value_1)
-    output_value = tf.keras.layers.Dense(1, kernel_initializer='glorot_normal', kernel_regularizer=tf.keras.regularizers.l2(config.reg), activation='tanh', name='Output_Value')(hidden_fc_value_2)
+    hidden_fc_value_1 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_1')(flat)
+    hidden_fc_value_2 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='relu', name='FC_Value_2')(hidden_fc_value_1)
+    output_value = Dense(1, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(config.reg), activation='tanh', name='Output_Value')(hidden_fc_value_2)
 
-    model = tf.keras.models.Model(inputs=[state_channels, valid_actions_dist], outputs=[output_prob_dist, output_value])
+    model = Model(inputs=[state_channels, valid_actions_dist], outputs=[output_prob_dist, output_value])
 
     model.compile(loss=['categorical_crossentropy','mean_squared_error'], 
                         optimizer='adam', metrics={'Output_Dist':'categorical_crossentropy', 'Output_Value':'mean_squared_error'})
-    return model
-    
+    return model  
+
 def play_single_game(config, model, second_model, type_of_game):
     """
     - config is the configuration class responsible for alphazero parameters.
@@ -106,7 +116,7 @@ def play_single_game(config, model, second_model, type_of_game):
         else:
             if type_of_game == 0:
                 chosen_play, dist_probability = uct_0.run_UCT(game)
-            if type_of_game == 1:
+            elif type_of_game == 1:
                 chosen_play, dist_probability = uct_1.run_UCT(game)
             elif type_of_game == 2:
                 if game.player_turn == 1:
@@ -133,33 +143,20 @@ def play_single_game(config, model, second_model, type_of_game):
             # Collecting data for later input to the NN
             current_play = [list_of_channels, dist_probability]
             data_of_a_game.append(current_play)
-            #print('antes play, chosen play = ', chosen_play, 'available plays: ', moves)
-            #print('player ', game.player_turn)
-            #print('finished columns: ', game.finished_columns)
-            #print('won columns: ', game.player_won_column)
             game.play(chosen_play)
-            #game.board_game.print_board([])
         if infinite_loop > config.maximum_game_length:
             network_input = transform_to_input(game, config)
             valid_actions_dist = transform_actions_to_dist(game.available_moves())
             _, network_value_output = model.predict([network_input,valid_actions_dist], batch_size=1)
             who_won = 1 if network_value_output[0][0] < 0 else 2
-            #print('who_won:', who_won)
-            #print('player ', game.player_turn)
-            #print('finished columns: ', game.finished_columns)
-            #print('won columns: ', game.player_won_column)
-            #game.board_game.print_board([])
             is_over = True
         else:
             who_won, is_over = game.is_finished()
-
     return data_of_a_game, who_won
 
 def main():
     # Command line parameters: n_simulations, n_games, alpha_zero, conv_number, use_playout
-    
-    # Print total number of arguments
-    print ('Total number of arguments:', format(len(sys.argv)))
+
     # If the user does not pass any extra command line arguments,
     # then it will open the dialog to generate graphs.
     if len(sys.argv) == 1:
@@ -171,8 +168,6 @@ def main():
         stats.load_from_file(file_path)
         stats.generate_graphs()
         exit()
-    # Print all arguments
-    print ('Argument List:', str(sys.argv))
 
     # Cluster configurations
     if int(sys.argv[1]) == 0: n_simulations = 10
@@ -203,9 +198,6 @@ def main():
     model = define_model(config)
     old_model = define_model(config)
     old_model.set_weights(model.get_weights())
-
-    # summarize layers
-    #print(model.summary())
 
     # Stores data from net vs net in evaluation for later analysis.
     data_net_vs_net = []
@@ -262,6 +254,7 @@ def main():
         # Training
         #
         #
+
         print()
         print('TRAINING LOOP')
         print()
@@ -285,9 +278,11 @@ def main():
         # Model evaluation
         #
         #
+        
         print()
         print('MODEL EVALUATION - Network vs. Old Network')
         print()
+
         # The current network faces the previous one.
         # If it does not win config.victory_rate % it completely
         # discards the current network.
@@ -310,9 +305,6 @@ def main():
         data_net_vs_net.append((victory_1_eval_net, victory_2_eval_net))
 
         necessary_won_games = (config.victory_rate * config.n_games_evaluate) / 100
-
-        print('TAMANHO NET VS UCT: ', len(data_net_vs_uct))
-        print('TAMANHO NET VS NET: ', len(data_net_vs_net))
 
         if victory_1_eval_net <= necessary_won_games:
             print('New model is worse and won ', victory_1_eval_net)
@@ -337,6 +329,7 @@ def main():
             print()
             print('MODEL EVALUATION - Network vs. UCT')
             print()
+
             for i in range(config.n_games_evaluate):
                 if config.use_playout:
                     data_of_a_game_eval, who_won = play_single_game(config, model, 
@@ -367,7 +360,6 @@ def main():
                 value_loss_eval.append(results[2])
                 dist_metric_eval.append(results[3])
                 value_metric_eval.append(results[4])
-                #print('teste eval: ', loss_eval, dist_loss_eval, value_loss_eval, dist_metric_eval, value_metric_eval)
                 dataset_for_eval = []
 
             loss_eval = sum(loss_eval) / len(loss_eval)
@@ -389,10 +381,6 @@ def main():
             stats = Statistic(data_net_vs_net, data_net_vs_uct, config)
             stats.save_to_file(count)
             stats.save_model_to_file(model, count)
-
-        
-
-        
 
 if __name__ == "__main__":
     main()

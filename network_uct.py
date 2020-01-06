@@ -62,6 +62,7 @@ class Network_UCT:
         self.expand_children(self.root)
 
         for _ in range(self.config.n_simulations):
+            
             node = self.root
             scratch_game = game.clone()
             search_path = [node]
@@ -71,7 +72,6 @@ class Network_UCT:
                 scratch_game.play(action)
                 search_path.append(new_node)
                 node = copy.deepcopy(new_node)
-            #print('dps while')
             #At this point, a leaf was reached.
             #If it was not visited yet, then get the calculated rollout value
             #from the network and backpropagates the reward returned from the
@@ -94,6 +94,8 @@ class Network_UCT:
                 _, network_value_output = self.network.predict([network_input,valid_actions_dist], batch_size=1)
                 rollout_value = network_value_output[0][0]
                 self.backpropagate(search_path, action_for_rollout, rollout_value)
+
+                
         action = self.select_action(game, self.root)
         dist_probability = self.distribution_probability()
         self.root = self.root.children[action]
