@@ -170,10 +170,10 @@ def main():
     if int(sys.argv[1]) == 0: n_simulations = 50
     if int(sys.argv[1]) == 1: n_simulations = 100
     if int(sys.argv[1]) == 2: n_simulations = 300
-    if int(sys.argv[2]) == 0: n_games = 1
+    if int(sys.argv[2]) == 0: n_games = 100
     if int(sys.argv[2]) == 1: n_games = 500
     if int(sys.argv[2]) == 2: n_games = 1000
-    if int(sys.argv[3]) == 0: alphazero_iterations = 10
+    if int(sys.argv[3]) == 0: alphazero_iterations = 50
     if int(sys.argv[3]) == 1: alphazero_iterations = 100
     if int(sys.argv[4]) == 0: conv_number = 1
     if int(sys.argv[4]) == 1: conv_number = 2
@@ -184,7 +184,7 @@ def main():
                     offset = 2, initial_height = 1)
 
     alphazero_config = AlphaZeroConfig(c = 10, n_simulations = n_simulations, n_games = n_games, 
-                                        n_games_evaluate = 1, max_game_length = 50,
+                                        n_games_evaluate = 100, max_game_length = 50,
                                         victory_rate = 55, alphazero_iterations = alphazero_iterations, 
                                         use_UCT_playout = use_UCT_playout)
 
