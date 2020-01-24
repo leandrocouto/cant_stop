@@ -6,21 +6,24 @@ import pickle
 import os
 
 class Statistic:
-    def __init__(self, eval_net_vs_net = None, eval_net_vs_uct = None, config = None):
+    def __init__(self, eval_net_vs_net = None, eval_net_vs_uct = None, alphazero_config = None, network_config = None):
         self.eval_net_vs_net = eval_net_vs_net
         self.eval_net_vs_uct = eval_net_vs_uct
-        self.config = config
-        if config != None:
-            self.path = 'data_'+str(self.config.n_simulations)+'_'+str(self.config.n_games) \
-                + '_' + str(self.config.alphazero_iterations) + '_' + str(self.config.conv_number) +  '/'
+        self.alphazero_config = alphazero_config
+        self.network_config = network_config
+        if alphazero_config != None and network_config != None:
+            self.path = 'data_'+str(self.alphazero_config.n_simulations)+'_'+str(self.alphazero_config.n_games) \
+                + '_' + str(self.alphazero_config.alphazero_iterations) + '_' + str(self.network_config.conv_number) + \
+                '_' + str(self.alphazero_config.use_UCT_playout) + '/'
+                
 
     def save_to_file(self, alphazero_iteration):
         """Save the analysis data of this iteration to file."""
         if not os.path.exists(self.path):
             os.makedirs(self.path)
-        filename = self.path + '/' + str(self.config.n_simulations)+'_'+str(self.config.n_games) \
-                + '_' + str(self.config.alphazero_iterations) + '_' + str(self.config.conv_number) + \
-                '_' + str(alphazero_iteration)
+        filename = self.path + '/' + str(self.alphazero_config.n_simulations)+'_'+str(self.alphazero_config.n_games) \
+                + '_' + str(self.alphazero_config.alphazero_iterations) + '_' + str(self.network_config.conv_number) + \
+                '_' + str(self.alphazero_config.use_UCT_playout) + '_' + str(alphazero_iteration)
         with open(filename, 'wb') as file:
             pickle.dump(self.__dict__, file)
 
@@ -29,12 +32,12 @@ class Statistic:
         Load data from file to self object.
         path is a dictionary where key is Statistic attributes and value is the data.
         """
-        print('pathe aqui:', path)
         with open(path, 'rb') as file:
             stats = pickle.load(file)
             self.eval_net_vs_net = stats['eval_net_vs_net']
             self.eval_net_vs_uct = stats['eval_net_vs_uct']
-            self.config = stats['config']
+            self.alphazero_config = stats['alphazero_config']
+            self.network_config = stats['network_config']
             self.path = stats['path']
 
 
@@ -42,15 +45,16 @@ class Statistic:
         """Save the networkmodel of this iteration to file."""
         if not os.path.exists(self.path):
             os.makedirs(self.path)
-        filename = self.path + '/' + str(self.config.n_simulations)+'_'+str(self.config.n_games) \
-                + '_' + str(self.config.alphazero_iterations) + '_' + str(self.config.conv_number) + \
-                '_' + str(alphazero_iteration) + '_model.h5'
+        filename = self.path + '/' + str(self.alphazero_config.n_simulations)+'_'+str(self.alphazero_config.n_games) \
+                + '_' + str(self.alphazero_config.alphazero_iterations) + '_' + str(self.network_config.conv_number) + \
+                '_' + str(self.alphazero_config.use_UCT_playout) + '_' + str(alphazero_iteration) + '_model.h5'
         model.save(filename)
 
     def generate_graphs(self):
         """Generate graphs based on alphazero iterations."""
-        save_path = 'graphs_'+str(self.config.n_simulations)+'_'+str(self.config.n_games) \
-                    + '_' + str(self.config.alphazero_iterations) + '_' + str(self.config.conv_number) +  '/'
+        save_path = 'graphs_'+str(self.alphazero_config.n_simulations)+'_'+str(self.alphazero_config.n_games) \
+                    + '_' + str(self.alphazero_config.alphazero_iterations) + '_' + str(self.network_config.conv_number) + \
+                    '_' + str(self.alphazero_config.use_UCT_playout) + '/'
         if not os.path.exists(save_path):
             os.makedirs(save_path)
             

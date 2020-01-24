@@ -46,10 +46,11 @@ class Node:
 
 
 class Network_UCT:
-    def __init__(self, config, network):
-        self.config = config
+    def __init__(self, network, game_config, alphazero_config):
         self.root = None
         self.network = network
+        self.game_config = game_config
+        self.alphazero_config = alphazero_config
 
 
     def run_UCT(self, game):
@@ -61,7 +62,7 @@ class Network_UCT:
         #Expand the children of the root before the actual algorithm
         self.expand_children(self.root)
 
-        for _ in range(self.config.n_simulations):
+        for _ in range(self.alphazero_config.n_simulations):
             
             node = self.root
             scratch_game = game.clone()
@@ -80,7 +81,7 @@ class Network_UCT:
             #with the highest ucb score and calculated rollout value from the
             #network.
             if node.n_visits == 0:
-                network_input = transform_to_input(scratch_game, self.config)
+                network_input = transform_to_input(scratch_game, self.game_config)
                 valid_actions_dist = transform_actions_to_dist(node.state.available_moves())
                 _, network_value_output = self.network.predict([network_input,valid_actions_dist], batch_size=1)
                 rollout_value = network_value_output[0][0]
@@ -89,7 +90,7 @@ class Network_UCT:
                 self.expand_children(node)
                 action_for_rollout, node_for_rollout = self.select_child(node)
                 search_path.append(node)
-                network_input = transform_to_input(scratch_game, self.config)
+                network_input = transform_to_input(scratch_game, self.game_config)
                 valid_actions_dist = transform_actions_to_dist(node.state.available_moves())
                 _, network_value_output = self.network.predict([network_input,valid_actions_dist], batch_size=1)
                 rollout_value = network_value_output[0][0]
@@ -115,7 +116,7 @@ class Network_UCT:
             parent.children[action] = child_state
 
         #Update the  distribution probability of the children (node.p_a)
-        network_input_parent = transform_to_input(parent.state, self.config)
+        network_input_parent = transform_to_input(parent.state, self.game_config)
         valid_actions_dist = transform_actions_to_dist(valid_actions)
         dist_prob, _= self.network.predict([network_input_parent, valid_actions_dist], batch_size=1)
         dist_prob = remove_invalid_actions(dist_prob[0], parent.children.keys())
@@ -140,14 +141,14 @@ class Network_UCT:
                 if child.n_visits == 0:
                     ucb_max = float('inf')
                 else:
-                    ucb_max =  node.q_a[action] + self.config.c * node.p_a[action] * np.divide(math.sqrt(math.log(node.n_visits)), node.n_a[action])
+                    ucb_max =  node.q_a[action] + self.alphazero_config.c * node.p_a[action] * np.divide(math.sqrt(math.log(node.n_visits)), node.n_a[action])
 
                 ucb_values.append((ucb_max, action, child))
             else:
                 if child.n_visits == 0:
                     ucb_min = float('-inf')
                 else:
-                    ucb_min =  node.q_a[action] - self.config.c * node.p_a[action] * np.divide(math.sqrt(math.log(node.n_visits)), node.n_a[action])
+                    ucb_min =  node.q_a[action] - self.alphazero_config.c * node.p_a[action] * np.divide(math.sqrt(math.log(node.n_visits)), node.n_a[action])
                 ucb_values.append((ucb_min, action, child))
         # Sort the list based on the ucb score
         ucb_values.sort(key=lambda t: t[0])

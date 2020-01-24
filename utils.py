@@ -4,76 +4,22 @@ import collections
 import os
 import numpy as np
 
-class Config:
-    """ General configuration class for the game board, UCT and NN """
-    def __init__(self, c, n_simulations, n_games, n_games_evaluate, 
-                    maximum_game_length, n_players, dice_number, dice_value, 
-                    column_range, offset, initial_height, mini_batch, sample_size,
-                    victory_rate, alphazero_iterations, reg, epochs, conv_number,
-                    use_playout):
-        """
-        - c is the constant the balance exploration and exploitation.
-        - n_simulations is the number of simulations made in the UCT algorithm.
-        - n_games is the number of games played in the self-play scheme.
-        - n_games_evaluate is the number of games played to evaluate the current
-          network against the previous one.
-        - maximum_game_length is the max number of plays in a game by both
-          players (avoids infinite loop).
-        - n_players is the number of players (At the moment, only 2 is possible).
-        - dice_number is the number of dice used in the Can't Stop game.
-        - dice_value is the number of sides of a single die.
-        - column_range is a list denoting the range of the board game columns.
-        - offset is the height difference between columns.
-        - initial_height is the height of the columns at the border of the board.
-        - mini_batch is the number of inputs selected to train the network.
-        - sample_size is the total number of inputs mini_batch is sampled from.
-        - victory_rate is the % of victories necessary for the new network to
-          overwrite the previously one.
-        - alphazero_iterations is the total number of iterations of the learning
-          algorithm: selfplay -> training loop -> evaluate network (repeat).
-        - reg is the L2 regularization parameter.
-        - epochs is the number of training epochs.
-        - conv_number is the number of convolutional layers in the network.
-        - use_playout is a boolean that allows the program to also calculate the 
-          MSE playout in the network (besides using the network to estimate who
-          won the game). Used for result analysis.
-        """
-        self.c = c
-        self.n_simulations = n_simulations
-        self.n_games = n_games
-        self.n_games_evaluate = n_games_evaluate
-        self.maximum_game_length = maximum_game_length
-        self.n_players = n_players
-        self.dice_number = dice_number
-        self.dice_value = dice_value
-        self.column_range = column_range 
-        self.offset = offset
-        self.initial_height = initial_height
-        self.mini_batch = mini_batch
-        self.sample_size = sample_size
-        self.victory_rate = victory_rate
-        self.alphazero_iterations = alphazero_iterations
-        self.reg = reg
-        self.epochs = epochs
-        self.conv_number = conv_number
-        self.use_playout = use_playout
-
-def valid_positions_channel(config):
+def valid_positions_channel(game_config):
     """
     Return a channel that fills with a value of 1 if that cell is valid and
     0 otherwise.
     """
-    rows = config.column_range[1] - config.column_range[0] + 1
-    columns = config.initial_height + config.offset * (rows//2)
+    rows = game_config.column_range[1] - game_config.column_range[0] + 1
+    columns = game_config.initial_height + game_config.offset * (rows//2)
     channel = np.zeros((rows, columns), dtype=int)
-    height = config.initial_height
+    height = game_config.initial_height
     for i in range(rows):
         for j in range(height):
             channel[i][j] = 1
         if i < rows//2:
-            height += config.offset
+            height += game_config.offset
         else:
-            height -= config.offset
+            height -= game_config.offset
     return channel
 
 def finished_columns_channels(state, channel):
@@ -131,9 +77,9 @@ def player_turn_channel(state, channel):
     else:
         return np.zeros(shape, dtype=int)
 
-def transform_to_input(game, config):
+def transform_to_input(game, game_config):
     """Receive the game state and return the six channels used as input for the network"""
-    channel_valid = valid_positions_channel(config)
+    channel_valid = valid_positions_channel(game_config)
     channel_finished_1, channel_finished_2 = finished_columns_channels(game, channel_valid)
     channel_won_column_1, channel_won_column_2 = player_won_column_channels(game, channel_valid)
     channel_turn = player_turn_channel(game, channel_valid)

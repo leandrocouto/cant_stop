@@ -37,8 +37,8 @@ class Node:
 
 
 class Vanilla_UCT:
-    def __init__(self, config):
-        self.config = config
+    def __init__(self, alphazero_config):
+        self.alphazero_config = alphazero_config
         self.root = None
 
 
@@ -51,7 +51,7 @@ class Vanilla_UCT:
         #Expands the children of the root before the actual algorithm
         self.expand_children(self.root)
 
-        for _ in range(self.config.n_simulations):
+        for _ in range(self.alphazero_config.n_simulations):
             node = self.root
             scratch_game = game.clone()
             search_path = [node]
@@ -112,7 +112,7 @@ class Vanilla_UCT:
                 if child.n_visits == 0:
                     ucb_max = float('inf')
                 else:
-                    ucb_max =  node.q_a[action] + self.config.c * math.sqrt(
+                    ucb_max =  node.q_a[action] + self.alphazero_config.c * math.sqrt(
                                     np.divide(math.log(node.n_visits),
                                   node.n_a[action]))
 
@@ -121,7 +121,7 @@ class Vanilla_UCT:
                 if child.n_visits == 0:
                     ucb_min = float('-inf')
                 else:
-                    ucb_min =  node.q_a[action] - self.config.c * math.sqrt(
+                    ucb_min =  node.q_a[action] - self.alphazero_config.c * math.sqrt(
                                     np.divide(math.log(node.n_visits),
                                   node.n_a[action]))
                 ucb_values.append((ucb_min, action, child))
