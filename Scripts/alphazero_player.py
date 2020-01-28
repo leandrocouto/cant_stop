@@ -1,11 +1,10 @@
-from collections import defaultdict
-from game import Game
-from utils import transform_to_input, remove_invalid_actions
-from utils import transform_actions_to_dist
 import math, random
 import numpy as np
 import copy
 import collections
+from Scripts.player import Player
+from abc import abstractmethod
+from collections import defaultdict
 
 class Node:
     def __init__(self, state, parent=None):
@@ -44,14 +43,28 @@ class Node:
         """Return a boolean."""
         return len(self.children) > 0
 
-
-class Network_UCT_With_Playout:
-    def __init__(self, network, game_config, alphazero_config):
+class AlphaZeroPlayer(Player):
+    @abstractmethod
+    def __init__(self, alphazero_config):
         self.root = None
-        self.network = network
-        self.game_config = game_config
         self.alphazero_config = alphazero_config
+        self.action = None
+        self.dist_probability = None
 
+    def get_action(self, game):
+        """ Return the action given by the UCT algorithm. """
+        action, dist_probability = self.run_UCT(game)
+        self.action = action
+        self.dist_probability = dist_probability
+        return action
+
+    def get_dist_probability(self):
+        """ 
+        Return the actions distribution probability regarding
+        the game passed as parameter in get_action. Should be 
+        called after get_action.
+        """
+        return self.dist_probability
 
     def run_UCT(self, game):
         """Main routine of the UCT algoritm."""
@@ -68,17 +81,15 @@ class Network_UCT_With_Playout:
             search_path = [node]
             while node.is_expanded():
                 action, new_node = self.select_child(node)
-                node.action_taken = action 
+                node.action_taken = action
                 scratch_game.play(action)
                 search_path.append(new_node)
                 node = copy.deepcopy(new_node)
             #At this point, a leaf was reached.
-            #If it was not visited yet, then get the calculated rollout value
-            #from the network and backpropagates the reward returned from the
-            #end of the simulation.
+            #If it was not visited yet, then perform the rollout and
+            #backpropagates the reward returned from the end of the simulation.
             #If it has been visited, then expand its children, choose the one
-            #with the highest ucb score and calculated rollout value from the
-            #network.
+            #with the highest ucb score and do a rollout from there.
             if node.n_visits == 0:
                 rollout_value = self.rollout(node, scratch_game)
                 self.backpropagate(search_path, action, rollout_value)
@@ -86,33 +97,12 @@ class Network_UCT_With_Playout:
                 self.expand_children(node)
                 action_for_rollout, node_for_rollout = self.select_child(node)
                 search_path.append(node)
-                rollout_value = self.rollout(node, scratch_game)
+                rollout_value = self.rollout(node_for_rollout, scratch_game)
                 self.backpropagate(search_path, action_for_rollout, rollout_value)
         action = self.select_action(game, self.root)
         dist_probability = self.distribution_probability()
         self.root = self.root.children[action]
-        return action, dist_probability
-
-
-    def expand_children(self, parent):
-        """Expand the children of the "parent" node"""
-        valid_actions = parent.state.available_moves()
-        if len(valid_actions) == 0:
-            valid_actions = ['y', 'n']
-        for action in valid_actions:
-            child_game = parent.state.clone()
-            child_game.play(action)
-            child_state = Node(child_game, parent)
-            child_state.action_taken = action
-            parent.children[action] = child_state
-
-        #Update the  distribution probability of the children (node.p_a)
-        network_input_parent = transform_to_input(parent.state, self.game_config)
-        valid_actions_dist = transform_actions_to_dist(valid_actions)
-        dist_prob, _= self.network.predict([network_input_parent, valid_actions_dist], batch_size=1)
-        dist_prob = remove_invalid_actions(dist_prob[0], parent.children.keys())
-        self.add_dist_prob_to_children(parent, dist_prob)
-
+        return action, dist_probability    
 
     def select_action(self, game, root):
         """Return the action with the highest visit score."""
@@ -123,49 +113,6 @@ class Network_UCT_With_Playout:
         _, action = visit_counts[-1]
         return action
 
-    def rollout(self, node, scratch_game):
-        """Take random actions until a game is finished and return the value."""
-        end_game = False
-        while not end_game:
-            #avoid infinite loops in smaller boards
-            who_won, end_game = scratch_game.is_finished()
-            moves = scratch_game.available_moves()
-            if scratch_game.is_player_busted(moves):
-                continue
-            chosen_move = random.choice(moves)
-            scratch_game.play(chosen_move)
-            who_won, end_game = scratch_game.is_finished()
-        if who_won == 1:
-            return 1
-        else:
-            return -1
-
-    def select_child(self, node):
-        """Return the child Node with the highest UCB score."""
-        ucb_values = []
-        for action, child in node.children.items():
-            if node.state.player_turn == 1:
-                if child.n_visits == 0:
-                    ucb_max = float('inf')
-                else:
-                    ucb_max =  node.q_a[action] + self.alphazero_config.c * node.p_a[action] * np.divide(math.sqrt(math.log(node.n_visits)), node.n_a[action])
-
-                ucb_values.append((ucb_max, action, child))
-            else:
-                if child.n_visits == 0:
-                    ucb_min = float('-inf')
-                else:
-                    ucb_min =  node.q_a[action] - self.alphazero_config.c * node.p_a[action] * np.divide(math.sqrt(math.log(node.n_visits)), node.n_a[action])
-                ucb_values.append((ucb_min, action, child))
-        # Sort the list based on the ucb score
-        ucb_values.sort(key=lambda t: t[0])
-        if node.state.player_turn == 1:
-            best_ucb, best_action, best_child = ucb_values[-1]
-        else:
-            best_ucb, best_action, best_child = ucb_values[0]
-        return best_action, best_child
-
-
     def backpropagate(self, search_path, action, value):
         """Propagate the value from rollout all the way up the tree to the root."""
         for node in search_path:
@@ -175,6 +122,30 @@ class Network_UCT_With_Playout:
             node.q_a[node.action_taken] = (node.q_a[node.action_taken] * 
                                             (node.n_visits - 1) + value) / \
                                                 node.n_visits
+
+    def select_child(self, node):
+        """Return the child Node with the highest UCB score."""
+        ucb_values = []
+        for action, child in node.children.items():
+            if node.state.player_turn == 1:
+                if child.n_visits == 0:
+                    ucb_max = float('inf')
+                else:
+                    ucb_max =  self.calculate_ucb_max(node, action)
+                ucb_values.append((ucb_max, action, child))
+            else:
+                if child.n_visits == 0:
+                    ucb_min = float('-inf')
+                else:
+                    ucb_min =  self.calculate_ucb_min(node, action)
+                ucb_values.append((ucb_min, action, child))
+        # Sort the list based on the ucb score
+        ucb_values.sort(key=lambda t: t[0])
+        if node.state.player_turn == 1:
+            best_ucb, best_action, best_child = ucb_values[-1]
+        else:
+            best_ucb, best_action, best_child = ucb_values[0]
+        return best_action, best_child
 
     def distribution_probability(self):
         """
@@ -203,3 +174,32 @@ class Network_UCT_With_Playout:
         standard_dist = collections.OrderedDict(standard_dist)
         for key in node.children.keys():
             node.p_a[key] = dist_prob[standard_dist[key]]
+
+    @abstractmethod
+    def expand_children(self, parent):
+        """Expand the children of the "parent" node"""
+        pass
+
+    @abstractmethod
+    def rollout(self, node, scratch_game):
+        """
+        Return the game value of the end of the current simulation.
+        Concrete classes must implement this method.
+        """
+        pass
+
+    @abstractmethod
+    def calculate_ucb_max(self, node):
+        """
+        Return the node UCB value of the MAX player.
+        Concrete classes must implement this method.
+        """
+        pass
+
+    @abstractmethod
+    def calculate_ucb_min(self, node):
+        """
+        Return the node UCB value of the MIN player.
+        Concrete classes must implement this method.
+        """
+        pass

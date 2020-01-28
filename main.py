@@ -12,9 +12,9 @@ from utils import transform_dist_prob, transform_to_input
 from utils import transform_actions_to_dist, transform_dataset_to_input
 from config import GameConfig, AlphaZeroConfig, NetworkConfig
 from statistics import Statistic
-from network_uct import Network_UCT
-from vanilla_uct import Vanilla_UCT
-from network_uct_with_playout import Network_UCT_With_Playout
+from Scripts.vanilla_uct_player import Vanilla_UCT
+from Scripts.net_uct_player import Network_UCT
+from Scripts.net_uct_with_playout_player import Network_UCT_With_Playout
 import tensorflow as tf
 from collections import Counter
 import sys
@@ -89,13 +89,13 @@ def play_single_game(game_config, alphazero_config, model, second_model, type_of
     game = Game(game_config)
     is_over = False
     # UCT using new model (network training)
-    uct_0 = Network_UCT(model, game_config, alphazero_config)
+    uct_0 = Network_UCT(alphazero_config, game_config, model)
     # UCT using new model with playout simulations (network training)
-    uct_1 = Network_UCT_With_Playout(model, game_config, alphazero_config)
+    uct_1 = Network_UCT_With_Playout(alphazero_config, game_config, model)
     # UCT using old model (network evaluation)
-    uct_2 = Network_UCT(second_model, game_config, alphazero_config)
+    uct_2 = Network_UCT(alphazero_config, game_config, model)
     # UCT using old model with playout simulations (network evaluation)
-    uct_3 = Network_UCT_With_Playout(second_model, game_config, alphazero_config)
+    uct_3 = Network_UCT_With_Playout(alphazero_config, game_config, model)
     # Vanilla UCT (no networks, testing purpose)
     uct_4 = Vanilla_UCT(alphazero_config)
     infinite_loop = 0
@@ -113,31 +113,42 @@ def play_single_game(game_config, alphazero_config, model, second_model, type_of
             continue
         else:
             if type_of_game == 0:
-                chosen_play, dist_probability = uct_0.run_UCT(game)
+                chosen_play = uct_0.get_action(game)
+                dist_probability = uct_0.get_dist_probability()
             elif type_of_game == 1:
-                chosen_play, dist_probability = uct_1.run_UCT(game)
+                chosen_play = uct_1.get_action(game)
+                dist_probability = uct_1.get_dist_probability()
             elif type_of_game == 2:
                 if game.player_turn == 1:
-                    chosen_play, dist_probability = uct_0.run_UCT(game)
+                    chosen_play = uct_0.get_action(game)
+                    dist_probability = uct_0.get_dist_probability()
                 else:
-                    chosen_play, dist_probability = uct_2.run_UCT(game)
+                    chosen_play = uct_2.get_action(game)
+                    dist_probability = uct_2.get_dist_probability()
             elif type_of_game == 3:
                 if game.player_turn == 1:
-                    chosen_play, dist_probability = uct_0.run_UCT(game)
+                    chosen_play = uct_0.get_action(game)
+                    dist_probability = uct_0.get_dist_probability()
                 else:
-                    chosen_play, dist_probability = uct_4.run_UCT(game)
+                    chosen_play = uct_4.get_action(game)
+                    dist_probability = uct_4.get_dist_probability()
             elif type_of_game == 4:
-                chosen_play, dist_probability = uct_4.run_UCT(game)
+                chosen_play = uct_4.get_action(game)
+                dist_probability = uct_4.get_dist_probability()
             elif type_of_game == 5:
                 if game.player_turn == 1:
-                    chosen_play, dist_probability = uct_1.run_UCT(game)
+                    chosen_play = uct_1.get_action(game)
+                    dist_probability = uct_1.get_dist_probability()
                 else:
-                    chosen_play, dist_probability = uct_3.run_UCT(game)
+                    chosen_play = uct_3.get_action(game)
+                    dist_probability = uct_3.get_dist_probability()
             elif type_of_game == 6:
                 if game.player_turn == 1:
-                    chosen_play, dist_probability = uct_1.run_UCT(game)
+                    chosen_play = uct_1.get_action(game)
+                    dist_probability = uct_1.get_dist_probability()
                 else:
-                    chosen_play, dist_probability = uct_4.run_UCT(game)
+                    chosen_play = uct_4.get_action(game)
+                    dist_probability = uct_4.get_dist_probability()
             # Collecting data for later input to the NN
             current_play = [list_of_channels, dist_probability]
             data_of_a_game.append(current_play)
@@ -167,13 +178,13 @@ def main():
         exit()
 
     # Cluster configurations
-    if int(sys.argv[1]) == 0: n_simulations = 50
+    if int(sys.argv[1]) == 0: n_simulations = 10
     if int(sys.argv[1]) == 1: n_simulations = 100
     if int(sys.argv[1]) == 2: n_simulations = 300
-    if int(sys.argv[2]) == 0: n_games = 100
+    if int(sys.argv[2]) == 0: n_games = 10
     if int(sys.argv[2]) == 1: n_games = 500
     if int(sys.argv[2]) == 2: n_games = 1000
-    if int(sys.argv[3]) == 0: alphazero_iterations = 50
+    if int(sys.argv[3]) == 0: alphazero_iterations = 3
     if int(sys.argv[3]) == 1: alphazero_iterations = 100
     if int(sys.argv[4]) == 0: conv_number = 1
     if int(sys.argv[4]) == 1: conv_number = 2
@@ -184,7 +195,7 @@ def main():
                     offset = 2, initial_height = 1)
 
     alphazero_config = AlphaZeroConfig(c = 10, n_simulations = n_simulations, n_games = n_games, 
-                                        n_games_evaluate = 100, max_game_length = 50,
+                                        n_games_evaluate = 1, max_game_length = 50,
                                         victory_rate = 55, alphazero_iterations = alphazero_iterations, 
                                         use_UCT_playout = use_UCT_playout)
 
