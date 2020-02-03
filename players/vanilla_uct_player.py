@@ -3,7 +3,7 @@ from game import Game
 import math, random
 import numpy as np
 import copy
-from Scripts.alphazero_player import AlphaZeroPlayer, Node
+from players.alphazero_player import AlphaZeroPlayer, Node
 
 class Vanilla_UCT(AlphaZeroPlayer):
 

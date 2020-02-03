@@ -12,9 +12,9 @@ from utils import transform_dist_prob, transform_to_input
 from utils import transform_actions_to_dist, transform_dataset_to_input
 from config import GameConfig, AlphaZeroConfig, NetworkConfig
 from statistics import Statistic
-from Scripts.vanilla_uct_player import Vanilla_UCT
-from Scripts.net_uct_player import Network_UCT
-from Scripts.net_uct_with_playout_player import Network_UCT_With_Playout
+from players.vanilla_uct_player import Vanilla_UCT
+from players.net_uct_player import Network_UCT
+from players.net_uct_with_playout_player import Network_UCT_With_Playout
 import tensorflow as tf
 from collections import Counter
 import sys

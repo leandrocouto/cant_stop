@@ -60,12 +60,20 @@ class Game:
         self.player_won_column = []
         self.dice_action = True
         self.current_roll = self.roll_dice()
-
+        
+    def print_board(self):
+        self.board_game.print_board(self.player_won_column)
 
     def clone(self):
         """Return a deepcopy of this game. Used for MCTS routines."""
         return copy.deepcopy(self)
-
+    
+    def columns_won_current_round(self):
+        """
+        Returns a list containing the set of columns won by the player in the current round.
+        That is, the number of columns won should the player stopped playing now. 
+        """
+        return self.player_won_column
 
     def play(self, chosen_play):
         """Apply the "chosen_play" to the game."""

@@ -6,7 +6,7 @@ import math, random
 import numpy as np
 import copy
 import collections
-from Scripts.alphazero_player import AlphaZeroPlayer, Node
+from players.alphazero_player import AlphaZeroPlayer, Node
 
 class Network_UCT_With_Playout(AlphaZeroPlayer):
 

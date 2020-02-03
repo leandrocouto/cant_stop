@@ -2,7 +2,7 @@ import math, random
 import numpy as np
 import copy
 import collections
-from Scripts.player import Player
+from players.player import Player
 from abc import abstractmethod
 from collections import defaultdict
 
