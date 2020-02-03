@@ -1,6 +1,6 @@
 from players.player import Player
 import random
-from players.scripts.domain_functions import DSL
+from players.scripts.DSL import DSL
 
 class LelisPlayer(Player):
 
@@ -8,7 +8,7 @@ class LelisPlayer(Player):
         actions = state.available_moves()
         
         for a in actions:
-            if isinstance(a, str) and a == 'n' and DSL.numberColumnsWon(state, a) > 0:
+            if DSL.isStopAction(a) and DSL.numberColumnsWon(state, a) > 0:
                 return a
             
             if DSL.actionWinsColumn(state, a):

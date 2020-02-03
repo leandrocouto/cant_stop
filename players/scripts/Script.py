@@ -8,7 +8,7 @@ class Script:
         py = r'''
 from players.player import Player
 import random
-from players.scripts.domain_functions import DSL
+from players.scripts.DSL import DSL
 
 class Script{0}(Player):
 

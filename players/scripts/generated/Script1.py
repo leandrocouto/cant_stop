@@ -1,7 +1,7 @@
 
 from players.player import Player
 import random
-from players.scripts.domain_functions import DSL
+from players.scripts.DSL import DSL
 
 class Script1(Player):
 

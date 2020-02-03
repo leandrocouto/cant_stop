@@ -15,8 +15,7 @@ from statistics import Statistic
 from players.vanilla_uct_player import Vanilla_UCT
 from players.scripts.random_script import RandomPlayer
 from players.scripts.lelis_script import LelisPlayer
-# import players.scripts.lelis_script
-from players.scripts.CFG import CFG
+from players.scripts.DSL import DSL
 import sys
 
 
@@ -25,13 +24,13 @@ if __name__ == "__main__":
     random = RandomPlayer()
     lelis = LelisPlayer()
     
-    import importlib
-    module = importlib.import_module('players.scripts.generated.Script1')
-    class_ = getattr(module, 'Script1')
-    instance = class_()
+#     import importlib
+#     module = importlib.import_module('players.scripts.generated.Script1')
+#     class_ = getattr(module, 'Script1')
+#     instance = class_()
     
-    cfg = CFG()
-    cfg.generateRandom()
+    dsl = DSL()
+    dsl.generateRandomScript(1)
     
     game_config = GameConfig(n_players = 2, dice_number = 4, dice_value = 6, column_range = [2,12],
                     offset = 2, initial_height = 1)
@@ -71,9 +70,10 @@ if __name__ == "__main__":
             else:
                 if game.player_turn == 1:
 #                     chosen_play = uct1.get_action(game)
-                    chosen_play = random.get_action(game)
+                    chosen_play = lelis.get_action(game)
                 else:
-                    chosen_play = instance.get_action(game)
+#                     chosen_play = instance.get_action(game)
+                    chosen_play = random.get_action(game)
                 if chosen_play == 'n':
                     if current_player == 1:
                         current_player = 2
