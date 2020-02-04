@@ -19,7 +19,7 @@ class GameConfig:
 
 class AlphaZeroConfig:
     """ Configuration class for the AlphaZero algorithm. """
-    def __init__(self, c, n_simulations, n_games, n_games_evaluate, max_game_length,
+    def __init__(self, c, n_simulations, n_games, n_games_evaluate,
                     victory_rate, alphazero_iterations, use_UCT_playout):
         """
         - c is the constant the balance exploration and exploitation.
@@ -27,8 +27,6 @@ class AlphaZeroConfig:
         - n_games is the number of games played in the self-play scheme.
         - n_games_evaluate is the number of games played to evaluate the current
           network against the previous one.
-        - max_game_length is the max number of plays in a game by both
-          players (avoids infinite game).
         - victory_rate is the % of victories necessary for the new network to
           overwrite the previous one.
         - alphazero_iterations is the total number of iterations of the learning
@@ -41,7 +39,6 @@ class AlphaZeroConfig:
         self.n_simulations = n_simulations
         self.n_games = n_games
         self.n_games_evaluate = n_games_evaluate
-        self.max_game_length = max_game_length
         self.victory_rate = victory_rate
         self.alphazero_iterations = alphazero_iterations
         self.use_UCT_playout = use_UCT_playout

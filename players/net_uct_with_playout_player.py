@@ -28,10 +28,10 @@ class Network_UCT_With_Playout(AlphaZeroPlayer):
             parent.children[action] = child_state
 
         #Update the  distribution probability of the children (node.p_a)
-        network_input_parent = transform_to_input(parent.state, self.game_config)
-        valid_actions_dist = transform_actions_to_dist(valid_actions)
+        network_input_parent = self.transform_to_input(parent.state, self.game_config)
+        valid_actions_dist = self.transform_actions_to_dist(valid_actions)
         dist_prob, _= self.network.predict([network_input_parent, valid_actions_dist], batch_size=1)
-        dist_prob = remove_invalid_actions(dist_prob[0], parent.children.keys())
+        dist_prob = self.remove_invalid_actions(dist_prob[0], parent.children.keys())
         self.add_dist_prob_to_children(parent, dist_prob)
 
     def rollout(self, node, scratch_game):
