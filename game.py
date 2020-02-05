@@ -11,20 +11,23 @@ class Cell:
         self.markers = []
 
 class Board:
-    def __init__(self, game_config):
+    def __init__(self, column_range, offset, initial_height):
         """First two columns are unused.
         Used columns vary from range 2 to 12 (inclusive).
         """
-        self.game_config = game_config
-        height = self.game_config.initial_height
-        self.board = [[] for _ in range(self.game_config.column_range[1]+1)]
-        for x in range(self.game_config.column_range[0],self.game_config.column_range[1]+1):
+        self.column_range = column_range
+        self.offset = offset
+        self.initial_height = initial_height
+
+        height = self.initial_height
+        self.board = [[] for _ in range(self.column_range[1]+1)]
+        for x in range(self.column_range[0],self.column_range[1]+1):
             for _ in range(height):
                 self.board[x].append(Cell())
-            if x < self.game_config.column_range[1]/2 +1:
-                height += self.game_config.offset
+            if x < self.column_range[1]/2 +1:
+                height += self.offset
             else:
-                height -= self.game_config.offset
+                height -= self.offset
 
     def print_board(self, rows):
         """Print the board. The asterisk means that the current player
@@ -32,7 +35,7 @@ class Board:
         not chosen "n" action yet).
         """
         partial_completed_rows = [item[0] for item in rows]
-        for x in range(self.game_config.column_range[0],self.game_config.column_range[1]+1):
+        for x in range(self.column_range[0],self.column_range[1]+1):
             list_of_cells = self.board[x]
             print('{:3d}:'.format(x), end='')
             for cell in list_of_cells:
@@ -42,8 +45,15 @@ class Board:
             print()
 
 class Game:
-    def __init__(self, game_config):
+    def __init__(self, n_players, dice_number, dice_value, column_range,
+                    offset, initial_height):
         """
+        - n_players is the number of players (At the moment, only 2 is possible).
+        - dice_number is the number of dice used in the Can't Stop game.
+        - dice_value is the number of faces of a single die.
+        - column_range is a list denoting the range of the board game columns.
+        - offset is the height difference between columns.
+        - initial_height is the height of the columns at the border of the board.
         - finished_columns is a list of 2-tuples indicating which columns were
           won by a certain player. Ex.: (2, 3) meaning column 2 won by player 3.
         - player_won_column is a list of 2-tuples indicating which 
@@ -53,8 +63,13 @@ class Game:
           player is choosing which combination or if the player is choosing if he
           wants to continue playing the turn or not.
         """
-        self.board_game = Board(game_config)
-        self.game_config = game_config
+        self.n_players = n_players
+        self.dice_number = dice_number
+        self.dice_value = dice_value
+        self.column_range = column_range 
+        self.offset = offset
+        self.initial_height = initial_height
+        self.board_game = Board(self.column_range, self.offset, self.initial_height)
         self.player_turn = 1
         self.finished_columns = []
         self.player_won_column = []
@@ -124,7 +139,7 @@ class Game:
 
     def transform_neutral_markers(self):
         """Transform the neutral markers into player_id markers (1 or 2)."""
-        for x in range(self.game_config.column_range[0],self.game_config.column_range[1]+1):
+        for x in range(self.column_range[0],self.column_range[1]+1):
             for i in range(len(self.board_game.board[x])):
                 for j in range(len(self.board_game.board[x][i].markers)):
                     if self.board_game.board[x][i].markers[j] == 0:
@@ -133,7 +148,7 @@ class Game:
         # If so, keep only the furthest one. Must make sure to not check
         # already won columns.
         completed_rows = [item[0] for item in self.finished_columns]
-        for x in range(self.game_config.column_range[0],self.game_config.column_range[1]+1):
+        for x in range(self.column_range[0],self.column_range[1]+1):
             if x in completed_rows:
                 continue
             list_of_cells = self.board_game.board[x]
@@ -163,7 +178,7 @@ class Game:
                 cell.markers.append(self.player_turn)
         self.player_won_column.clear()
 
-        if self.player_turn == self.game_config.n_players:
+        if self.player_turn == self.n_players:
                 self.player_turn = 1
         else:
             self.player_turn += 1
@@ -171,7 +186,7 @@ class Game:
 
     def erase_neutral_markers(self):
         """Remove the neutral markers because the player is busted."""
-        for x in range(self.game_config.column_range[0],self.game_config.column_range[1]+1):
+        for x in range(self.column_range[0], self.column_range[1]+1):
             for i in range(len(self.board_game.board[x])):
                 if 0 in self.board_game.board[x][i].markers:
                     self.board_game.board[x][i].markers.remove(0)
@@ -188,7 +203,7 @@ class Game:
                 if 0 in cell.markers:
                     count += 1
         # Iterate through the other rows.
-        for x in range(self.game_config.column_range[0],self.game_config.column_range[1]+1):
+        for x in range(self.column_range[0],self.column_range[1]+1):
             if x in partial_completed_rows:
                 continue
             list_of_cells = self.board_game.board[x]
@@ -209,7 +224,7 @@ class Game:
         if len(all_moves) == 0:
             self.erase_neutral_markers()
             self.player_won_column.clear()
-            if self.player_turn == self.game_config.n_players:
+            if self.player_turn == self.n_players:
                 self.player_turn = 1
             else:
                 self.player_turn += 1
@@ -226,7 +241,7 @@ class Game:
                         return False
         self.erase_neutral_markers()
         self.player_won_column.clear()
-        if self.player_turn == self.game_config.n_players:
+        if self.player_turn == self.n_players:
             self.player_turn = 1
         else:
             self.player_turn += 1
@@ -238,8 +253,8 @@ class Game:
     def roll_dice(self):
         """Return a tuple with integers representing the dice roll."""
         my_list = []
-        for _ in range(0,self.game_config.dice_number):
-          my_list.append(random.randrange(1,self.game_config.dice_value+1))
+        for _ in range(0,self.dice_number):
+          my_list.append(random.randrange(1,self.dice_value+1))
         return tuple(my_list)
 
 

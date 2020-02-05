@@ -2,59 +2,37 @@ import math, random
 import numpy as np
 import copy
 import collections
-from players.player import Player
+from players.uct_player import UCTPlayer, Node
 from abc import abstractmethod
 from collections import defaultdict
 
-class Node:
-    def __init__(self, state, parent=None):
-        """
-        - n_visits is the number of visits in this node
-        - n_a is a dictionary {key, value} where key is the action taken from 
-          this node and value is the number of times this action was chosen.
-        - q_a is a dictionary {key, value} where key is the action taken from
-          this node and value is the mean reward of the simulation that passed
-          through this node and used action 'a'.
-        - p_a is a dictionary {key, value} where key is the action taken from
-          this node and value is the probability given by the trained network
-          to choose this action. Value updated in the expand_children() method
-          from the MCTS class.
-        - parent is a Node object. 'None' if this node is the root of the tree.
-        - children is a dictionary {key, value} where key is the action 
-          taken from this node and value is the resulting node after applying 
-          the action.
-        - action_taken is the action taken from parent to get to this node.
-        """
-        self.state = state
-        self.n_visits = 0
-        self.n_a = {}
-        self.q_a = {}
-        self.p_a = {}
-        # These will initialize value = 0 for whichever keys yet to be added.
-        self.n_a = defaultdict(lambda: 0, self.n_a)
-        self.q_a = defaultdict(lambda: 0, self.q_a)
-        self.p_a = defaultdict(lambda: 0, self.q_a)
-        self.parent = parent
-        self.children = {}
-        self.action_taken = None
-
-
-    def is_expanded(self):
-        """Return a boolean."""
-        return len(self.children) > 0
-
-class AlphaZeroPlayer(Player):
+class AlphaZeroPlayer(UCTPlayer):
     @abstractmethod
-    def __init__(self, alphazero_config):
-        self.root = None
-        self.alphazero_config = alphazero_config
-        self.action = None
-        self.dist_probability = None
-
-    @abstractmethod
-    def expand_children(self, parent):
-        """Expand the children of the "parent" node"""
-        pass
+    def __init__(self, c, n_simulations, n_games, n_games_evaluate,
+                    victory_rate, alphazero_iterations, column_range, 
+                        offset, initial_height, network):
+        """
+        - n_games is the number of games played in the self-play scheme.
+        - n_games_evaluate is the number of games played to evaluate the current
+          network against the previous one.
+        - victory_rate is the % of victories necessary for the new network to
+          overwrite the previous one.
+        - alphazero_iterations is the total number of iterations of the learning
+          algorithm: selfplay -> training loop -> evaluate network (repeat).
+        - column_range is a list denoting the range of the board game columns.
+        - offset is the height difference between columns.
+        - initial_height is the height of the columns at the border of the board.
+        - network is the neural network AlphaZero trains.
+        """
+        super().__init__(c, n_simulations)
+        self.n_games = n_games
+        self.n_games_evaluate = n_games_evaluate
+        self.victory_rate = victory_rate
+        self.alphazero_iterations = alphazero_iterations
+        self.column_range = column_range 
+        self.offset = offset
+        self.initial_height = initial_height
+        self.network = network
 
     @abstractmethod
     def rollout(self, node, scratch_game):
@@ -64,130 +42,36 @@ class AlphaZeroPlayer(Player):
         """
         pass
 
-    @abstractmethod
-    def calculate_ucb_max(self, node):
+    def expand_children(self, parent):
+        """Expand the children of the "parent" node"""
+        valid_actions = parent.state.available_moves()
+        if len(valid_actions) == 0:
+            valid_actions = ['y', 'n']
+        for action in valid_actions:
+            child_game = parent.state.clone()
+            child_game.play(action)
+            child_state = Node(child_game, parent)
+            child_state.action_taken = action
+            parent.children[action] = child_state
+
+        #Update the  distribution probability of the children (node.p_a)
+        network_input_parent = self.transform_to_input(parent.state, self.column_range, self.offset, self.initial_height)
+        valid_actions_dist = self.transform_actions_to_dist(valid_actions)
+        dist_prob, _= self.network.predict([network_input_parent, valid_actions_dist], batch_size=1)
+        dist_prob = self.remove_invalid_actions(dist_prob[0], parent.children.keys())
+        self.add_dist_prob_to_children(parent, dist_prob)
+
+    def calculate_ucb_max(self, node, action):
         """
-        Return the node UCB value of the MAX player.
-        Concrete classes must implement this method.
+        Return the node modified PUCT (see AZ paper) value of the MAX player.
         """
-        pass
+        return node.q_a[action] + self.c * node.p_a[action] * np.divide(math.sqrt(math.log(node.n_visits)), node.n_a[action])
 
-    @abstractmethod
-    def calculate_ucb_min(self, node):
+    def calculate_ucb_min(self, node, action):
         """
-        Return the node UCB value of the MIN player.
-        Concrete classes must implement this method.
+        Return the node modified PUCT (see AZ paper) value of the MIN player.
         """
-        pass
-
-    def get_action(self, game):
-        """ Return the action given by the UCT algorithm. """
-        action, dist_probability = self.run_UCT(game)
-        self.action = action
-        self.dist_probability = dist_probability
-        # Reset the tree for the future run_UCT call
-        self.root = None
-        return action
-
-    def get_dist_probability(self):
-        """ 
-        Return the actions distribution probability regarding
-        the game passed as parameter in get_action. Should be 
-        called after get_action.
-        """
-        return self.dist_probability
-
-    def run_UCT(self, game):
-        """Main routine of the UCT algoritm."""
-        if self.root == None:
-            self.root = Node(game.clone())
-        else:
-            self.root.state = game.clone()
-        #Expand the children of the root before the actual algorithm
-        self.expand_children(self.root)
-
-        for _ in range(self.alphazero_config.n_simulations):
-            node = self.root
-            scratch_game = game.clone()
-            search_path = [node]
-            while node.is_expanded():
-                action, new_node = self.select_child(node)
-                node.action_taken = action
-                scratch_game.play(action)
-                search_path.append(new_node)
-                node = copy.deepcopy(new_node)
-            #At this point, a leaf was reached.
-            #If it was not visited yet, then perform the rollout and
-            #backpropagates the reward returned from the end of the simulation.
-            #If it has been visited, then expand its children, choose the one
-            #with the highest ucb score and do a rollout from there.
-            if node.n_visits == 0:
-                rollout_value = self.rollout(node, scratch_game)
-                self.backpropagate(search_path, action, rollout_value)
-            else:
-                self.expand_children(node)
-                action_for_rollout, node_for_rollout = self.select_child(node)
-                search_path.append(node)
-                rollout_value = self.rollout(node_for_rollout, scratch_game)
-                self.backpropagate(search_path, action_for_rollout, rollout_value)
-        action = self.select_action(game, self.root)
-        dist_probability = self.distribution_probability()
-        self.root = self.root.children[action]
-        return action, dist_probability    
-
-    def select_action(self, game, root):
-        """Return the action with the highest visit score."""
-        visit_counts = [(child.n_visits, action)
-                      for action, child in root.children.items()]
-        # Sort based on the number of visits
-        visit_counts.sort(key=lambda t: t[0])
-        _, action = visit_counts[-1]
-        return action
-
-    def backpropagate(self, search_path, action, value):
-        """Propagate the value from rollout all the way up the tree to the root."""
-        for node in search_path:
-            node.n_visits += 1
-            node.n_a[node.action_taken] += 1 
-            # Incremental mean calculation
-            node.q_a[node.action_taken] = (node.q_a[node.action_taken] * 
-                                            (node.n_visits - 1) + value) / \
-                                                node.n_visits
-
-    def select_child(self, node):
-        """Return the child Node with the highest UCB score."""
-        ucb_values = []
-        for action, child in node.children.items():
-            if node.state.player_turn == 1:
-                if child.n_visits == 0:
-                    ucb_max = float('inf')
-                else:
-                    ucb_max =  self.calculate_ucb_max(node, action)
-                ucb_values.append((ucb_max, action, child))
-            else:
-                if child.n_visits == 0:
-                    ucb_min = float('-inf')
-                else:
-                    ucb_min =  self.calculate_ucb_min(node, action)
-                ucb_values.append((ucb_min, action, child))
-        # Sort the list based on the ucb score
-        ucb_values.sort(key=lambda t: t[0])
-        if node.state.player_turn == 1:
-            best_ucb, best_action, best_child = ucb_values[-1]
-        else:
-            best_ucb, best_action, best_child = ucb_values[0]
-        return best_action, best_child
-
-    def distribution_probability(self):
-        """
-        Return the distribution probability of choosing an action according
-        to the number of visits of the children.
-        """
-        dist_probability = {}
-        total_visits = sum(self.root.n_a.values())
-        for action, visits in self.root.n_a.items():
-            dist_probability[action] = visits/total_visits
-        return dist_probability
+        return node.q_a[action] - self.c * node.p_a[action] * np.divide(math.sqrt(math.log(node.n_visits)), node.n_a[action])
 
     def add_dist_prob_to_children(self, node, dist_prob):
         """
@@ -206,22 +90,22 @@ class AlphaZeroPlayer(Player):
         for key in node.children.keys():
             node.p_a[key] = dist_prob[standard_dist[key]]
 
-    def valid_positions_channel(self, game_config):
+    def valid_positions_channel(self, column_range, offset, initial_height):
         """
         Return a channel that fills with a value of 1 if that cell is valid and
         0 otherwise.
         """
-        rows = game_config.column_range[1] - game_config.column_range[0] + 1
-        columns = game_config.initial_height + game_config.offset * (rows//2)
+        rows = column_range[1] - column_range[0] + 1
+        columns = initial_height + offset * (rows//2)
         channel = np.zeros((rows, columns), dtype=int)
-        height = game_config.initial_height
+        height = initial_height
         for i in range(rows):
             for j in range(height):
                 channel[i][j] = 1
             if i < rows//2:
-                height += game_config.offset
+                height += offset
             else:
-                height -= game_config.offset
+                height -= offset
         return channel
 
     def finished_columns_channels(self, state, channel):
@@ -279,9 +163,9 @@ class AlphaZeroPlayer(Player):
         else:
             return np.zeros(shape, dtype=int)
 
-    def transform_to_input(self, game, game_config):
+    def transform_to_input(self, game, column_range, offset, initial_height):
         """Receive the game state and return the six channels used as input for the network"""
-        channel_valid = self.valid_positions_channel(game_config)
+        channel_valid = self.valid_positions_channel(column_range, offset, initial_height)
         channel_finished_1, channel_finished_2 = self.finished_columns_channels(game, channel_valid)
         channel_won_column_1, channel_won_column_2 = self.player_won_column_channels(game, channel_valid)
         channel_turn = self.player_turn_channel(game, channel_valid)
@@ -378,6 +262,8 @@ class AlphaZeroPlayer(Player):
 
         #Get the probability distribution of the states (Label for the NN)
         dist_probs_label = [play[1] for game in dataset_for_network for play in game]
+        #print('dist prob label')
+        #print(dist_probs_label)
         dist_probs_label = [self.transform_dist_prob(dist_dict) for dist_dict in dist_probs_label]
         dist_probs_label = np.array(dist_probs_label)
 

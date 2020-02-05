@@ -6,10 +6,6 @@ import copy
 import random
 import collections
 from game import Board, Game
-from utils import valid_positions_channel, finished_columns_channels
-from utils import player_won_column_channels, player_turn_channel
-from utils import transform_dist_prob, transform_to_input
-from utils import transform_actions_to_dist, transform_dataset_to_input
 from config import GameConfig, AlphaZeroConfig
 from statistics import Statistic
 from players.vanilla_uct_player import Vanilla_UCT
@@ -31,26 +27,14 @@ if __name__ == "__main__":
     
     dsl = DSL()
     dsl.generateRandomScript(1)
-    
-    game_config = GameConfig(n_players = 2, dice_number = 4, dice_value = 6, column_range = [2,12],
-                    offset = 2, initial_height = 1)
-
-    uct_config1 = AlphaZeroConfig(c = 1, n_simulations = 10, n_games = 10, 
-                                        n_games_evaluate = 1, max_game_length = 50,
-                                        victory_rate = 55, alphazero_iterations = 1, 
-                                        use_UCT_playout = True)
-    
-    uct_config2 = AlphaZeroConfig(c = 10, n_simulations = 1, n_games = 10, 
-                                    n_games_evaluate = 1, max_game_length = 50,
-                                    victory_rate = 55, alphazero_iterations = 1, 
-                                    use_UCT_playout = True)
 
     victories1 = 0
     victories2 = 0
     for _ in range(1):
-        game = Game(game_config)
-        uct1 = Vanilla_UCT(uct_config1)
-        uct2 = Vanilla_UCT(uct_config2)
+        game = Game(n_players = 2, dice_number = 4, dice_value = 6, column_range = [2,12],
+                    offset = 2, initial_height = 1)
+        uct1 = Vanilla_UCT(c = 1, n_simulations = 10)
+        uct2 = Vanilla_UCT(c = 10, n_simulations = 1)
         
         is_over = False
         who_won = None

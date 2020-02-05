@@ -6,24 +6,29 @@ import pickle
 import os
 
 class Statistic:
-    def __init__(self, eval_net_vs_net = None, eval_net_vs_uct = None, alphazero_config = None, network_config = None):
+    def __init__(self, eval_net_vs_net = None, eval_net_vs_uct = None, n_simulations = None, n_games = None,
+                    alphazero_iterations = None, use_UCT_playout = None, conv_number = None):
         self.eval_net_vs_net = eval_net_vs_net
         self.eval_net_vs_uct = eval_net_vs_uct
-        self.alphazero_config = alphazero_config
-        self.network_config = network_config
-        if alphazero_config != None and network_config != None:
-            self.path = 'data_'+str(self.alphazero_config.n_simulations)+'_'+str(self.alphazero_config.n_games) \
-                + '_' + str(self.alphazero_config.alphazero_iterations) + '_' + str(self.network_config.conv_number) + \
-                '_' + str(self.alphazero_config.use_UCT_playout) + '/'
+        self.n_simulations = n_simulations
+        self.n_games = n_games
+        self.alphazero_iterations = alphazero_iterations
+        self.use_UCT_playout = use_UCT_playout
+        self.conv_number = conv_number
+        if n_simulations != None and n_games != None and alphazero_iterations != None and \
+            use_UCT_playout != None and conv_number != None:
+            self.path = 'data_'+str(self.n_simulations)+'_'+str(self.n_games) \
+                + '_' + str(self.alphazero_iterations) + '_' + str(self.conv_number) + \
+                '_' + str(self.use_UCT_playout) + '/'
                 
 
     def save_to_file(self, alphazero_iteration):
         """Save the analysis data of this iteration to file."""
         if not os.path.exists(self.path):
             os.makedirs(self.path)
-        filename = self.path + '/' + str(self.alphazero_config.n_simulations)+'_'+str(self.alphazero_config.n_games) \
-                + '_' + str(self.alphazero_config.alphazero_iterations) + '_' + str(self.network_config.conv_number) + \
-                '_' + str(self.alphazero_config.use_UCT_playout) + '_' + str(alphazero_iteration)
+        filename = self.path + '/' + str(self.n_simulations)+'_'+str(self.n_games) \
+                + '_' + str(self.alphazero_iterations) + '_' + str(self.conv_number) + \
+                '_' + str(self.use_UCT_playout) + '_' + str(alphazero_iteration)
         with open(filename, 'wb') as file:
             pickle.dump(self.__dict__, file)
 
@@ -36,8 +41,11 @@ class Statistic:
             stats = pickle.load(file)
             self.eval_net_vs_net = stats['eval_net_vs_net']
             self.eval_net_vs_uct = stats['eval_net_vs_uct']
-            self.alphazero_config = stats['alphazero_config']
-            self.network_config = stats['network_config']
+            self.n_simulations = stats['n_simulations']
+            self.n_games = stats['n_games']
+            self.alphazero_iterations = stats['alphazero_iterations']
+            self.use_UCT_playout = stats['use_UCT_playout']
+            self.conv_number = stats['conv_number']
             self.path = stats['path']
 
 
@@ -45,16 +53,16 @@ class Statistic:
         """Save the networkmodel of this iteration to file."""
         if not os.path.exists(self.path):
             os.makedirs(self.path)
-        filename = self.path + '/' + str(self.alphazero_config.n_simulations)+'_'+str(self.alphazero_config.n_games) \
-                + '_' + str(self.alphazero_config.alphazero_iterations) + '_' + str(self.network_config.conv_number) + \
-                '_' + str(self.alphazero_config.use_UCT_playout) + '_' + str(alphazero_iteration) + '_model.h5'
+        filename = self.path + '/' + str(self.n_simulations)+'_'+str(self.n_games) \
+                + '_' + str(self.alphazero_iterations) + '_' + str(self.conv_number) + \
+                '_' + str(self.use_UCT_playout) + '_' + str(alphazero_iteration) + '_model.h5'
         model.save(filename)
 
     def generate_graphs(self):
         """Generate graphs based on alphazero iterations."""
-        save_path = 'graphs_'+str(self.alphazero_config.n_simulations)+'_'+str(self.alphazero_config.n_games) \
-                    + '_' + str(self.alphazero_config.alphazero_iterations) + '_' + str(self.network_config.conv_number) + \
-                    '_' + str(self.alphazero_config.use_UCT_playout) + '/'
+        save_path = 'graphs_'+str(self.n_simulations)+'_'+str(self.n_games) \
+                    + '_' + str(self.alphazero_iterations) + '_' + str(self.conv_number) + \
+                    '_' + str(self.use_UCT_playout) + '/'
         if not os.path.exists(save_path):
             os.makedirs(save_path)
             

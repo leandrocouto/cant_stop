@@ -2,12 +2,19 @@ from game import Game
 import time
 from players.vanilla_uct_player import Vanilla_UCT
 from players.alphazero_player import AlphaZeroPlayer
+from players.uct_player import UCTPlayer
 from statistics import Statistic
 
 class Experiment:
 
-    def __init__(self, game_config, max_game_length):
-        self.game_config = game_config
+    def __init__(self, n_players, dice_number, dice_value, column_range,
+                    offset, initial_height, max_game_length):
+        self.n_players = n_players
+        self.dice_number = dice_number
+        self.dice_value = dice_value
+        self.column_range = column_range 
+        self.offset = offset
+        self.initial_height = initial_height
         self.max_game_length = max_game_length
 
     def play_single_game(self, player1, player2):
@@ -21,7 +28,8 @@ class Experiment:
         Return 1 if self.player1 won and 2 if self.player2 won.
         """
         data_of_a_game = []
-        game = Game(self.game_config)
+        game = Game(self.n_players, self.dice_number, self.dice_value, self.column_range,
+                    self.offset, self.initial_height)
         is_over = False
         rounds = 0
         while not is_over:
@@ -29,14 +37,14 @@ class Experiment:
             # Collecting data for later input to the NN if any of the players are
             # subclasses of AlphaZeroPlayer.
             if isinstance(player1, AlphaZeroPlayer):
-                channel_valid = player1.valid_positions_channel(self.game_config)
+                channel_valid = player1.valid_positions_channel(self.column_range, self.offset, self.initial_height)
                 channel_finished_1, channel_finished_2 = player1.finished_columns_channels(game, channel_valid)
                 channel_won_column_1, channel_won_column_2 = player1.player_won_column_channels(game, channel_valid)
                 channel_turn = player1.player_turn_channel(game, channel_valid)
                 list_of_channels = [channel_valid, channel_finished_1, channel_finished_2,
                                     channel_won_column_1, channel_won_column_2, channel_turn]
             elif isinstance(player2, AlphaZeroPlayer):
-                channel_valid = player2.valid_positions_channel(self.game_config)
+                channel_valid = player2.valid_positions_channel(self.column_range, self.offset, self.initial_height)
                 channel_finished_1, channel_finished_2 = player2.finished_columns_channels(game, channel_valid)
                 channel_won_column_1, channel_won_column_2 = player2.player_won_column_channels(game, channel_valid)
                 channel_turn = player2.player_turn_channel(game, channel_valid)
@@ -49,12 +57,12 @@ class Experiment:
                 if game.player_turn == 1:
                     chosen_play = player1.get_action(game)
                     dist_probability = []
-                    if isinstance(player1, AlphaZeroPlayer):
+                    if isinstance(player1, UCTPlayer):
                         dist_probability = player1.get_dist_probability()
                 else:
                     chosen_play = player2.get_action(game)
                     dist_probability = []
-                    if isinstance(player2, AlphaZeroPlayer):
+                    if isinstance(player2, UCTPlayer):
                         dist_probability = player2.get_dist_probability()
                 if isinstance(player1, AlphaZeroPlayer) or isinstance(player2, AlphaZeroPlayer):
                     # Collecting data
@@ -71,7 +79,7 @@ class Experiment:
                 who_won, is_over = game.is_finished()
         return data_of_a_game, who_won
 
-    def play_alphazero_iteration(self, alphazero_config, old_model, current_model, network_config):
+    def play_alphazero_iteration(self, old_model, current_model, use_UCT_playout, epochs, conv_number):
         """
         Both old_model and current_model are instances of AlphaZeroPlayer
         """
@@ -105,7 +113,7 @@ class Experiment:
         #
         #
 
-        for i in range(alphazero_config.n_games):
+        for i in range(current_model.n_games):
             data_of_a_game, who_won = self.play_single_game(current_model, current_model)
             print('Self-play - GAME', i ,'OVER - PLAYER', who_won, 'WON')
             if who_won == 1:
@@ -135,7 +143,7 @@ class Experiment:
 
         x_train, y_train = current_model.transform_dataset_to_input(dataset_for_network)
 
-        history_callback = current_model.network.fit(x_train, y_train, epochs=network_config.epochs, shuffle=True)
+        history_callback = current_model.network.fit(x_train, y_train, epochs = epochs, shuffle = True)
 
         # Saving data
         loss_history = sum(history_callback.history["loss"]) / len(history_callback.history["loss"])
@@ -159,13 +167,13 @@ class Experiment:
         print()
 
         # The current network faces the previous one.
-        # If it does not win alphazero_config.victory_rate % it completely
+        # If it does not win victory_rate % it completely
         # discards the current network.
 
         victory_1_eval_net = 0
         victory_2_eval_net = 0
 
-        for i in range(alphazero_config.n_games_evaluate):
+        for i in range(current_model.n_games_evaluate):
             data_of_a_game, who_won = self.play_single_game(current_model, old_model)
             if who_won == 1:
                 victory_1_eval_net += 1
@@ -174,7 +182,7 @@ class Experiment:
 
         data_net_vs_net.append((victory_1_eval_net, victory_2_eval_net))
 
-        necessary_won_games = (alphazero_config.victory_rate * alphazero_config.n_games_evaluate) / 100
+        necessary_won_games = (current_model.victory_rate * current_model.n_games_evaluate) / 100
 
         if victory_1_eval_net <= necessary_won_games:
             print('New model is worse and won ', victory_1_eval_net)
@@ -200,9 +208,9 @@ class Experiment:
             print('MODEL EVALUATION - Network vs. UCT')
             print()
 
-            uct_player = Vanilla_UCT(alphazero_config)
+            uct_player = Vanilla_UCT(current_model.c, current_model.n_simulations)
 
-            for i in range(alphazero_config.n_games_evaluate):
+            for i in range(current_model.n_games_evaluate):
                 data_of_a_game_eval, who_won = self.play_single_game(current_model, uct_player)
                 print('Net vs UCT - GAME', i ,'OVER - PLAYER', who_won, 'WON')
                 if who_won == 1:
@@ -245,12 +253,13 @@ class Experiment:
             elapsed_time = time.time() - start
             print('Time elapsed: ', elapsed_time)
 
-            stats = Statistic(data_net_vs_net, data_net_vs_uct, alphazero_config, network_config)
+            stats = Statistic(data_net_vs_net, data_net_vs_uct, n_simulations = current_model.n_simulations,
+                     n_games = current_model.n_games, alphazero_iterations = current_model.alphazero_iterations, 
+                     use_UCT_playout = use_UCT_playout, conv_number = conv_number)
 
             return stats, old_model, current_model
 
-        # In case the new model is worse than the previous one,
-        # returns an empty list.
-        # TODO: Implement a better strategy
-        return [], [], []
+        # If the new model is worse than the previous one,
+        # then the stats and the new trained network is discarded.
+        return [], old_model, old_model
                	

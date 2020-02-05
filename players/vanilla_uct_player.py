@@ -3,12 +3,12 @@ from game import Game
 import math, random
 import numpy as np
 import copy
-from players.alphazero_player import AlphaZeroPlayer, Node
+from players.uct_player import UCTPlayer, Node
 
-class Vanilla_UCT(AlphaZeroPlayer):
+class Vanilla_UCT(UCTPlayer):
 
-    def __init__(self, alphazero_config):
-        super().__init__(alphazero_config)
+    def __init__(self, c, n_simulations):
+        super().__init__(c, n_simulations)
 
     def expand_children(self, parent):
         valid_actions = parent.state.available_moves()
@@ -42,7 +42,7 @@ class Vanilla_UCT(AlphaZeroPlayer):
         """
         Return the node UCB1 value of the MAX player.
         """
-        return node.q_a[action] + self.alphazero_config.c * math.sqrt(
+        return node.q_a[action] + self.c * math.sqrt(
                                     np.divide(math.log(node.n_visits),
                                   node.n_a[action]))
 
@@ -50,6 +50,6 @@ class Vanilla_UCT(AlphaZeroPlayer):
         """
         Return the node UCB1 value of the MIN player.
         """
-        return node.q_a[action] - self.alphazero_config.c * math.sqrt(
+        return node.q_a[action] - self.c * math.sqrt(
                                     np.divide(math.log(node.n_visits),
                                   node.n_a[action]))
