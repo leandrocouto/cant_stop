@@ -41,6 +41,7 @@ class DSL:
         else:
             index = random.randint(0, len(self._grammar[symbol]) - 1)
         random_rule = self._grammar[symbol][index]
+        
         symbols = random_rule.split()
         script = ''
         for s in symbols:

@@ -35,7 +35,6 @@ class GP:
             
     def _computeFitness(self):
         for k in range(self._number_matches):
-            print('Match set: ', k + 1)
             for i in range(self._population_size):
                 for j in range(i + 1, self._population_size):
                     result, is_over = self._play_match(self._population[i], self._population[j])
@@ -92,6 +91,7 @@ class GP:
     
     def evolve(self, crossover=True):
         for k in range(self._generations):
+            print('***Generation ', k+1, '***')
             next_population = []
             
             self._computeFitness()
@@ -100,22 +100,21 @@ class GP:
             
             print('ID, Fitness, Matches Played')
             for i in range(self._population_size):
-                print(self._population[i].getId(), self._population[i].getFitness(), self._population[i].getMatchesPlayed())
+                print('===================================================================================')
+                print('Rank: ', i + 1, '\t Id: ', self._population[i].getId(), '\t Fitness: ', self._population[i].getFitness(), 
+                      '\t Matches Played: ', self._population[i].getMatchesPlayed())
+                self._population[i].print()
             print()
             
             #elite individuals
-            print('Printing Elite')
             for i in range(self._elite):
-                print(self._population[i].getId())
-#                 self._population[i].print()
                 next_population.append(self._population[i])
-#                 print()
-#             print()
 
             #adding invaders
             for _ in range(self._invaders):
                 script = self._dsl.generateRandomScript()
                 next_population.append(script)
+            print()
             
             #reproduction
             while len(next_population) < len(self._population):
