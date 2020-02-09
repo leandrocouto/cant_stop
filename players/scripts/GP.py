@@ -17,7 +17,7 @@ class GP:
         self._tournament_size = tournament_size
         self._invaders = invaders
         
-        parameters_str = str(generations) + '_' + str(mutation_rate).replace('.', '') + '_' + str(population_size) + '_' \
+        parameters_str = str(generations) + '_' + str(mutation_rate).replace('.', '') + '_' + str(population_size) + '_' + str(elite) + '_' \
         + str(tournament_size) + '_' + str(number_matches) + '_' + str(invaders)
         
         self._path_run = 'players/scripts/generated/' + parameters_str + '/' + str(run_id) + '/' 
