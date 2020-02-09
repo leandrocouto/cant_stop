@@ -7,29 +7,31 @@ class DSL:
     def __init__(self):
         
         self.start = 'S'
+        self.start_single = 'SR'
+        self.boolean = 'B'
         
-        self.grammar = {}
-        self.grammar[self.start] = ['if B : \n \t return a \n S', '']
-        self.grammar['B'] = ['B and B', 'B or B', 'F > NUMBER', 'F < NUMBER', 'F == NUMBER', 'B1']
-        self.grammar['B1'] = ['isDoubles(a)', 'containsNumber(a, NUMBER )', 'actionWinsColumn(state,a)', 'DSL.isStopAction(a)']
-        self.grammar['F'] = ['numberColumnsWon(state,a)']
-        self.grammar['NUMBER'] = ['0', '1', '2', '3', '4', '5', '6']
+        self._grammar = {}
+        self._grammar[self.start] = ['if B S', '']
+        self._grammar[self.start_single] = ['if B', '']
+        #self._grammar['B'] = ['B and B', 'B or B', 'F > NUMBER', 'F < NUMBER', 'F == NUMBER', 'B1']
+        self._grammar['B'] = ['B1 and B1', 'B1 or B1', 'B1']
+        self._grammar['B1'] = ['DSL.isDoubles(a)', 'DSL.containsNumber(a, NUMBER )', 'DSL.actionWinsColumn(state,a)', 'DSL.hasWonColumn(state,a)' , 'DSL.isStopAction(a)']
+        #self._grammar['F'] = ['DSL.numberColumnsWon(state,a)']
+        #self._grammar['NUMBER'] = ['0', '1', '2', '3', '4', '5', '6']
+        self._grammar['NUMBER'] = ['2', '3', '4', '5', '6']
+        
+        self._reservedWords = ['if']
         
         self.setRules = [] 
 
-    def generateRandomScript(self, id):
-        script_text = self._dfsGenerateRandomScript(self.start, 0)
-        script = Script(script_text, self.setRules, id)
+    def generateRandomScript(self, id = 0, start='S'):
+        _ = self._dfsGenerateRandomScript(start, 0)
+        script = Script(self.setRules, id)
         self.setRules = []
-        script.print()
-        print('Saving file...')
-        script.saveFile()
-        
-        
         return script
             
     def _dfsGenerateRandomScript(self, symbol, depth):
-        if symbol not in self.grammar:
+        if symbol not in self._grammar:
             return symbol + ' '
         
         rules = []
@@ -37,15 +39,16 @@ class DSL:
         if depth == 0 and symbol == self.start:
             index = 0
         else:
-            index = random.randint(0, len(self.grammar[symbol]) - 1)
-        random_rule = self.grammar[symbol][index]
+            index = random.randint(0, len(self._grammar[symbol]) - 1)
+        random_rule = self._grammar[symbol][index]
+        
         symbols = random_rule.split()
         script = ''
         for s in symbols:
             terminal = self._dfsGenerateRandomScript(s, depth + 1)            
             script += terminal
             
-            if symbol == self.start and s != self.start:
+            if symbol == self.start and s != self.start and s not in self._reservedWords:
                 rules.append(terminal)
         
         if len(rules) > 0:
@@ -79,6 +82,10 @@ class DSL:
     @staticmethod
     def numberColumnsWon(state, action):
         return len(state.columns_won_current_round())
+
+    @staticmethod
+    def hasWonColumn(state, action):
+        return len(state.columns_won_current_round()) > 0
     
     @staticmethod
     def isStopAction(action):
