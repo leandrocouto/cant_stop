@@ -1,5 +1,6 @@
 import importlib
 import random
+import shutil
 import glob
 import copy
 import os
@@ -165,6 +166,7 @@ class GP:
                 
     def _clean_folder(self):
         files = glob.glob(self._path_run + '*.py')
+        shutil.rmtree(self._path_run + '__pycache__/')
         for f in files:
             os.remove(f)
                 
