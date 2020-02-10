@@ -1,5 +1,6 @@
 import importlib
 import random
+import glob
 import copy
 import os
 
@@ -16,6 +17,7 @@ class GP:
         self._number_matches = number_matches
         self._tournament_size = tournament_size
         self._invaders = invaders
+        self._id_counter = 0
         
         parameters_str = str(generations) + '_' + str(mutation_rate).replace('.', '') + '_' + str(population_size) + '_' + str(elite) + '_' \
         + str(tournament_size) + '_' + str(number_matches) + '_' + str(invaders)
@@ -28,19 +30,20 @@ class GP:
         
         self._dsl = DSL()
         
-        for id in range(self._population_size):
-            script = self._dsl.generateRandomScript(id)
+        for _ in range(self._population_size):
+            script = self._dsl.generateRandomScript(self._id_counter)
             script.saveFile(self._path_run)
             self._population.append(script)
+            self._id_counter += 1
             
     def _computeFitness(self):
         for k in range(self._number_matches):
-            for i in range(self._population_size):
-                for j in range(i + 1, self._population_size):
+            for i in range(len(self._population)):
+                for j in range(i + 1, len(self._population)):
                     result, is_over = self._play_match(self._population[i], self._population[j])
                     self._population[i].incrementMatchesPlayed()
                     self._population[j].incrementMatchesPlayed()
-                    
+                                                            
                     if result == 1 and is_over:
                         self._population[i].addFitness(1)
                         self._population[j].addFitness(-1)
@@ -54,7 +57,7 @@ class GP:
                     result, is_over = self._play_match(self._population[j], self._population[i])
                     self._population[i].incrementMatchesPlayed()
                     self._population[j].incrementMatchesPlayed()
-                    
+                     
                     if result == 1 and is_over:
                         self._population[i].addFitness(-1)
                         self._population[j].addFitness(1)
@@ -108,13 +111,15 @@ class GP:
             
             #elite individuals
             for i in range(self._elite):
-                next_population.append(self._population[i])
+#                 print('Adding elite: ', i)
+#                 self._population[i].print()
+                next_population.append(copy.deepcopy(self._population[i]))
+#             print()
 
             #adding invaders
             for _ in range(self._invaders):
                 script = self._dsl.generateRandomScript()
                 next_population.append(script)
-            print()
             
             #reproduction
             while len(next_population) < len(self._population):
@@ -127,6 +132,9 @@ class GP:
                     for c in children:
                         c.mutate(self._mutation_rate, self._dsl)
                         next_population.append(c)
+                        
+                        if len(next_population) == self._population_size:
+                            break
                 else:
                     random_elite = next_population[random.randint(0, self._elite - 1)]
                     copy_random_elite = copy.deepcopy(random_elite)
@@ -134,12 +142,21 @@ class GP:
                     next_population.append(copy_random_elite)
             
             self._population = next_population
-            id_count = 0
+            
+            #Cleaning-up folder with scripts 
+            self._clean_folder()
+            
             for ind in self._population:
                 ind.clearAttributes()
-                ind.setId(id_count)
+                ind.setId(self._id_counter)
+                
                 ind.saveFile(self._path_run)
-                id_count += 1
+                self._id_counter += 1
+                
+    def _clean_folder(self):
+        files = glob.glob(self._path_run + '*.py')
+        for f in files:
+            os.remove(f)
                 
     def _play_match(self, script1, script2):
             
@@ -151,6 +168,7 @@ class GP:
         class_ = getattr(module, 'Script' + str(script2.getId()))
         instance_script2 = class_()
         
+#         game = Game(n_players = 2, dice_number = 4, dice_value = 6, column_range = [2, 12], offset = 2, initial_height = 2)
         game = Game(n_players = 2, dice_number = 4, dice_value = 3, column_range = [2, 6], offset = 2, initial_height = 1)
         
         is_over = False

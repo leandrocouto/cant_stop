@@ -11,14 +11,18 @@ class DSL:
         self.boolean = 'B'
         
         self._grammar = {}
-        self._grammar[self.start] = ['if B S', '']
-        self._grammar[self.start_single] = ['if B', '']
+        self._grammar[self.start] = ['if B1 S', '']
+        self._grammar[self.start_single] = ['if B1', '']
         #self._grammar['B'] = ['B and B', 'B or B', 'F > NUMBER', 'F < NUMBER', 'F == NUMBER', 'B1']
-        self._grammar['B'] = ['B1 and B1', 'B1 or B1', 'B1']
-        self._grammar['B1'] = ['DSL.isDoubles(a)', 'DSL.containsNumber(a, NUMBER )', 'DSL.actionWinsColumn(state,a)', 'DSL.hasWonColumn(state,a)' , 'DSL.isStopAction(a)']
+        self._grammar['B'] = ['B1', 'B1 and B1', 'B1 or B1']
+        self._grammar['B1'] = ['DSL.isDoubles(a)', 'DSL.containsNumber(a, NUMBER )', 'DSL.actionWinsColumn(state,a)', 'DSL.hasWonColumn(state,a)', 
+                               'DSL.numberPositionsProgressedThisRoundColumn(state, NUMBER ) > SMALL_NUMBER and DSL.isStopAction(a)', 'DSL.isStopAction(a)',
+                               'DSL.numberPositionsConquered(state, NUMBER ) > SMALL_NUMBER and DSL.containsNumber(a, NUMBER )']
         #self._grammar['F'] = ['DSL.numberColumnsWon(state,a)']
         #self._grammar['NUMBER'] = ['0', '1', '2', '3', '4', '5', '6']
         self._grammar['NUMBER'] = ['2', '3', '4', '5', '6']
+#         self._grammar['NUMBER'] = ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
+        self._grammar['SMALL_NUMBER'] = ['0', '1', '2']
         
         self._reservedWords = ['if']
         
@@ -82,6 +86,14 @@ class DSL:
     @staticmethod
     def numberColumnsWon(state, action):
         return len(state.columns_won_current_round())
+    
+    @staticmethod
+    def numberPositionsProgressedThisRoundColumn(state, column):
+        return state.number_positions_conquered_this_round(column)
+    
+    @staticmethod
+    def numberPositionsConquered(state, column):
+        return state.number_positions_conquered(column)
 
     @staticmethod
     def hasWonColumn(state, action):

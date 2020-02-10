@@ -25,7 +25,7 @@ class Script{0}(Player):
                 return a
                     '''
         self._end_script = r'''
-        return random.choice(actions)
+        return actions[0]
                     '''
         
     def __eq__(self, other):
