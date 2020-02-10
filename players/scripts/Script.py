@@ -14,6 +14,14 @@ from players.scripts.DSL import DSL
 
 class Script{0}(Player):
 
+    def __init__(self):
+        self._counter_calls = []
+        for i in range({1}):
+            self._counter_calls.append(0)
+            
+    def get_counter_calls(self):
+        return self._counter_calls 
+
     def get_action(self, state):
         actions = state.available_moves()
         
@@ -22,6 +30,7 @@ class Script{0}(Player):
         
         self._if_string = r'''
             if {0}:
+                self._counter_calls[{1}] += 1
                 return a
                     '''
         self._end_script = r'''
@@ -43,6 +52,14 @@ class Script{0}(Player):
     def clearAttributes(self):
         self._fitness = 0
         self._matches_played = 0
+        
+    def remove_unused_rules(self, counter_calls):
+        new_rules = []
+        for i in range(len(self._rules)):
+            if counter_calls[i] > 0:
+                new_rules.append(self._rules[i])
+        if len(new_rules) > 0:
+            self._rules = new_rules
         
     def mutate(self, rate, dsl):
         mutated_rules = []
@@ -98,10 +115,12 @@ class Script{0}(Player):
         return self._matches_played
     
     def _generateTextScript(self):
-        py = self._py.format(str(self._id))
         
-        for rule in self._rules:
-            py += self._if_string.format(rule[0])
+        number_rules = len(self._rules)
+        py = self._py.format(str(self._id), str(number_rules))
+        
+        for i in range(number_rules):
+            py += self._if_string.format(self._rules[i][0], i)
         py += self._end_script
         
         return py

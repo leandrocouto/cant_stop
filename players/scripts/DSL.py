@@ -11,8 +11,8 @@ class DSL:
         self.boolean = 'B'
         
         self._grammar = {}
-        self._grammar[self.start] = ['if B1 S', '']
-        self._grammar[self.start_single] = ['if B1', '']
+        self._grammar[self.start] = ['if B S', '']
+        self._grammar[self.start_single] = ['if B', '']
         #self._grammar['B'] = ['B and B', 'B or B', 'F > NUMBER', 'F < NUMBER', 'F == NUMBER', 'B1']
         self._grammar['B'] = ['B1', 'B1 and B1', 'B1 or B1']
         self._grammar['B1'] = ['DSL.isDoubles(a)', 'DSL.containsNumber(a, NUMBER )', 'DSL.actionWinsColumn(state,a)', 'DSL.hasWonColumn(state,a)', 

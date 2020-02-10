@@ -18,6 +18,7 @@ class GP:
         self._tournament_size = tournament_size
         self._invaders = invaders
         self._id_counter = 0
+        self._scripts_instances = {}
         
         parameters_str = str(generations) + '_' + str(mutation_rate).replace('.', '') + '_' + str(population_size) + '_' + str(elite) + '_' \
         + str(tournament_size) + '_' + str(number_matches) + '_' + str(invaders)
@@ -106,8 +107,17 @@ class GP:
                 print('===================================================================================')
                 print('Rank: ', i + 1, '\t Id: ', self._population[i].getId(), '\t Fitness: ', self._population[i].getFitness(), 
                       '\t Matches Played: ', self._population[i].getMatchesPlayed())
+                
+                #Removing unsued rules in the scripts
+                script_name = 'Script' + str(self._population[i].getId())
+                counter_calls = self._scripts_instances[script_name].get_counter_calls()
+                self._population[i].remove_unused_rules(counter_calls)
                 self._population[i].print()
+                print()
             print()
+            
+            #removing from memory instances of scripts of the previous generation
+            self._scripts_instances = {} 
             
             #elite individuals
             for i in range(self._elite):
@@ -159,14 +169,25 @@ class GP:
             os.remove(f)
                 
     def _play_match(self, script1, script2):
-            
-        module = importlib.import_module(self._path_run.replace('/', '.') + 'Script' + str(script1.getId()))
-        class_ = getattr(module, 'Script' + str(script1.getId()))
-        instance_script1 = class_()
         
-        module = importlib.import_module(self._path_run.replace('/', '.') + 'Script' + str(script2.getId()))
-        class_ = getattr(module, 'Script' + str(script2.getId()))
-        instance_script2 = class_()
+        script1_name = 'Script' + str(script1.getId())
+        script2_name = 'Script' + str(script2.getId())
+        
+        if script1_name not in self._scripts_instances:
+            module = importlib.import_module(self._path_run.replace('/', '.') + script1_name)
+            class_ = getattr(module, 'Script' + str(script1.getId()))
+            instance_script1 = class_()
+            self._scripts_instances[script1_name] = instance_script1
+        else:
+            instance_script1 = self._scripts_instances[script1_name]
+        
+        if script2_name not in self._scripts_instances:
+            module = importlib.import_module(self._path_run.replace('/', '.') + script2_name)
+            class_ = getattr(module, 'Script' + str(script2.getId()))
+            instance_script2 = class_()
+            self._scripts_instances[script2_name] = instance_script2
+        else:
+            instance_script2 = self._scripts_instances[script2_name]
         
 #         game = Game(n_players = 2, dice_number = 4, dice_value = 6, column_range = [2, 12], offset = 2, initial_height = 2)
         game = Game(n_players = 2, dice_number = 4, dice_value = 3, column_range = [2, 6], offset = 2, initial_height = 1)
@@ -174,7 +195,6 @@ class GP:
         is_over = False
         who_won = None
     
-        infinite_loop = 0
         number_of_moves = 0
         while not is_over:
             moves = game.available_moves()
