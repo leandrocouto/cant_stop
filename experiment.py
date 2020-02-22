@@ -79,7 +79,7 @@ class Experiment:
                 who_won, is_over = game.is_finished()
         return data_of_a_game, who_won
 
-    def play_alphazero_iteration(self, current_model, old_model, uct_evaluation, use_UCT_playout, epochs, conv_number):
+    def play_alphazero_iteration(self, current_model, old_model, UCTs_eval, use_UCT_playout, epochs, conv_number):
         """
         Both old_model and current_model are instances of AlphaZeroPlayer
         """
@@ -219,32 +219,45 @@ class Experiment:
                 print('Draws: ', victory_0_eval_net, file=f)
 
             # The new model is better. Therefore, evaluate it against
-            # vanilla UCT and store the data for later analysis.
+            # a list of vanilla UCTs and store the data for later analysis.
 
-            victory_0_eval = 0
-            victory_1_eval = 0
-            victory_2_eval = 0
+            # List of victories of each vanilla UCTs
+            victory_0_eval = [0 for i in range(len(UCTs_eval))]
+            victory_1_eval = [0 for i in range(len(UCTs_eval))]
+            victory_2_eval = [0 for i in range(len(UCTs_eval))]
 
-            with open(file_name, 'a') as f:
-                print('MODEL EVALUATION - Network vs. UCT', file=f)
+            for ucts in range(len(UCTs_eval)):
+                with open(file_name, 'a') as f:
+                    print('MODEL EVALUATION - Network vs. UCT - ', UCTs_eval[ucts].n_simulations,' simulations', file=f)
 
-            for i in range(current_model.n_games_evaluate):
-                _, who_won = self.play_single_game(current_model, uct_evaluation)
-                #print('Net vs UCT - GAME', i ,'OVER - PLAYER', who_won, 'WON')
-                if who_won == 1:
-                    victory_1_eval += 1
-                elif who_won == 2:
-                    victory_2_eval += 1
-                else:
-                    victory_0_eval += 1
+                for i in range(current_model.n_games_evaluate):
+                    # If "i" is even, current_model is Player 1, otherwise current_model is Player 2.
+                    # This helps reduce possible victory biases from player placements.
+                    if i % 2 == 0:
+                        _, who_won = self.play_single_game(current_model, UCTs_eval[ucts])
+                        if who_won == 1:
+                            victory_1_eval[ucts] += 1
+                        elif who_won == 2:
+                            victory_2_eval[ucts] += 1
+                        else:
+                            victory_0_eval[ucts] += 1
+                    else:
+                        _, who_won = self.play_single_game(UCTs_eval[ucts], current_model)
+                        if who_won == 2:
+                            victory_1_eval[ucts] += 1
+                        elif who_won == 1:
+                            victory_2_eval[ucts] += 1
+                        else:
+                            victory_0_eval[ucts] += 1
 
-            with open(file_name, 'a') as f:
-                print('Net vs UCT - Network won', victory_1_eval,'time(s).', file=f)
-                print('Net vs UCT - UCT won', victory_2_eval,'time(s).', file=f)
-                print('Net vs UCT - Draws: ', victory_0_eval, file=f)
+                with open(file_name, 'a') as f:
+                    print('Net vs UCT - Network won', victory_1_eval[ucts],'time(s).', file=f)
+                    print('Net vs UCT - UCT won', victory_2_eval[ucts],'time(s).', file=f)
+                    print('Net vs UCT - Draws: ', victory_0_eval[ucts], file=f)
 
+            list_of_n_simulations = [uct.n_simulations for uct in UCTs_eval]
             # Saving data
-            data_net_vs_uct.append((victory_0_eval, victory_1_eval, victory_2_eval))
+            data_net_vs_uct.append((victory_0_eval, victory_1_eval, victory_2_eval, list_of_n_simulations))
 
             elapsed_time = time.time() - start
             with open(file_name, 'a') as f:

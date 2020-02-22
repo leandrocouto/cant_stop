@@ -92,7 +92,6 @@ def main():
         conv_number = None
         for file in valid_files:
             file = file_path + '/' + file
-            print('file:', file)
             stats = Statistic()
             stats.load_from_file(file)
             data_net_vs_net_training.append(stats.data_net_vs_net_training[0]) 
@@ -115,7 +114,7 @@ def main():
     if int(sys.argv[2]) == 0: n_games = 10
     if int(sys.argv[2]) == 1: n_games = 100
     if int(sys.argv[2]) == 2: n_games = 500
-    if int(sys.argv[3]) == 0: alphazero_iterations = 50
+    if int(sys.argv[3]) == 0: alphazero_iterations = 10
     if int(sys.argv[3]) == 1: alphazero_iterations = 100
     if int(sys.argv[4]) == 0: conv_number = 1
     if int(sys.argv[4]) == 1: conv_number = 2
@@ -128,17 +127,17 @@ def main():
     old_model.set_weights(current_model.get_weights())
 
     if use_UCT_playout:
-        player1 = Network_UCT_With_Playout(c = 10, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = 100,
+        player1 = Network_UCT_With_Playout(c = 10, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = 10,
                     victory_rate = 55, alphazero_iterations = alphazero_iterations, column_range = [2,6],
                     offset = 2, initial_height = 1, network = current_model)
-        player2 = Network_UCT_With_Playout(c = 10, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = 100,
+        player2 = Network_UCT_With_Playout(c = 10, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = 10,
                     victory_rate = 55, alphazero_iterations = alphazero_iterations, column_range = [2,6],
                     offset = 2, initial_height = 1, network = old_model)
     else:
-        player1 = Network_UCT(c = 10, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = 100,
+        player1 = Network_UCT(c = 10, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = 10,
                     victory_rate = 55, alphazero_iterations = alphazero_iterations, column_range = [2,6],
                     offset = 2, initial_height = 1, network = current_model)
-        player2 = Network_UCT(c = 10, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = 100,
+        player2 = Network_UCT(c = 10, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = 10,
                     victory_rate = 55, alphazero_iterations = alphazero_iterations, column_range = [2,6],
                     offset = 2, initial_height = 1, network = old_model)
 
@@ -146,7 +145,10 @@ def main():
     experiment = Experiment(n_players = 2, dice_number = 4, dice_value = 3, column_range = [2,6],
                     offset = 2, initial_height = 1, max_game_length = 50)
 
-    uct_evaluation = Vanilla_UCT(c = 10, n_simulations = 10)
+    uct_evaluation_1 = Vanilla_UCT(c = 10, n_simulations = 2)
+    uct_evaluation_2 = Vanilla_UCT(c = 10, n_simulations = 4)
+    uct_evaluation_3 = Vanilla_UCT(c = 10, n_simulations = 8)
+    UCTs_eval = [uct_evaluation_1, uct_evaluation_2, uct_evaluation_3]
     #player1 = Vanilla_UCT(c = 10, n_simulations = n_simulations)
     #player2 = RandomPlayer()
 
@@ -164,7 +166,7 @@ def main():
     for count in range(alphazero_iterations):
         with open(file_name, 'a') as f:
             print('ALPHAZERO ITERATION -', count, file=f)
-        stats, player1, player2 = experiment.play_alphazero_iteration(player1, player2, uct_evaluation, use_UCT_playout = use_UCT_playout, 
+        stats, player1, player2 = experiment.play_alphazero_iteration(player1, player2, UCTs_eval,  use_UCT_playout = use_UCT_playout, 
                                                                         epochs = 1, conv_number = conv_number)
         # Write the data collected only if the new network was better than the old one.
         if stats != []:

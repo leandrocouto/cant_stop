@@ -93,9 +93,10 @@ class Statistic:
         victory_1_eval_net = [] # vs. Net
         victory_2_eval_net = [] # vs. Net
 
-        victory_0_eval_uct = [] # vs. UCT - Tie
-        victory_1_eval_uct = [] # vs. UCT
-        victory_2_eval_uct = [] # vs. UCT
+        victory_0_eval_uct_temp = [] 
+        victory_1_eval_uct_temp = [] 
+        victory_2_eval_uct_temp = [] 
+        list_of_n_simulations = []
         
         for analysis in self.data_net_vs_net_training:
             training_total_loss.append(analysis[0])
@@ -111,15 +112,26 @@ class Statistic:
             victory_1_eval_net.append(analysis[1])
             victory_2_eval_net.append(analysis[2])
         for analysis in self.data_net_vs_uct:
-            victory_0_eval_uct.append(analysis[0])
-            victory_1_eval_uct.append(analysis[1])
-            victory_2_eval_uct.append(analysis[2])
+            victory_0_eval_uct_temp.append(analysis[0])
+            victory_1_eval_uct_temp.append(analysis[1])
+            victory_2_eval_uct_temp.append(analysis[2])
+            list_of_n_simulations.append(analysis[3])
 
-        print('contra uct')
-        print(victory_0_eval_uct)
-        print(victory_1_eval_uct)
-        print(victory_2_eval_uct)
-        
+        victory_0_eval_uct = [] # vs. UCT - Tie
+        victory_1_eval_uct = [] # vs. UCT
+        victory_2_eval_uct = [] # vs. UCT
+
+        for j in range(len(victory_0_eval_uct_temp[0])):
+            temp_list_0 = []
+            temp_list_1 = []
+            temp_list_2 = []
+            for i in range(len(victory_0_eval_uct_temp)):
+                temp_list_0.append(victory_0_eval_uct_temp[i][j])
+                temp_list_1.append(victory_1_eval_uct_temp[i][j])
+                temp_list_2.append(victory_2_eval_uct_temp[i][j])
+            victory_0_eval_uct.append(temp_list_0)
+            victory_1_eval_uct.append(temp_list_1)
+            victory_2_eval_uct.append(temp_list_2)       
 
         geometry_options = {"right": "2cm", "left": "2cm"}
         pdf_name = str(self.n_simulations)+'_'+str(self.n_games) \
@@ -134,8 +146,7 @@ class Statistic:
             x = np.array(range(1, len(training_total_loss) + 1))
             y = np.array(training_total_loss)
             _, ax = plt.subplots()
-            ax.plot(x, y, label='Training')
-            ax.legend(loc="upper right")
+            ax.plot(x, y)
             ax.set(xlabel='AZ Iterations', ylabel='Loss', 
             title='Total loss')
 
@@ -152,8 +163,7 @@ class Statistic:
             y = np.array(training_output_dist_loss)
 
             _, ax = plt.subplots()
-            ax.plot(x, y, label='Training')
-            ax.legend(loc="upper right")
+            ax.plot(x, y)
             ax.set(xlabel='AZ Iterations', ylabel='Loss', 
             title='Probability distribution loss')
 
@@ -170,8 +180,7 @@ class Statistic:
             y = np.array(training_output_value_loss)
 
             _, ax = plt.subplots()
-            ax.plot(x, y, label='Training')
-            ax.legend(loc="upper right")
+            ax.plot(x, y)
             ax.set(xlabel='AZ Iterations', ylabel='Loss', 
             title='Value loss')
 
@@ -188,8 +197,7 @@ class Statistic:
             y = np.array(training_dist_metric)
 
             _, ax = plt.subplots()
-            ax.plot(x, y, label='Training')
-            ax.legend(loc="upper right")
+            ax.plot(x, y)
             ax.set(xlabel='AZ Iterations', ylabel='Crossentropy error', 
             title='Probability Distribution Crossentropy error')
 
@@ -206,8 +214,7 @@ class Statistic:
             y = np.array(training_value_metric)
 
             _, ax = plt.subplots()
-            ax.plot(x, y, label='Training')
-            ax.legend(loc="upper right")
+            ax.plot(x, y)
             ax.set(xlabel='AZ Iterations', ylabel='MSE', 
             title='Value Mean Squared Error')
 
@@ -268,28 +275,30 @@ class Statistic:
                 plt.close()
                 doc.append(NoEscape(r'\newpage'))
 
-        # Player victories in evaluation - Net vs. UCT
-        with doc.create(Section('Player victories in evaluation - Net vs. UCT')):
-            self.info_header_latex(doc)  
-            x = np.array(range(1, len(victory_1_eval_uct) + 1))
-            y = np.array(victory_1_eval_uct)
-            a = np.array(range(1, len(victory_2_eval_uct) + 1))
-            b = np.array(victory_2_eval_uct)
-            m = np.array(range(1, len(victory_0_eval_uct) + 1))
-            n = np.array(victory_0_eval_uct)
+            for i in range(len(list_of_n_simulations[0])):
+                # Player victories in evaluation - Net vs. UCT
+                title_name = 'Player victories in evaluation - Net vs. UCT - ' +  str(list_of_n_simulations[0][i]) + ' simulations'
+                with doc.create(Section(title_name)):
+                    self.info_header_latex(doc)  
+                    x = np.array(range(1, len(victory_1_eval_uct[i]) + 1))
+                    y = np.array(victory_1_eval_uct[i])
+                    a = np.array(range(1, len(victory_2_eval_uct[i]) + 1))
+                    b = np.array(victory_2_eval_uct[i])
+                    m = np.array(range(1, len(victory_0_eval_uct[i]) + 1))
+                    n = np.array(victory_0_eval_uct[i])
 
-            _, ax = plt.subplots()
-            ax.plot(x, y, label='Player 1')
-            ax.plot(a, b, label='Player 2')
-            ax.plot(m, n, label='Draw')
-            ax.legend(loc="upper right")
-            ax.set(xlabel='AZ Iterations', ylabel='Number of victories', 
-            title='Player victories in evaluation - Net vs. UCT')
+                    _, ax = plt.subplots()
+                    ax.plot(x, y, label='Network')
+                    ax.plot(a, b, label='UCT')
+                    ax.plot(m, n, label='Draw')
+                    ax.legend(loc="upper right")
+                    ax.set(xlabel='AZ Iterations', ylabel='Number of victories', 
+                    title=title_name)
 
-            with doc.create(Figure(position='htbp')) as plot:
-                plot.add_plot(width=NoEscape(r'1\textwidth'), dpi=300)
+                    with doc.create(Figure(position='htbp')) as plot:
+                        plot.add_plot(width=NoEscape(r'1\textwidth'), dpi=300)
 
-            plt.close()
-            doc.append(NoEscape(r'\newpage'))
+                    plt.close()
+                    doc.append(NoEscape(r'\newpage'))
 
         doc.generate_pdf(clean_tex=False)
