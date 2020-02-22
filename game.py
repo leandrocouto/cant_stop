@@ -76,6 +76,40 @@ class Game:
         self.dice_action = True
         self.current_roll = self.roll_dice()
         
+    def number_positions_conquered_this_round(self, column):
+        """
+        Returns the number of position conquered in this round for a given column.
+        This is the same as counting the number of neutral markers the player has in column.
+        """
+        counter = 0
+        previously_conquered = -1
+        list_of_cells = self.board_game.board[column]
+        
+        for i in range(len(list_of_cells)):
+            if self.player_turn in list_of_cells[i].markers:
+                previously_conquered = i
+            if 0 in list_of_cells[i].markers:
+                counter = i - previously_conquered
+                
+        partial_completed_rows = [item[0] for item in self.player_won_column]
+        if column in partial_completed_rows:
+            counter += 1
+        return counter
+    
+    def number_positions_conquered(self, column):
+        """
+        Returns the number of position conquered in the game for a given column.
+        """
+        previously_conquered = -1
+        list_of_cells = self.board_game.board[column]
+        
+        for i in range(len(list_of_cells)):
+            if self.player_turn in list_of_cells[i].markers:
+                previously_conquered = i
+           
+        return previously_conquered
+            
+    
     def print_board(self):
         self.board_game.print_board(self.player_won_column)
 

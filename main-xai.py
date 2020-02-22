@@ -6,7 +6,6 @@ import copy
 import random
 import collections
 from game import Board, Game
-from config import GameConfig, AlphaZeroConfig
 from statistics import Statistic
 from players.vanilla_uct_player import Vanilla_UCT
 from players.scripts.random_script import RandomPlayer
@@ -31,7 +30,7 @@ if __name__ == "__main__":
     victories1 = 0
     victories2 = 0
     for _ in range(1):
-        game = Game(n_players = 2, dice_number = 4, dice_value = 6, column_range = [2,12],
+        game = Game(n_players = 2, dice_number = 4, dice_value = 3, column_range = [2,6],
                     offset = 2, initial_height = 1)
         uct1 = Vanilla_UCT(c = 1, n_simulations = 10)
         uct2 = Vanilla_UCT(c = 10, n_simulations = 1)
@@ -63,11 +62,12 @@ if __name__ == "__main__":
                         current_player = 2
                     else:
                         current_player = 1
-#                 print('Chose: ', chosen_play)
-#                 game.print_board()
+                print('Chose: ', chosen_play)
+                game.print_board()
                 game.play(chosen_play)
-#                 game.print_board()
-#                 print()
+                game.print_board()
+                
+                print()
             who_won, is_over = game.is_finished()
         
         print(who_won, is_over)
