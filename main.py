@@ -9,6 +9,7 @@ import sys
 import tkinter.filedialog
 from os import listdir
 from os.path import isfile, join
+import re
 
 from keras.utils import plot_model
 from keras.models import Model
@@ -69,8 +70,21 @@ def main():
         for file in files:
             if 'h5' not in file:
                 valid_files.append(file)
-        eval_net_vs_net = []
-        eval_net_vs_uct = []
+
+        # Sort the files using natural sorting
+        # Source: https://stackoverflow.com/questions/5967500/how-to-correctly-sort-a-string-with-a-number-inside
+
+        def atoi(text):
+            return int(text) if text.isdigit() else text
+
+        def natural_keys(text):
+            return [ atoi(c) for c in re.split(r'(\d+)', text) ]
+
+        valid_files.sort(key=natural_keys)
+
+        data_net_vs_net_training = [] 
+        data_net_vs_net_eval = [] 
+        data_net_vs_uct = []
         n_simulations = None
         n_games = None
         alphazero_iterations = None
@@ -78,25 +92,27 @@ def main():
         conv_number = None
         for file in valid_files:
             file = file_path + '/' + file
+            print('file:', file)
             stats = Statistic()
             stats.load_from_file(file)
-            eval_net_vs_net.append(stats.eval_net_vs_net[0])
-            eval_net_vs_uct.append(stats.eval_net_vs_uct[0])
+            data_net_vs_net_training.append(stats.data_net_vs_net_training[0]) 
+            data_net_vs_net_eval.append(stats.data_net_vs_net_eval[0]) 
+            data_net_vs_uct.append(stats.data_net_vs_uct[0]) 
             n_simulations = stats.n_simulations
             n_games = stats.n_games
             alphazero_iterations = stats.alphazero_iterations
             use_UCT_playout = stats.use_UCT_playout
             conv_number = stats.conv_number
-        stats = Statistic(eval_net_vs_net, eval_net_vs_uct, n_simulations, n_games,
+        stats = Statistic(data_net_vs_net_training, data_net_vs_net_eval, data_net_vs_uct, n_simulations, n_games,
                     alphazero_iterations, use_UCT_playout, conv_number)
         stats.generate_report()
         exit()
 
     # Cluster configurations
-    if int(sys.argv[1]) == 0: n_simulations = 40
+    if int(sys.argv[1]) == 0: n_simulations = 10
     if int(sys.argv[1]) == 1: n_simulations = 100
     if int(sys.argv[1]) == 2: n_simulations = 300
-    if int(sys.argv[2]) == 0: n_games = 40
+    if int(sys.argv[2]) == 0: n_games = 10
     if int(sys.argv[2]) == 1: n_games = 100
     if int(sys.argv[2]) == 2: n_games = 500
     if int(sys.argv[3]) == 0: alphazero_iterations = 50
@@ -149,7 +165,7 @@ def main():
         with open(file_name, 'a') as f:
             print('ALPHAZERO ITERATION -', count, file=f)
         stats, player1, player2 = experiment.play_alphazero_iteration(player1, player2, uct_evaluation, use_UCT_playout = use_UCT_playout, 
-                                                                        epochs = 1, conv_number = conv_number) 
+                                                                        epochs = 1, conv_number = conv_number)
         # Write the data collected only if the new network was better than the old one.
         if stats != []:
             stats.save_to_file(count)

@@ -87,8 +87,10 @@ class Experiment:
         file_name = str(current_model.n_simulations)+'_'+str(current_model.n_games) \
                 + '_' + str(current_model.alphazero_iterations) + '_' + str(conv_number) + \
                 '_' + str(use_UCT_playout) + '.txt'
+        # Stores data from net vs net in rtaining for later analysis.
+        data_net_vs_net_training = []
         # Stores data from net vs net in evaluation for later analysis.
-        data_net_vs_net = []
+        data_net_vs_net_eval = []
         # Stores data from net vs uct in evaluation for later analysis.
         data_net_vs_uct = []
         #
@@ -136,6 +138,7 @@ class Experiment:
         with open(file_name, 'a') as f:
             print('Self-play - Player 1 won', victory_1,'time(s).', file=f)
             print('Self-play - Player 2 won', victory_2,'time(s).', file=f)
+            print('Self-play - Ties:', victory_0, file=f)
 
         #
         #
@@ -160,6 +163,8 @@ class Experiment:
         value_metric_history = sum(history_callback.history["Output_Value_mean_squared_error"]) /  \
                                 len(history_callback.history["Output_Value_mean_squared_error"])
 
+        data_net_vs_net_training.append((loss_history, output_dist_loss_history, output_value_loss_history, 
+                dist_metric_history, value_metric_history, victory_0, victory_1, victory_2))
         #
         #    
         # Model evaluation
@@ -172,20 +177,31 @@ class Experiment:
         # If it does not win victory_rate % it completely
         # discards the current network.
 
-        victory_0_eval_net = 0
-        victory_1_eval_net = 0
-        victory_2_eval_net = 0
+        victory_0_eval_net = 0 # Draw
+        victory_1_eval_net = 0 # Current model
+        victory_2_eval_net = 0 # Old model
 
         for i in range(current_model.n_games_evaluate):
-            data_of_a_game, who_won = self.play_single_game(current_model, old_model)
-            if who_won == 1:
-                victory_1_eval_net += 1
-            elif who_won == 2:
-                victory_2_eval_net += 1
+            # If "i" is even, current_model is Player 1, otherwise current_model is Player 2.
+            # This helps reduce possible victory biases from player placements.
+            if i % 2 == 0:
+                _, who_won = self.play_single_game(current_model, old_model)
+                if who_won == 1:
+                    victory_1_eval_net += 1
+                elif who_won == 2:
+                    victory_2_eval_net += 1
+                else:
+                    victory_0_eval_net += 1
             else:
-                victory_0_eval_net += 1
+                _, who_won = self.play_single_game(old_model, current_model)
+                if who_won == 2:
+                    victory_1_eval_net += 1
+                elif who_won == 1:
+                    victory_2_eval_net += 1
+                else:
+                    victory_0_eval_net += 1
 
-        data_net_vs_net.append((victory_0_eval_net, victory_1_eval_net, victory_2_eval_net))
+        data_net_vs_net_eval.append((victory_0_eval_net, victory_1_eval_net, victory_2_eval_net))
 
         necessary_won_games = (current_model.victory_rate * current_model.n_games_evaluate) / 100
 
@@ -205,13 +221,6 @@ class Experiment:
             # The new model is better. Therefore, evaluate it against
             # vanilla UCT and store the data for later analysis.
 
-            dataset_for_eval = []
-            # Saving data
-            loss_eval = []
-            dist_loss_eval = []
-            value_loss_eval = []
-            dist_metric_eval = []
-            value_metric_eval = []
             victory_0_eval = 0
             victory_1_eval = 0
             victory_2_eval = 0
@@ -220,7 +229,7 @@ class Experiment:
                 print('MODEL EVALUATION - Network vs. UCT', file=f)
 
             for i in range(current_model.n_games_evaluate):
-                data_of_a_game_eval, who_won = self.play_single_game(current_model, uct_evaluation)
+                _, who_won = self.play_single_game(current_model, uct_evaluation)
                 #print('Net vs UCT - GAME', i ,'OVER - PLAYER', who_won, 'WON')
                 if who_won == 1:
                     victory_1_eval += 1
@@ -228,49 +237,22 @@ class Experiment:
                     victory_2_eval += 1
                 else:
                     victory_0_eval += 1
-                # After the game is finished, we now know who won the game.
-                # Therefore, save this info in all instances saved so far
-                # for later use as input for the NN.
-                for single_game in data_of_a_game_eval:
-                    single_game.append(who_won)
-                dataset_for_eval.append(data_of_a_game_eval)
-
-                x_train_eval, y_train_eval = current_model.transform_dataset_to_input(dataset_for_eval)
-
-                results = current_model.network.evaluate(x_train_eval, y_train_eval, verbose = 0)
-                # Saving data
-                loss_eval.append(results[0])
-                dist_loss_eval.append(results[1])
-                value_loss_eval.append(results[2])
-                dist_metric_eval.append(results[3])
-                value_metric_eval.append(results[4])
-                dataset_for_eval = []
 
             with open(file_name, 'a') as f:
                 print('Net vs UCT - Network won', victory_1_eval,'time(s).', file=f)
                 print('Net vs UCT - UCT won', victory_2_eval,'time(s).', file=f)
                 print('Net vs UCT - Draws: ', victory_0_eval, file=f)
 
-            loss_eval = sum(loss_eval) / len(loss_eval)
-            dist_loss_eval = sum(dist_loss_eval) / len(dist_loss_eval)
-            value_loss_eval = sum(value_loss_eval) / len(value_loss_eval)
-            dist_metric_eval = sum(dist_metric_eval) / len(dist_metric_eval)
-            value_metric_eval = sum(value_metric_eval) / len(value_metric_eval)
-
-            
-
             # Saving data
-            data_net_vs_uct.append((loss_history, output_dist_loss_history, output_value_loss_history, 
-                dist_metric_history, value_metric_history, victory_0, victory_1, victory_2, loss_eval, 
-                dist_loss_eval, value_loss_eval, dist_metric_eval, value_metric_eval, victory_0_eval, 
-                victory_1_eval, victory_2_eval))
+            data_net_vs_uct.append((victory_0_eval, victory_1_eval, victory_2_eval))
 
             elapsed_time = time.time() - start
             with open(file_name, 'a') as f:
                 print('Time elapsed of this iteration: ', elapsed_time, file=f)
 
-            stats = Statistic(data_net_vs_net, data_net_vs_uct, n_simulations = current_model.n_simulations,
-                     n_games = current_model.n_games, alphazero_iterations = current_model.alphazero_iterations, 
+            stats = Statistic(data_net_vs_net_training, data_net_vs_net_eval, data_net_vs_uct, 
+                    n_simulations = current_model.n_simulations, n_games = current_model.n_games, 
+                    alphazero_iterations = current_model.alphazero_iterations, 
                      use_UCT_playout = use_UCT_playout, conv_number = conv_number)
 
             # New model is better, therefore we can copy current_model weights
