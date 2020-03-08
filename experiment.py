@@ -140,6 +140,13 @@ class Experiment:
             print('Self-play - Player 2 won', victory_2,'time(s).', file=f)
             print('Self-play - Ties:', victory_0, file=f)
 
+        # This means all of the selfplay games ended in a draw.
+        # This is not interesting since it does not add any valued info for the network training.
+        # Stops this iteration.
+        if len(dataset_for_network) == 0:
+            with open(file_name, 'a') as f:
+                print('All selfplay games ended in a draw. Stopping current iteration.', file=f)
+            return [], current_model, old_model
         #
         #
         # Training

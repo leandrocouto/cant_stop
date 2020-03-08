@@ -109,11 +109,12 @@ def main():
 
     # Cluster configurations
     if int(sys.argv[1]) == 0: n_simulations = 10
-    if int(sys.argv[1]) == 1: n_simulations = 100
-    if int(sys.argv[1]) == 2: n_simulations = 300
-    if int(sys.argv[2]) == 0: n_games = 10
+    if int(sys.argv[1]) == 1: n_simulations = 20
+    if int(sys.argv[1]) == 2: n_simulations = 50
+    if int(sys.argv[1]) == 3: n_simulations = 100
+    if int(sys.argv[2]) == 0: n_games = 5
     if int(sys.argv[2]) == 1: n_games = 100
-    if int(sys.argv[2]) == 2: n_games = 500
+    if int(sys.argv[2]) == 2: n_games = 250
     if int(sys.argv[3]) == 0: alphazero_iterations = 10
     if int(sys.argv[3]) == 1: alphazero_iterations = 100
     if int(sys.argv[4]) == 0: conv_number = 1
@@ -145,16 +146,10 @@ def main():
     experiment = Experiment(n_players = 2, dice_number = 4, dice_value = 3, column_range = [2,6],
                     offset = 2, initial_height = 1, max_game_length = 50)
 
-    uct_evaluation_1 = Vanilla_UCT(c = 10, n_simulations = 2)
-    uct_evaluation_2 = Vanilla_UCT(c = 10, n_simulations = 4)
-    uct_evaluation_3 = Vanilla_UCT(c = 10, n_simulations = 8)
+    uct_evaluation_1 = Vanilla_UCT(c = 10, n_simulations = round(0.25 * n_simulations))
+    uct_evaluation_2 = Vanilla_UCT(c = 10, n_simulations = round(0.5 * n_simulations))
+    uct_evaluation_3 = Vanilla_UCT(c = 10, n_simulations = n_simulations)
     UCTs_eval = [uct_evaluation_1, uct_evaluation_2, uct_evaluation_3]
-    #player1 = Vanilla_UCT(c = 10, n_simulations = n_simulations)
-    #player2 = RandomPlayer()
-
-    #for _ in range(10):
-    #    _, who_won = experiment.play_single_game(player1, player2)
-    #    print('Who won: ', who_won)
 
     file_name = str(n_simulations)+'_'+str(n_games) \
                 + '_' + str(alphazero_iterations) + '_' + str(conv_number) + \
