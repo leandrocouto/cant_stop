@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 class Player(ABC):
     @abstractmethod
-    def get_action(self, game):
+    def get_action(self, game, *args):
         """
         Return the action to be made by the player given the 
         game state passed.

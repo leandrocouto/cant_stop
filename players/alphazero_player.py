@@ -10,7 +10,7 @@ class AlphaZeroPlayer(UCTPlayer):
     @abstractmethod
     def __init__(self, c, n_simulations, n_games, n_games_evaluate,
                     victory_rate, alphazero_iterations, column_range, 
-                        offset, initial_height, network):
+                        offset, initial_height, dice_value, network):
         """
         - n_games is the number of games played in the self-play scheme.
         - n_games_evaluate is the number of games played to evaluate the current
@@ -22,6 +22,7 @@ class AlphaZeroPlayer(UCTPlayer):
         - column_range is a list denoting the range of the board game columns.
         - offset is the height difference between columns.
         - initial_height is the height of the columns at the border of the board.
+        - dice_value is the number of faces of a single die.
         - network is the neural network AlphaZero trains.
         """
         super().__init__(c, n_simulations)
@@ -32,6 +33,7 @@ class AlphaZeroPlayer(UCTPlayer):
         self.column_range = column_range 
         self.offset = offset
         self.initial_height = initial_height
+        self.dice_value = dice_value
         self.network = network
 
     @abstractmethod
@@ -42,11 +44,37 @@ class AlphaZeroPlayer(UCTPlayer):
         """
         pass
 
+    def select_action(self, game, root, dist_probability):
+        """Return the action sampled from the distribution probability."""
+        # Transform the dist. prob dic to a list of tuples
+        dist = [tuple(reversed(x)) for x in dist_probability.items()]
+        # Create a list of additive probabilities in order to facilitate
+        # the selection of the pair
+        additive_probabilities = []
+        partial_sum = 0
+        for i in range(len(dist)):
+            partial_sum += dist[i][0]
+            additive_probabilities.append(partial_sum)
+        random_number = random.uniform(0.0, 1.0)
+        selected_action_index = -1
+        #Iterate through the list to get the sampled action
+        for i in range(len(additive_probabilities)):
+            if random_number <= additive_probabilities[i]:
+                selected_action_index = i
+                break
+        return dist[selected_action_index][1]
+
     def expand_children(self, parent):
         """Expand the children of the "parent" node"""
+        
+        # parent might not have any children given the dice configuration. Therefore,
+        # We should check if it the player is busted. is_player_busted() automatically
+        # change the game dynamics (player turn, etc) if the player is indeed busted.
+        is_busted = True
+        while is_busted:
+            is_busted = parent.state.is_player_busted(parent.state.available_moves())
         valid_actions = parent.state.available_moves()
-        if len(valid_actions) == 0:
-            valid_actions = ['y', 'n']
+        
         for action in valid_actions:
             child_game = parent.state.clone()
             child_game.play(action)
@@ -77,15 +105,9 @@ class AlphaZeroPlayer(UCTPlayer):
         """
         Add the probability distribution given from the network to 
         node's children. This probability is used later to calculate
-        he selection phase of the UCT algorithm.
+        the selection phase of the UCT algorithm.
         """
-        standard_dist = [((2,2),0), ((2,3),1), ((2,4),2), ((2,5),3), ((2,6),4),
-                     ((3,2),5), ((3,3),6), ((3,4),7), ((3,5),8), ((3,6),9),
-                     ((4,2),10), ((4,3),11), ((4,4),12), ((4,5),13), ((4,6),14),
-                     ((5,2),15), ((5,3),16), ((5,4),17), ((5,5),18), ((5,6),19),
-                     ((6,2),20), ((6,3),21), ((6,4),22), ((6,5),23), ((6,6),24),
-                     ((2,),25), ((3,),26), ((4,),27), ((5,),28), ((6,),29),
-                    ('y',30), ('n',31)]
+        standard_dist = self.get_standard_dist_with_id()
         standard_dist = collections.OrderedDict(standard_dist)
         for key in node.children.keys():
             node.p_a[key] = dist_prob[standard_dist[key]]
@@ -113,8 +135,10 @@ class AlphaZeroPlayer(UCTPlayer):
         Return two channels that fills with a 1 in a column if the respective player
         has permanently won that column.
         """
-        channel_player_1 = copy.deepcopy(channel)
-        channel_player_2 = copy.deepcopy(channel)
+
+        channel_player_1 = np.array(channel)
+        channel_player_2 = np.array(channel)
+
         finished_columns_player_1 = [item[0] for item in state.finished_columns if item[1] == 1]
         finished_columns_player_2 = [item[0] for item in state.finished_columns if item[1] == 2]
 
@@ -135,8 +159,9 @@ class AlphaZeroPlayer(UCTPlayer):
         Return two channels that fills with a 1 in a column if the respective player
         has temporarily won that column.
         """
-        channel_player_1 = copy.deepcopy(channel)
-        channel_player_2 = copy.deepcopy(channel)
+        channel_player_1 = np.array(channel)
+        channel_player_2 = np.array(channel)
+        
         player_won_column_player_1 = [item[0] for item in state.player_won_column if item[1] == 1]
         player_won_column_player_2 = [item[0] for item in state.player_won_column if item[1] == 2]
 
@@ -179,13 +204,7 @@ class AlphaZeroPlayer(UCTPlayer):
 
     def remove_invalid_actions(self, dist_prob, keys):
         """Re-normalize the distribution based only on the valid actions."""
-        standard_dist = [((2,2),0), ((2,3),1), ((2,4),2), ((2,5),3), ((2,6),4),
-                         ((3,2),5), ((3,3),6), ((3,4),7), ((3,5),8), ((3,6),9),
-                         ((4,2),10), ((4,3),11), ((4,4),12), ((4,5),13), ((4,6),14),
-                         ((5,2),15), ((5,3),16), ((5,4),17), ((5,5),18), ((5,6),19),
-                         ((6,2),20), ((6,3),21), ((6,4),22), ((6,5),23), ((6,6),24),
-                         ((2,),25), ((3,),26), ((4,),27), ((5,),28), ((6,),29),
-                        ('y',30), ('n',31)]
+        standard_dist = self.get_standard_dist_with_id()
         standard_dist = collections.OrderedDict(standard_dist)
         indexes_of_dist = [standard_dist[key] for key in keys if key in standard_dist]
         sum_not_valid = 0
@@ -210,13 +229,7 @@ class AlphaZeroPlayer(UCTPlayer):
         into a fully distribution (with all the invalid actions). This is needed
         for the loss function that expects full distributions on all actions.
         """
-        standard_dist = [((2,2),0), ((2,3),0), ((2,4),0), ((2,5),0), ((2,6),0),
-                         ((3,2),0), ((3,3),0), ((3,4),0), ((3,5),0), ((3,6),0),
-                         ((4,2),0), ((4,3),0), ((4,4),0), ((4,5),0), ((4,6),0),
-                         ((5,2),0), ((5,3),0), ((5,4),0), ((5,5),0), ((5,6),0),
-                         ((6,2),0), ((6,3),0), ((6,4),0), ((6,5),0), ((6,6),0),
-                         ((2,),0), ((3,),0), ((4,),0), ((5,),0), ((6,),0),
-                        ('y',0), ('n',0)]
+        standard_dist = self.get_zeroed_standard_dist()
         complete_dict = collections.OrderedDict(standard_dist)
         for key, value in complete_dict.items():
             for key_2, value_2 in dist_prob.items():
@@ -230,16 +243,10 @@ class AlphaZeroPlayer(UCTPlayer):
         Given a list of possible actions in a certain state, return the dstribution
         probability over all actions. Writes 1 if an action is valid, 0 otherwise.
         """
-        standard_dist = [((2,2),0), ((2,3),1), ((2,4),2), ((2,5),3), ((2,6),4),
-                         ((3,2),5), ((3,3),6), ((3,4),7), ((3,5),8), ((3,6),9),
-                         ((4,2),10), ((4,3),11), ((4,4),12), ((4,5),13), ((4,6),14),
-                         ((5,2),15), ((5,3),16), ((5,4),17), ((5,5),18), ((5,6),19),
-                         ((6,2),20), ((6,3),21), ((6,4),22), ((6,5),23), ((6,6),24),
-                         ((2,),25), ((3,),26), ((4,),27), ((5,),28), ((6,),29),
-                        ('y',30), ('n',31)]
+        standard_dist = self.get_standard_dist_with_id()
         standard_dist = collections.OrderedDict(standard_dist)
 
-        valid_actions_dist = np.zeros(32)
+        valid_actions_dist = np.zeros(len(standard_dist))
 
         for action in actions:
             valid_actions_dist[standard_dist[action]] = 1
@@ -248,22 +255,24 @@ class AlphaZeroPlayer(UCTPlayer):
         
         return valid_actions_dist
 
-    def transform_dataset_to_input(self, dataset_for_network):
+    def transform_dataset_to_input(self, dataset_for_network, mini_batch):
         """
         Transform the dataset collected by the selfplay into
         separated training and label data used as input for
         the network.
         """
         
+        from random import sample
+
         #Get the channels of the states (Input for the NN)
         channels_input = [play[0] for game in dataset_for_network for play in game]
         channels_input = np.array(channels_input)
         channels_input = channels_input.reshape(channels_input.shape[0], channels_input.shape[2], channels_input.shape[3], -1)
 
+
+
         #Get the probability distribution of the states (Label for the NN)
         dist_probs_label = [play[1] for game in dataset_for_network for play in game]
-        #print('dist prob label')
-        #print(dist_probs_label)
         dist_probs_label = [self.transform_dist_prob(dist_dict) for dist_dict in dist_probs_label]
         dist_probs_label = np.array(dist_probs_label)
 
@@ -276,7 +285,67 @@ class AlphaZeroPlayer(UCTPlayer):
         who_won_label = np.array(who_won_label)
         who_won_label = np.expand_dims(who_won_label, axis=1)
 
+        # If the mini_batch size is lesser or equal than the data itself, then
+        # sample accordingly
+        if mini_batch <= channels_input.shape[0]:
+            # indexes of the whole input to be sampled
+            #index_list = sample(range(channels_input.shape[0]), mini_batch)
+            
+            index_list = sample(range(channels_input.shape[0]), channels_input.shape[0] - mini_batch)
+
+            channels_input = np.delete(channels_input, index_list, 0)
+            valid_actions_dist_input = np.delete(valid_actions_dist_input, index_list, 0)
+            dist_probs_label = np.delete(dist_probs_label, index_list, 0)
+            who_won_label = np.delete(who_won_label, index_list, 0)
+            
+            '''
+            channels_input = [channels_input[i] for i in range(len(channels_input)) if i in index_list]
+            channels_input = np.array(channels_input)
+            dist_probs_label = [dist_probs_label[i] for i in range(len(dist_probs_label)) if i in index_list]
+            dist_probs_label = np.array(dist_probs_label)
+            valid_actions_dist_input = [valid_actions_dist_input[i] for i in range(len(valid_actions_dist_input)) if i in index_list]
+            valid_actions_dist_input = np.array(valid_actions_dist_input)
+            who_won_label = [who_won_label[i] for i in range(len(who_won_label)) if i in index_list]
+            who_won_label = np.array(who_won_label)
+            '''
+
         x_train = [channels_input, valid_actions_dist_input]
         y_train = [dist_probs_label, who_won_label]
 
         return x_train, y_train
+
+    def get_standard_dist_with_id(self):
+        """ Return a list with all possible actions with an ID to it. """
+        standard_dist = []
+
+        counter = 0
+        for i in range(2, self.dice_value * 2 + 1):
+            for j in range(2, self.dice_value * 2 + 1):
+                standard_dist.append(((i, j), counter))
+                counter += 1
+
+        for i in range(2, self.dice_value * 2 + 1):
+            standard_dist.append(((i,), counter))
+            counter += 1
+
+        standard_dist.append((('y'), counter))
+        counter += 1
+        standard_dist.append((('n'), counter))
+
+        return standard_dist
+
+    def get_zeroed_standard_dist(self):
+        """ Return a list with all possible actions with an ID = 0 to it. """
+        standard_dist = []
+
+        for i in range(2, self.dice_value * 2 + 1):
+            for j in range(2, self.dice_value * 2 + 1):
+                standard_dist.append(((i, j), 0))
+
+        for i in range(2, self.dice_value * 2 + 1):
+            standard_dist.append(((i,), 0))
+
+        standard_dist.append((('y'), 0))
+        standard_dist.append((('n'), 0))
+
+        return standard_dist

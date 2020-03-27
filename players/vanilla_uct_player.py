@@ -11,9 +11,15 @@ class Vanilla_UCT(UCTPlayer):
         super().__init__(c, n_simulations)
 
     def expand_children(self, parent):
+
+        # parent might not have any children given the dice configuration. Therefore,
+        # We should check if it the player is busted. is_player_busted() automatically
+        # change the game dynamics (player turn, etc) if the player is indeed busted.
+        is_busted = True
+        while is_busted:
+            is_busted = parent.state.is_player_busted(parent.state.available_moves())
         valid_actions = parent.state.available_moves()
-        if len(valid_actions) == 0:
-            valid_actions = ['y', 'n']
+        
         for action in valid_actions:
             child_game = parent.state.clone()
             child_game.play(action)
@@ -23,6 +29,12 @@ class Vanilla_UCT(UCTPlayer):
 
     def rollout(self, node, scratch_game):
         """Take random actions until a game is finished and return the value."""
+
+        # Special case where 'node' is a terminal state
+        winner, terminal_state = node.state.is_finished()
+        if terminal_state:
+            return winner
+
         end_game = False
         while not end_game:
             #avoid infinite loops in smaller boards
@@ -37,6 +49,15 @@ class Vanilla_UCT(UCTPlayer):
             return 1
         else:
             return -1
+
+    def select_action(self, game, root, dist_probability):
+        """Return the action with the highest visit score."""
+        visit_counts = [(child.n_visits, action)
+                      for action, child in root.children.items()]
+        # Sort based on the number of visits
+        visit_counts.sort(key=lambda t: t[0])
+        _, action = visit_counts[-1]
+        return action
 
     def calculate_ucb_max(self, node, action):
         """

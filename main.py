@@ -10,7 +10,7 @@ import tkinter.filedialog
 from os import listdir
 from os.path import isfile, join
 import re
-
+import keras
 from keras.utils import plot_model
 from keras.models import Model
 from keras.layers import Input, Dense, Flatten, concatenate
@@ -20,10 +20,65 @@ from keras import backend as K
 from keras import regularizers
 from keras.losses import categorical_crossentropy
 
-def define_model(reg, conv_number):
+def define_model_experimental(reg, conv_number, column_range, offset, initial_height, dice_value):
     """Neural Network model implementation using Keras + Tensorflow."""
-    state_channels = Input(shape = (5,5,6), name='States_Channels_Input')
-    valid_actions_dist = Input(shape = (32,), name='Valid_Actions_Input')
+
+    # Calculating the channel dimensions given the board dynamics
+    height = column_range[1] - column_range[0] + 1
+    longest_column = (column_range[1] // 2) + 1
+    width = initial_height + offset * (longest_column - column_range[0])
+    # Calculating total number of actions possible
+    temp = len(list(range(2, dice_value * 2 + 1)))
+    n_actions = temp * temp + temp + 2
+
+    
+    state_channels = Input(shape = (height, width, 6), name='States_Channels_Input')
+    valid_actions_dist = Input(shape = (n_actions,), name='Valid_Actions_Input')
+
+    zeropadding = keras.layers.ZeroPadding2D((2, 2))(state_channels)
+    conv = Conv2D(96, (4, 4), padding = "valid", kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(reg), activation='relu', name='Conv_Layer')(zeropadding)
+    conv2 = Conv2D(96, (2, 2), padding = "valid", kernel_initializer='glorot_normal',kernel_regularizer=regularizers.l2(reg), activation='relu', name='Conv_Layer2')(conv)
+    batch1 = keras.layers.BatchNormalization()(conv2)
+    act1 = keras.layers.Activation("relu")(batch1)
+    flat = Flatten(name='Flatten_Layer')(act1)
+
+    # Merge of the flattened channels (after pooling) and the valid action
+    # distribution. Used only as input in the probability distribution head.
+    merge = concatenate([flat, valid_actions_dist])
+
+    #Probability distribution over actions
+    hidden_fc_prob_dist_1 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(reg), activation='relu', name='FC_Prob_1')(merge)
+    hidden_fc_prob_dist_2 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(reg), activation='relu', name='FC_Prob_2')(hidden_fc_prob_dist_1)
+    output_prob_dist = Dense(n_actions, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(reg), activation='softmax', name='Output_Dist')(hidden_fc_prob_dist_2)
+    
+    #Value of a state
+    hidden_fc_value_1 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(reg), activation='relu', name='FC_Value_1')(flat)
+    #hidden_fc_value_2 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(reg), activation='relu', name='FC_Value_2')(hidden_fc_value_1)
+    output_value = Dense(1, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(reg), activation='tanh', name='Output_Value')(hidden_fc_value_1)
+
+    model = Model(inputs=[state_channels, valid_actions_dist], outputs=[output_prob_dist, output_value])
+
+    #['categorical_crossentropy','mean_squared_error']
+    #model.compile(loss=softmax_cross_entropy_with_logits,
+    model.compile(loss=['categorical_crossentropy','mean_squared_error'],
+                        optimizer='adam', metrics={'Output_Dist':'categorical_crossentropy', 'Output_Value':'mean_squared_error'},
+                        loss_weights = [0.5, 0.5])
+    return model 
+
+def define_model(reg, conv_number, column_range, offset, initial_height, dice_value):
+    """Neural Network model implementation using Keras + Tensorflow."""
+
+    # Calculating the channel dimensions given the board dynamics
+    height = column_range[1] - column_range[0] + 1
+    longest_column = (column_range[1] // 2) + 1
+    width = initial_height + offset * (longest_column - column_range[0])
+    # Calculating total number of actions possible
+    temp = len(list(range(2, dice_value * 2 + 1)))
+    n_actions = temp * temp + temp + 2
+
+    
+    state_channels = Input(shape = (height, width, 6), name='States_Channels_Input')
+    valid_actions_dist = Input(shape = (n_actions,), name='Valid_Actions_Input')
 
     conv = Conv2D(filters=10, kernel_size=2, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(reg), activation='relu', name='Conv_Layer')(state_channels)
     if conv_number == 2:
@@ -40,7 +95,7 @@ def define_model(reg, conv_number):
     #Probability distribution over actions
     hidden_fc_prob_dist_1 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(reg), activation='relu', name='FC_Prob_1')(merge)
     hidden_fc_prob_dist_2 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(reg), activation='relu', name='FC_Prob_2')(hidden_fc_prob_dist_1)
-    output_prob_dist = Dense(32, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(reg), activation='softmax', name='Output_Dist')(hidden_fc_prob_dist_2)
+    output_prob_dist = Dense(n_actions, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(reg), activation='softmax', name='Output_Dist')(hidden_fc_prob_dist_2)
     
     #Value of a state
     hidden_fc_value_1 = Dense(100, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(reg), activation='relu', name='FC_Value_1')(flat)
@@ -49,8 +104,11 @@ def define_model(reg, conv_number):
 
     model = Model(inputs=[state_channels, valid_actions_dist], outputs=[output_prob_dist, output_value])
 
-    model.compile(loss=['categorical_crossentropy','mean_squared_error'], 
-                        optimizer='adam', metrics={'Output_Dist':'categorical_crossentropy', 'Output_Value':'mean_squared_error'})
+    #['categorical_crossentropy','mean_squared_error']
+    #model.compile(loss=softmax_cross_entropy_with_logits,
+    model.compile(loss=['categorical_crossentropy','mean_squared_error'],
+                        optimizer='adam', metrics={'Output_Dist':'categorical_crossentropy', 'Output_Value':'mean_squared_error'},
+                        loss_weights = [0.5, 0.5])
     return model  
 
 def main():
@@ -112,43 +170,81 @@ def main():
     if int(sys.argv[1]) == 1: n_simulations = 20
     if int(sys.argv[1]) == 2: n_simulations = 50
     if int(sys.argv[1]) == 3: n_simulations = 100
-    if int(sys.argv[2]) == 0: n_games = 5
+    if int(sys.argv[2]) == 0: n_games = 20
     if int(sys.argv[2]) == 1: n_games = 100
     if int(sys.argv[2]) == 2: n_games = 250
     if int(sys.argv[3]) == 0: alphazero_iterations = 10
-    if int(sys.argv[3]) == 1: alphazero_iterations = 100
+    #if int(sys.argv[3]) == 1: alphazero_iterations = 100
     if int(sys.argv[4]) == 0: conv_number = 1
     if int(sys.argv[4]) == 1: conv_number = 2
     if int(sys.argv[5]) == 0: use_UCT_playout = True
     if int(sys.argv[5]) == 1: use_UCT_playout = False
 
+    #Config parameters
+
+    c = 1
+    epochs = 1
+    reg = 0.01
+    n_games_evaluate = 10
+    victory_rate = 55
+    mini_batch = 2048
+    n_training_loop = 1000
+    '''
+    # Toy version
+    column_range = [2,6]
+    offset = 2
+    initial_height = 1
+    n_players = 2
+    dice_number = 4
+    dice_value = 3
+    max_game_length = 50
+    '''
+    # Original version
+    column_range = [2,12]
+    offset = 2
+    initial_height = 2 
+    n_players = 2
+    dice_number = 4
+    dice_value = 6 
+    max_game_length = 500
+    
+    
+
     #Neural network specification
-    current_model = define_model(reg = 0.01, conv_number = conv_number)
-    old_model = define_model(reg = 0.01, conv_number = conv_number)
+    current_model = define_model(reg = reg, conv_number = conv_number, column_range = column_range, offset = offset, initial_height = initial_height, dice_value = dice_value)
+    old_model = define_model(reg = reg, conv_number = conv_number, column_range = column_range, offset = offset, initial_height = initial_height, dice_value = dice_value)
     old_model.set_weights(current_model.get_weights())
 
     if use_UCT_playout:
-        player1 = Network_UCT_With_Playout(c = 10, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = 10,
-                    victory_rate = 55, alphazero_iterations = alphazero_iterations, column_range = [2,6],
-                    offset = 2, initial_height = 1, network = current_model)
-        player2 = Network_UCT_With_Playout(c = 10, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = 10,
-                    victory_rate = 55, alphazero_iterations = alphazero_iterations, column_range = [2,6],
-                    offset = 2, initial_height = 1, network = old_model)
+        player1 = Network_UCT_With_Playout(c = c, n_simulations = n_simulations, n_games = n_games, 
+                    n_games_evaluate = n_games_evaluate, victory_rate = victory_rate, alphazero_iterations = alphazero_iterations, 
+                    column_range = column_range, offset = offset, initial_height = initial_height, dice_value = dice_value,
+                    network = current_model)
+        player2 = Network_UCT_With_Playout(c = c, n_simulations = n_simulations, n_games = n_games, 
+                    n_games_evaluate = n_games_evaluate, victory_rate = victory_rate, alphazero_iterations = alphazero_iterations, 
+                    column_range = column_range, offset = offset, initial_height = initial_height, dice_value = dice_value,
+                    network = old_model)
     else:
-        player1 = Network_UCT(c = 10, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = 10,
-                    victory_rate = 55, alphazero_iterations = alphazero_iterations, column_range = [2,6],
-                    offset = 2, initial_height = 1, network = current_model)
-        player2 = Network_UCT(c = 10, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = 10,
-                    victory_rate = 55, alphazero_iterations = alphazero_iterations, column_range = [2,6],
-                    offset = 2, initial_height = 1, network = old_model)
+        player1 = Network_UCT(c = c, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = n_games_evaluate,
+                    victory_rate = victory_rate, alphazero_iterations = alphazero_iterations, column_range = column_range,
+                    offset = offset, initial_height = initial_height, dice_value = dice_value, network = current_model)
+        player2 = Network_UCT(c = c, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = n_games_evaluate,
+                    victory_rate = victory_rate, alphazero_iterations = alphazero_iterations, column_range = column_range,
+                    offset = offset, initial_height = initial_height, dice_value = dice_value, network = old_model)
 
+    experiment = Experiment(n_players = n_players, dice_number = dice_number, dice_value = dice_value, 
+                            column_range = column_range, offset = offset, initial_height = initial_height, 
+                            max_game_length = max_game_length)
 
-    experiment = Experiment(n_players = 2, dice_number = 4, dice_value = 3, column_range = [2,6],
-                    offset = 2, initial_height = 1, max_game_length = 50)
+    #print('game 1')
+    #experiment.play_single_game(player1, player2)
+    #print('game 2')
+    #experiment.play_single_game(player1, player2)
+    #exit()
 
-    uct_evaluation_1 = Vanilla_UCT(c = 10, n_simulations = round(0.25 * n_simulations))
-    uct_evaluation_2 = Vanilla_UCT(c = 10, n_simulations = round(0.5 * n_simulations))
-    uct_evaluation_3 = Vanilla_UCT(c = 10, n_simulations = n_simulations)
+    uct_evaluation_1 = Vanilla_UCT(c = c, n_simulations = round(0.25 * n_simulations))
+    uct_evaluation_2 = Vanilla_UCT(c = c, n_simulations = round(0.5 * n_simulations))
+    uct_evaluation_3 = Vanilla_UCT(c = c, n_simulations = n_simulations)
     UCTs_eval = [uct_evaluation_1, uct_evaluation_2, uct_evaluation_3]
 
     file_name = str(n_simulations)+'_'+str(n_games) \
@@ -158,15 +254,11 @@ def main():
     with open(file_name, 'a') as f:
         print('The arguments are: ' , str(sys.argv), file=f)
 
-    for count in range(alphazero_iterations):
-        with open(file_name, 'a') as f:
-            print('ALPHAZERO ITERATION -', count, file=f)
-        stats, player1, player2 = experiment.play_alphazero_iteration(player1, player2, UCTs_eval,  use_UCT_playout = use_UCT_playout, 
-                                                                        epochs = 1, conv_number = conv_number)
-        # Write the data collected only if the new network was better than the old one.
-        if stats != []:
-            stats.save_to_file(count)
-            stats.save_model_to_file(player1.network, count)
+    experiment.play_alphazero(player1, player2, UCTs_eval,  use_UCT_playout = use_UCT_playout, 
+                                                                        epochs = epochs, conv_number = conv_number,
+                                                                        alphazero_iterations = alphazero_iterations,
+                                                                        mini_batch = mini_batch,
+                                                                        n_training_loop = n_training_loop)
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,7 @@
 import numpy as np
 import random
 import copy
+import pickle
 
 class Cell:
     def __init__(self):
@@ -44,6 +45,22 @@ class Board:
                 print('*', end='')
             print()
 
+    def check_board_equality(self, board_2):
+        """ Check if two boards are equal. """
+        height = self.initial_height
+        for x in range(self.column_range[0],self.column_range[1]+1):
+            list_of_cells = self.board[x]
+            list_of_cells_2 = board_2.board[x]
+            for i in range(len(list_of_cells)):
+                # Check if all Cell in [x] are equal
+                if sorted(list_of_cells[i].markers) != sorted(list_of_cells_2[i].markers):
+                    return False
+            if x < self.column_range[1]/2 +1:
+                height += self.offset
+            else:
+                height -= self.offset
+        return True
+
 class Game:
     def __init__(self, n_players, dice_number, dice_value, column_range,
                     offset, initial_height):
@@ -62,6 +79,7 @@ class Game:
         - dice_action refers to which action the game is at at the moment, if the
           player is choosing which combination or if the player is choosing if he
           wants to continue playing the turn or not.
+        - current_roll refers to all dice_number dice roll.
         """
         self.n_players = n_players
         self.dice_number = dice_number
@@ -75,7 +93,16 @@ class Game:
         self.player_won_column = []
         self.dice_action = True
         self.current_roll = self.roll_dice()
-        
+        self.actions_taken = [] 
+    
+    def check_boardgame_equality(self, game):
+        """ Check if self and parameters represents the same state."""
+        condition_1 = self.board_game.check_board_equality(game.board_game)
+        condition_2 = sorted(self.finished_columns) == sorted(game.finished_columns)
+        condition_3 = sorted(self.player_won_column) == sorted(game.player_won_column)
+                
+        return condition_1 and condition_2 and condition_3
+
     def number_positions_conquered_this_round(self, column):
         """
         Returns the number of position conquered in this round for a given column.
@@ -114,8 +141,9 @@ class Game:
         self.board_game.print_board(self.player_won_column)
 
     def clone(self):
-        """Return a deepcopy of this game. Used for MCTS routines."""
-        return copy.deepcopy(self)
+        """Return a "deepcopy" of this game. Used for MCTS routines."""
+        
+        return pickle.loads(pickle.dumps(self, -1))
     
     def columns_won_current_round(self):
         """
@@ -125,7 +153,10 @@ class Game:
         return self.player_won_column
 
     def play(self, chosen_play):
-        """Apply the "chosen_play" to the game."""
+        """
+        Apply the "chosen_play" to the game.
+        Depending on the play and dice roll, it will change player_turn.
+        """
         if chosen_play == 'n':
             self.transform_neutral_markers()
             # Next action should be to choose a dice combination
@@ -393,6 +424,17 @@ class Game:
             if self.check_value_availability(comb[1]) and not\
                       self.check_value_availability(comb[0]):
                 combination.append((comb[1],))
+        #if len(combination) == 0:
+        #    print('\n AQUI FOI VAZIO - DENTRO DE AVAILABLE MOVES \n')
+        #    self.print_board()
+        #    print('player turn = ', self.player_turn)
+        #    print('finished columsn = ',self.finished_columns)
+        #    print('player won columns = ', self.player_won_column)
+        #    print('dice roll = ', self.current_roll)
+        #    print('standard combination = ', standard_combination)
+        #    print()
+        #    print()
+
         return combination
 
 

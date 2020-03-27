@@ -10,13 +10,18 @@ class Network_UCT_With_Playout(AlphaZeroPlayer):
 
     def __init__(self, c, n_simulations, n_games, n_games_evaluate,
                     victory_rate, alphazero_iterations, column_range, 
-                        offset, initial_height, network):
+                        offset, initial_height, dice_value, network):
         super().__init__(c, n_simulations, n_games, n_games_evaluate,
                             victory_rate, alphazero_iterations, column_range, 
-                                offset, initial_height, network)
+                                offset, initial_height, dice_value, network)
 
     def rollout(self, node, scratch_game):
         """Take random actions until a game is finished and return the value."""
+        # Special case where 'node' is a terminal state
+        winner, terminal_state = node.state.is_finished()
+        if terminal_state:
+            return winner
+            
         end_game = False
         while not end_game:
             #avoid infinite loops in smaller boards
