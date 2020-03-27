@@ -109,6 +109,7 @@ class Experiment:
             else:
                 who_won, is_over = game.is_finished()
 
+        # Game is over, so resets the trees
         player1.reset_tree()
         player2.reset_tree()
 
@@ -159,7 +160,7 @@ class Experiment:
 
             for i in range(current_model.n_games):
                 data_of_a_game, who_won = self.play_single_game(current_model, copy.deepcopy(current_model))
-                #print('Self-play - GAME', i ,'OVER - PLAYER', who_won, 'WON')
+                print('Self-play - GAME', i ,'OVER - PLAYER', who_won, 'WON')
                 if who_won == 1:
                     victory_1 += 1
                 elif who_won == 2:
@@ -200,32 +201,39 @@ class Experiment:
 
             start_training = time.time()
 
+            # Transform the dataset collected into network input
+            channels_input, valid_actions_dist_input, dist_probs_label, who_won_label = \
+                                            current_model.transform_dataset_to_input(dataset_for_network)
             for i in range(n_training_loop):
-
-                x_train, y_train = current_model.transform_dataset_to_input(dataset_for_network, mini_batch)
+                # Sample random mini_batch inputs for training
+                x_train, y_train = current_model.sample_input(channels_input, valid_actions_dist_input, 
+                                                    dist_probs_label, who_won_label, mini_batch)
 
                 history_callback = current_model.network.fit(x_train, y_train, epochs = epochs, shuffle = True, verbose = 0)
-
-                # Saving data
-                loss_history = sum(history_callback.history["loss"]) / len(history_callback.history["loss"])
-                output_dist_loss_history = sum(history_callback.history["Output_Dist_loss"]) / \
-                                            len(history_callback.history["Output_Dist_loss"])
-                output_value_loss_history = sum(history_callback.history["Output_Value_loss"]) / \
-                                            len(history_callback.history["Output_Value_loss"])
-                dist_metric_history = sum(history_callback.history["Output_Dist_categorical_crossentropy"]) / \
-                                        len(history_callback.history["Output_Dist_categorical_crossentropy"])
-                value_metric_history = sum(history_callback.history["Output_Value_mean_squared_error"]) /  \
-                                        len(history_callback.history["Output_Value_mean_squared_error"])
-
+    
+                if i == n_training_loop - 1:
+                    # Saving data
+                    loss_history = sum(history_callback.history["loss"]) / len(history_callback.history["loss"])
+                    output_dist_loss_history = sum(history_callback.history["Output_Dist_loss"]) / \
+                                                len(history_callback.history["Output_Dist_loss"])
+                    output_value_loss_history = sum(history_callback.history["Output_Value_loss"]) / \
+                                                len(history_callback.history["Output_Value_loss"])
+                    dist_metric_history = sum(history_callback.history["Output_Dist_categorical_crossentropy"]) / \
+                                            len(history_callback.history["Output_Dist_categorical_crossentropy"])
+                    value_metric_history = sum(history_callback.history["Output_Value_mean_squared_error"]) /  \
+                                            len(history_callback.history["Output_Value_mean_squared_error"])
+                
             data_net_vs_net_training.append((loss_history, output_dist_loss_history, output_value_loss_history, 
                     dist_metric_history, value_metric_history, victory_0, victory_1, victory_2))
 
-            print('total loss:', loss_history)
-            print('dist error:', dist_metric_history)
-            print('value error:', value_metric_history)
             elapsed_time_training = time.time() - start_training
             with open(file_name, 'a') as f:
                 print('Time elapsed of training: ', elapsed_time_training, file=f)
+                print('Total loss: ', loss_history, file=f)
+                print('Dist. loss: ', output_dist_loss_history, file=f)
+                print('Value loss: ', output_value_loss_history, file=f)
+                print('Dist. error: ', dist_metric_history, file=f)
+                print('Value error: ', value_metric_history, file=f)
 
             #
             #    
@@ -243,6 +251,8 @@ class Experiment:
             victory_0_eval_net = 0 # Draw
             victory_1_eval_net = 0 # Current model
             victory_2_eval_net = 0 # Old model
+
+            start_evaluate_net = time.time()
 
             for i in range(current_model.n_games_evaluate):
                 # If "i" is even, current_model is Player 1, otherwise current_model is Player 2.
@@ -264,6 +274,8 @@ class Experiment:
                     else:
                         victory_0_eval_net += 1
 
+            elapsed_time_evaluate_net = time.time() - start_evaluate_net
+
             data_net_vs_net_eval.append((victory_0_eval_net, victory_1_eval_net, victory_2_eval_net))
 
             necessary_won_games = (current_model.victory_rate * current_model.n_games_evaluate) / 100
@@ -274,12 +286,14 @@ class Experiment:
                     print('New model victories: ', victory_1_eval_net, file=f)
                     print('Old model victories: ', victory_2_eval_net, file=f)
                     print('Draws: ', victory_0_eval_net, file=f)
+                    print('Time elapsed in evaluation (Net vs. Net): ', elapsed_time_evaluate_net, file=f)
             else:
                 with open(file_name, 'a') as f:
                     print('New model is better!', file=f)
                     print('New model victories: ', victory_1_eval_net, file=f)
                     print('Old model victories: ', victory_2_eval_net, file=f)
                     print('Draws: ', victory_0_eval_net, file=f)
+                    print('Time elapsed in evaluation (Net vs. Net): ', elapsed_time_evaluate_net, file=f)
 
                 # The new model is better. Therefore, evaluate it against
                 # a list of vanilla UCTs and store the data for later analysis.
@@ -292,6 +306,8 @@ class Experiment:
                 for ucts in range(len(UCTs_eval)):
                     with open(file_name, 'a') as f:
                         print('MODEL EVALUATION - Network vs. UCT - ', UCTs_eval[ucts].n_simulations,' simulations', file=f)
+
+                    start_evaluate_uct = time.time()
 
                     for i in range(current_model.n_games_evaluate):
                         # If "i" is even, current_model is Player 1, otherwise current_model is Player 2.
@@ -313,10 +329,13 @@ class Experiment:
                             else:
                                 victory_0_eval[ucts] += 1
 
+                    elapsed_time_evaluate_uct = time.time() - start_evaluate_uct
+
                     with open(file_name, 'a') as f:
                         print('Net vs UCT - Network won', victory_1_eval[ucts],'time(s).', file=f)
                         print('Net vs UCT - UCT won', victory_2_eval[ucts],'time(s).', file=f)
                         print('Net vs UCT - Draws: ', victory_0_eval[ucts], file=f)
+                        print('Time elapsed in evaluation (Net vs. UCT): ', elapsed_time_evaluate_uct, file=f)
 
                 list_of_n_simulations = [uct.n_simulations for uct in UCTs_eval]
                 # Saving data
@@ -324,7 +343,7 @@ class Experiment:
 
                 elapsed_time = time.time() - start
                 with open(file_name, 'a') as f:
-                    print('Time elapsed of this iteration: ', elapsed_time, file=f)
+                    print('Time elapsed of this AZ iteration: ', elapsed_time, file=f)
 
                 stats = Statistic(data_net_vs_net_training, data_net_vs_net_eval, data_net_vs_uct, 
                         n_simulations = current_model.n_simulations, n_games = current_model.n_games, 

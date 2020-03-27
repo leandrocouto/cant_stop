@@ -2,9 +2,11 @@ import math, random
 import numpy as np
 import copy
 import collections
+from random import sample
 from players.uct_player import UCTPlayer, Node
 from abc import abstractmethod
 from collections import defaultdict
+import time
 
 class AlphaZeroPlayer(UCTPlayer):
     @abstractmethod
@@ -255,21 +257,17 @@ class AlphaZeroPlayer(UCTPlayer):
         
         return valid_actions_dist
 
-    def transform_dataset_to_input(self, dataset_for_network, mini_batch):
+    def transform_dataset_to_input(self, dataset_for_network):
         """
         Transform the dataset collected by the selfplay into
         separated training and label data used as input for
         the network.
         """
-        
-        from random import sample
 
         #Get the channels of the states (Input for the NN)
         channels_input = [play[0] for game in dataset_for_network for play in game]
         channels_input = np.array(channels_input)
         channels_input = channels_input.reshape(channels_input.shape[0], channels_input.shape[2], channels_input.shape[3], -1)
-
-
 
         #Get the probability distribution of the states (Label for the NN)
         dist_probs_label = [play[1] for game in dataset_for_network for play in game]
@@ -285,29 +283,22 @@ class AlphaZeroPlayer(UCTPlayer):
         who_won_label = np.array(who_won_label)
         who_won_label = np.expand_dims(who_won_label, axis=1)
 
+        return channels_input, valid_actions_dist_input, dist_probs_label, who_won_label
+
+    def sample_input(self, channels_input, valid_actions_dist_input, dist_probs_label, who_won_label, mini_batch):
+        """ Sample mini_batch inputs from the whole collected dataset. """
+
         # If the mini_batch size is lesser or equal than the data itself, then
         # sample accordingly
         if mini_batch <= channels_input.shape[0]:
             # indexes of the whole input to be sampled
-            #index_list = sample(range(channels_input.shape[0]), mini_batch)
-            
+
             index_list = sample(range(channels_input.shape[0]), channels_input.shape[0] - mini_batch)
 
             channels_input = np.delete(channels_input, index_list, 0)
             valid_actions_dist_input = np.delete(valid_actions_dist_input, index_list, 0)
             dist_probs_label = np.delete(dist_probs_label, index_list, 0)
             who_won_label = np.delete(who_won_label, index_list, 0)
-            
-            '''
-            channels_input = [channels_input[i] for i in range(len(channels_input)) if i in index_list]
-            channels_input = np.array(channels_input)
-            dist_probs_label = [dist_probs_label[i] for i in range(len(dist_probs_label)) if i in index_list]
-            dist_probs_label = np.array(dist_probs_label)
-            valid_actions_dist_input = [valid_actions_dist_input[i] for i in range(len(valid_actions_dist_input)) if i in index_list]
-            valid_actions_dist_input = np.array(valid_actions_dist_input)
-            who_won_label = [who_won_label[i] for i in range(len(who_won_label)) if i in index_list]
-            who_won_label = np.array(who_won_label)
-            '''
 
         x_train = [channels_input, valid_actions_dist_input]
         y_train = [dist_probs_label, who_won_label]
