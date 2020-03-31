@@ -118,8 +118,6 @@ class UCTPlayer(Player):
         action, dist_probability = self.run_UCT(game, actions_taken)
         self.action = action
         self.dist_probability = dist_probability
-        # Reset the tree for the future run_UCT call
-        #self.root = None
         return action
 
     def get_dist_probability(self):
@@ -145,7 +143,8 @@ class UCTPlayer(Player):
                 # Check if action from history in in current self.root.children
                 if actions_taken[i][0] in self.root.children:
                     # Check if the actions are made from the same player
-                    if self.root.children[actions_taken[i][0]].state.player_turn == actions_taken[i][1]:
+                    if self.root.children[actions_taken[i][0]].state.player_turn == actions_taken[i][1] and \
+                        set(self.root.state.available_moves()) == set(game.available_moves()):
                         self.root = self.root.children[actions_taken[i][0]]
                     else:
                         self.root = None
@@ -153,11 +152,17 @@ class UCTPlayer(Player):
                 else:
                     self.root = None
                     self.root = Node(actions_taken[i][2].clone())
-    
+        # This means the player is still playing (i.e.: didn't choose 'n' action)
+        else:
+            # Therefore, check if current root has the same children as "game" offers.
+            # If not, reset the tree.
+            if set(self.root.children) != set(game.available_moves()):
+                self.root = None
+                self.root = Node(game.clone())
+
         #Expand the children of the root if it is not expanded already
         if not self.root.is_expanded():
             self.expand_children(self.root)
-
 
         root_state = self.root.state.clone()
 
@@ -215,19 +220,6 @@ class UCTPlayer(Player):
 
     def backpropagate(self, search_path, value):
         """Propagate the value from rollout all the way up the tree to the root."""
-        #print('root')
-        #self.root.state.print_board()
-        #print('search path')
-        #action_sequence = []
-        #print('imprimindo os estados presentes no search path (exceto o ultimo)')
-        #for i in range(len(search_path) - 1):
-            #search_path[i].state.print_board()
-            #action_sequence.append(search_path[i].action_taken)
-        #print(action_sequence)
-        #for node in search_path:
-            #action = node.action_taken
-            #node.state.print_board()
-            #print('action taken:', node.action_taken)
         for node in search_path:
             node.n_visits += 1
             node.n_a[node.action_taken] += 1 
@@ -266,18 +258,9 @@ class UCTPlayer(Player):
         to the number of visits of the children.
         """
         dist_probability = {}
-        #total_visits = 0
-        #for action, n_visits in self.root.n_a.items(): 
-        #    if action in game.available_moves():
-        #        total_visits += n_visits
-        #        dist_probability[action] = 0
-
-        #for action, n_visits in self.root.n_a.items(): 
-        #    dist_probability[action] = n_visits/total_visits
 
         total_visits = sum(self.root.n_a.values())
-        #print('n_a: ', self.root.n_a)
-        #print('dist aqui dentro:', dist_probability)
+
         for action, visits in self.root.n_a.items():
             dist_probability[action] = visits/total_visits
         return dist_probability

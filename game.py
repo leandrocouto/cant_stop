@@ -424,18 +424,11 @@ class Game:
             if self.check_value_availability(comb[1]) and not\
                       self.check_value_availability(comb[0]):
                 combination.append((comb[1],))
-        #if len(combination) == 0:
-        #    print('\n AQUI FOI VAZIO - DENTRO DE AVAILABLE MOVES \n')
-        #    self.print_board()
-        #    print('player turn = ', self.player_turn)
-        #    print('finished columsn = ',self.finished_columns)
-        #    print('player won columns = ', self.player_won_column)
-        #    print('dice roll = ', self.current_roll)
-        #    print('standard combination = ', standard_combination)
-        #    print()
-        #    print()
 
-        return combination
+        # Remove duplicate actions (Example: dice = (2,6,6,6) will give actions
+        # = [(8,12), (8,12), (8,12)])
+
+        return list(set(combination))
 
 
     def is_finished(self):

@@ -236,12 +236,6 @@ def main():
                             column_range = column_range, offset = offset, initial_height = initial_height, 
                             max_game_length = max_game_length)
 
-    #print('game 1')
-    #experiment.play_single_game(player1, player2)
-    #print('game 2')
-    #experiment.play_single_game(player1, player2)
-    #exit()
-
     uct_evaluation_1 = Vanilla_UCT(c = c, n_simulations = round(0.25 * n_simulations))
     uct_evaluation_2 = Vanilla_UCT(c = c, n_simulations = round(0.5 * n_simulations))
     uct_evaluation_3 = Vanilla_UCT(c = c, n_simulations = n_simulations)
