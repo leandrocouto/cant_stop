@@ -116,13 +116,27 @@ class Experiment:
         return data_of_a_game, who_won
 
     def play_alphazero(self, current_model, old_model, UCTs_eval, use_UCT_playout, epochs, conv_number,
-                                    alphazero_iterations, mini_batch, n_training_loop):
+                                    alphazero_iterations, mini_batch, n_training_loop, n_games, 
+                                    n_games_evaluate, victory_rate, dataset_size):
         """
-        Both old_model and current_model are instances of AlphaZeroPlayer
+        - old_model and current_model are instances of AlphaZeroPlayer.
+        - UCTs_eval is a list of Vanilla_UCT players used in evaluation.
+        - epochs is the number of epochs usued in the training stage.
+        - alphazero_iterations is the total number of iterations of the learning
+          algorithm: selfplay -> training loop -> evaluate network (repeat).
+        - mini_batch is the number of data sampled from the whole dataset for one single
+          training iteration.
+        - n_training_loop is the number of training iterations after self-play.
+        - n_games is the number of games played in the self-play stage.
+        - n_games_evaluate is the number of games played in the evaluation stage.
+        - victory_rate is the % of victories necessary for the new network to
+          overwrite the previous one.
+        - dataset_size is the max nubmer of games stored in memory for training.
+        
         """
 
-        file_name = str(current_model.n_simulations)+'_'+str(current_model.n_games) \
-                + '_' + str(current_model.alphazero_iterations) + '_' + str(conv_number) + \
+        file_name = str(current_model.n_simulations)+'_'+str(n_games) \
+                + '_' + str(alphazero_iterations) + '_' + str(conv_number) + \
                 '_' + str(use_UCT_playout) + '.txt'
 
         # dataset_for_network saves a list of info used as input for the network.
@@ -158,9 +172,12 @@ class Experiment:
             #
             #
 
-            for i in range(current_model.n_games):
+            start_selfplay = time.time()
+            for i in range(n_games):
+                start_one_selfplay_game = time.time()
                 data_of_a_game, who_won = self.play_single_game(current_model, copy.deepcopy(current_model))
-                print('Self-play - GAME', i ,'OVER - PLAYER', who_won, 'WON')
+                elapsed_time_one_selfplay_game = time.time() - start_one_selfplay_game
+                print('Self-play - GAME', i ,'OVER - PLAYER', who_won, 'WON - Time elapsed:', elapsed_time_one_selfplay_game)
                 if who_won == 1:
                     victory_1 += 1
                 elif who_won == 2:
@@ -177,10 +194,13 @@ class Experiment:
                 if who_won != 0:
                     dataset_for_network.append(data_of_a_game)
 
+            elapsed_time_selfplay = time.time() - start_selfplay
+
             with open(file_name, 'a') as f:
                 print('Self-play - Player 1 won', victory_1,'time(s).', file=f)
                 print('Self-play - Player 2 won', victory_2,'time(s).', file=f)
                 print('Self-play - Ties:', victory_0, file=f)
+                print('Time elapsed in Selfplay:', elapsed_time_selfplay, file=f)
 
             # This means all of the selfplay games (of the first iteration) ended in a draw.
             # This is not interesting since it does not add any valued info for the network training.
@@ -200,6 +220,11 @@ class Experiment:
                 print('TRAINING LOOP', file=f)
 
             start_training = time.time()
+
+            # If the current dataset is bigger than dataset_size, then removes the oldest games accordingly.
+            current_dataset_size =  len(dataset_for_network)
+            if current_dataset_size > dataset_size:
+                del dataset_for_network[:(current_dataset_size - dataset_size)]
 
             # Transform the dataset collected into network input
             channels_input, valid_actions_dist_input, dist_probs_label, who_won_label = \
@@ -254,7 +279,7 @@ class Experiment:
 
             start_evaluate_net = time.time()
 
-            for i in range(current_model.n_games_evaluate):
+            for i in range(n_games_evaluate):
                 # If "i" is even, current_model is Player 1, otherwise current_model is Player 2.
                 # This helps reduce possible victory biases from player placements.
                 if i % 2 == 0:
@@ -278,7 +303,7 @@ class Experiment:
 
             data_net_vs_net_eval.append((victory_0_eval_net, victory_1_eval_net, victory_2_eval_net))
 
-            necessary_won_games = (current_model.victory_rate * current_model.n_games_evaluate) / 100
+            necessary_won_games = (victory_rate * n_games_evaluate) / 100
 
             if victory_1_eval_net <= necessary_won_games:
                 with open(file_name, 'a') as f:
@@ -309,7 +334,7 @@ class Experiment:
 
                     start_evaluate_uct = time.time()
 
-                    for i in range(current_model.n_games_evaluate):
+                    for i in range(n_games_evaluate):
                         # If "i" is even, current_model is Player 1, otherwise current_model is Player 2.
                         # This helps reduce possible victory biases from player placements.
                         if i % 2 == 0:
@@ -346,8 +371,8 @@ class Experiment:
                     print('Time elapsed of this AZ iteration: ', elapsed_time, file=f)
 
                 stats = Statistic(data_net_vs_net_training, data_net_vs_net_eval, data_net_vs_uct, 
-                        n_simulations = current_model.n_simulations, n_games = current_model.n_games, 
-                        alphazero_iterations = current_model.alphazero_iterations, 
+                        n_simulations = current_model.n_simulations, n_games = n_games, 
+                        alphazero_iterations = alphazero_iterations, 
                          use_UCT_playout = use_UCT_playout, conv_number = conv_number)
 
                 # New model is better, therefore we can copy current_model weights

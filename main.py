@@ -166,11 +166,11 @@ def main():
         exit()
 
     # Cluster configurations
-    if int(sys.argv[1]) == 0: n_simulations = 20
+    if int(sys.argv[1]) == 0: n_simulations = 10
     if int(sys.argv[1]) == 1: n_simulations = 20
     if int(sys.argv[1]) == 2: n_simulations = 50
     if int(sys.argv[1]) == 3: n_simulations = 100
-    if int(sys.argv[2]) == 0: n_games = 30
+    if int(sys.argv[2]) == 0: n_games = 10
     if int(sys.argv[2]) == 1: n_games = 100
     if int(sys.argv[2]) == 2: n_games = 250
     if int(sys.argv[3]) == 0: alphazero_iterations = 10
@@ -185,10 +185,11 @@ def main():
     c = 1
     epochs = 1
     reg = 0.01
-    n_games_evaluate = 100
+    n_games_evaluate = 10
     victory_rate = 55
     mini_batch = 2048
     n_training_loop = 1000
+    dataset_size = 2000
     '''
     # Toy version
     column_range = [2,6]
@@ -216,20 +217,16 @@ def main():
     old_model.set_weights(current_model.get_weights())
 
     if use_UCT_playout:
-        player1 = Network_UCT_With_Playout(c = c, n_simulations = n_simulations, n_games = n_games, 
-                    n_games_evaluate = n_games_evaluate, victory_rate = victory_rate, alphazero_iterations = alphazero_iterations, 
+        player1 = Network_UCT_With_Playout(c = c, n_simulations = n_simulations,  
                     column_range = column_range, offset = offset, initial_height = initial_height, dice_value = dice_value,
                     network = current_model)
-        player2 = Network_UCT_With_Playout(c = c, n_simulations = n_simulations, n_games = n_games, 
-                    n_games_evaluate = n_games_evaluate, victory_rate = victory_rate, alphazero_iterations = alphazero_iterations, 
+        player2 = Network_UCT_With_Playout(c = c, n_simulations = n_simulations,
                     column_range = column_range, offset = offset, initial_height = initial_height, dice_value = dice_value,
                     network = old_model)
     else:
-        player1 = Network_UCT(c = c, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = n_games_evaluate,
-                    victory_rate = victory_rate, alphazero_iterations = alphazero_iterations, column_range = column_range,
+        player1 = Network_UCT(c = c, n_simulations = n_simulations, column_range = column_range,
                     offset = offset, initial_height = initial_height, dice_value = dice_value, network = current_model)
-        player2 = Network_UCT(c = c, n_simulations = n_simulations, n_games = n_games, n_games_evaluate = n_games_evaluate,
-                    victory_rate = victory_rate, alphazero_iterations = alphazero_iterations, column_range = column_range,
+        player2 = Network_UCT(c = c, n_simulations = n_simulations, column_range = column_range,
                     offset = offset, initial_height = initial_height, dice_value = dice_value, network = old_model)
 
     experiment = Experiment(n_players = n_players, dice_number = dice_number, dice_value = dice_value, 
@@ -252,7 +249,11 @@ def main():
                                                                         epochs = epochs, conv_number = conv_number,
                                                                         alphazero_iterations = alphazero_iterations,
                                                                         mini_batch = mini_batch,
-                                                                        n_training_loop = n_training_loop)
+                                                                        n_training_loop = n_training_loop, 
+                                                                        n_games = n_games, 
+                                                                        n_games_evaluate = n_games_evaluate, 
+                                                                        victory_rate = victory_rate,
+                                                                        dataset_size = dataset_size)
 
 if __name__ == "__main__":
     main()

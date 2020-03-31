@@ -8,11 +8,9 @@ from players.alphazero_player import AlphaZeroPlayer, Node
 
 class Network_UCT_With_Playout(AlphaZeroPlayer):
 
-    def __init__(self, c, n_simulations, n_games, n_games_evaluate,
-                    victory_rate, alphazero_iterations, column_range, 
+    def __init__(self, c, n_simulations, column_range, 
                         offset, initial_height, dice_value, network):
-        super().__init__(c, n_simulations, n_games, n_games_evaluate,
-                            victory_rate, alphazero_iterations, column_range, 
+        super().__init__(c, n_simulations, column_range, 
                                 offset, initial_height, dice_value, network)
 
     def rollout(self, node, scratch_game):

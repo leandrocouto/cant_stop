@@ -10,17 +10,9 @@ import time
 
 class AlphaZeroPlayer(UCTPlayer):
     @abstractmethod
-    def __init__(self, c, n_simulations, n_games, n_games_evaluate,
-                    victory_rate, alphazero_iterations, column_range, 
+    def __init__(self, c, n_simulations, column_range, 
                         offset, initial_height, dice_value, network):
         """
-        - n_games is the number of games played in the self-play scheme.
-        - n_games_evaluate is the number of games played to evaluate the current
-          network against the previous one.
-        - victory_rate is the % of victories necessary for the new network to
-          overwrite the previous one.
-        - alphazero_iterations is the total number of iterations of the learning
-          algorithm: selfplay -> training loop -> evaluate network (repeat).
         - column_range is a list denoting the range of the board game columns.
         - offset is the height difference between columns.
         - initial_height is the height of the columns at the border of the board.
@@ -28,10 +20,6 @@ class AlphaZeroPlayer(UCTPlayer):
         - network is the neural network AlphaZero trains.
         """
         super().__init__(c, n_simulations)
-        self.n_games = n_games
-        self.n_games_evaluate = n_games_evaluate
-        self.victory_rate = victory_rate
-        self.alphazero_iterations = alphazero_iterations
         self.column_range = column_range 
         self.offset = offset
         self.initial_height = initial_height
