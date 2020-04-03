@@ -43,6 +43,7 @@ class Node:
     def is_expanded(self):
         """Return a boolean."""
         return len(self.children) > 0
+    
 
 class UCTPlayer(Player):
     @abstractmethod
@@ -181,7 +182,7 @@ class UCTPlayer(Player):
             #If it has been visited, then expand its children, choose the one
             #with the highest ucb score and do a rollout from there.
             if node.n_visits == 0:
-                rollout_value = self.rollout(node, node.state)
+                rollout_value = self.rollout(node)
                 self.backpropagate(search_path, rollout_value)
             else:
                 _, terminal_state = node.state.is_finished()
@@ -189,18 +190,22 @@ class UCTPlayer(Player):
                 # from the current tree), then only rollout should be applied since
                 # it does not make sense to expand the children of a leaf.
                 if terminal_state:
-                    rollout_value = self.rollout(node, node.state)
+                    rollout_value = self.rollout(node)
                     self.backpropagate(search_path, rollout_value)
                 else:
                     self.expand_children(node)
-                    _, node_for_rollout = self.select_child(node)
-                    rollout_value = self.rollout(node_for_rollout, node.state)
+                    action, new_node = self.select_child(node)
+                    node.action_taken = action
+                    search_path.append(new_node)
+                    node = new_node
+                    rollout_value = self.rollout(node)
                     self.backpropagate(search_path, rollout_value)
 
         dist_probability = self.distribution_probability(game)
         action = self.select_action(game, self.root, dist_probability)
         self.root = self.root.children[action]
-        self.root.n_a.pop(action)
+        if self.root.n_a:
+            self.root.n_a.pop(action)
 
         return action, dist_probability 
 
@@ -220,6 +225,7 @@ class UCTPlayer(Player):
 
     def backpropagate(self, search_path, value):
         """Propagate the value from rollout all the way up the tree to the root."""
+        
         for node in search_path:
             node.n_visits += 1
             node.n_a[node.action_taken] += 1 
@@ -227,6 +233,7 @@ class UCTPlayer(Player):
             node.q_a[node.action_taken] = (node.q_a[node.action_taken] * 
                                             (node.n_visits - 1) + value) / \
                                                 node.n_visits
+        #exit()
 
     def select_child(self, node):
         """Return the child Node with the highest UCB score."""

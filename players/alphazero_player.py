@@ -34,6 +34,17 @@ class AlphaZeroPlayer(UCTPlayer):
         """
         pass
 
+    @abstractmethod
+    def clone(self, reg, conv_number):
+        '''
+        Clones self player.
+        Tensorflow 1.3 complains about deepcopying keras models 
+        while TF 2.0 > does not. Using this method in order to be able
+        to run in either versions.
+        Concrete classes must implement this method.
+        '''
+        pass
+
     def select_action(self, game, root, dist_probability):
         """Return the action sampled from the distribution probability."""
         # Transform the dist. prob dic to a list of tuples
@@ -125,7 +136,7 @@ class AlphaZeroPlayer(UCTPlayer):
         Return two channels that fills with a 1 in a column if the respective player
         has permanently won that column.
         """
-
+        
         channel_player_1 = np.array(channel)
         channel_player_2 = np.array(channel)
 
@@ -188,8 +199,8 @@ class AlphaZeroPlayer(UCTPlayer):
                             channel_won_column_1, channel_won_column_2, channel_turn]
         list_of_channels = np.array(list_of_channels)
         list_of_channels = np.expand_dims(list_of_channels, axis=0)
-        list_of_channels = list_of_channels.reshape(list_of_channels.shape[0], 
-                            list_of_channels.shape[2], list_of_channels.shape[3], -1)
+        #list_of_channels = list_of_channels.reshape(list_of_channels.shape[0], 
+        #                    list_of_channels.shape[2], list_of_channels.shape[3], -1)
         return list_of_channels
 
     def remove_invalid_actions(self, dist_prob, keys):
@@ -255,7 +266,8 @@ class AlphaZeroPlayer(UCTPlayer):
         #Get the channels of the states (Input for the NN)
         channels_input = [play[0] for game in dataset_for_network for play in game]
         channels_input = np.array(channels_input)
-        channels_input = channels_input.reshape(channels_input.shape[0], channels_input.shape[2], channels_input.shape[3], -1)
+        #exit()
+        #channels_input = channels_input.reshape(channels_input.shape[0], channels_input.shape[2], channels_input.shape[3], -1)
 
         #Get the probability distribution of the states (Label for the NN)
         dist_probs_label = [play[1] for game in dataset_for_network for play in game]

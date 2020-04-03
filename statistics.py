@@ -1,8 +1,8 @@
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
-from pylatex import Document, Section, Figure, NoEscape
-from pylatex.utils import bold
+#from pylatex import Document, Section, Figure, NoEscape
+#from pylatex.utils import bold
 import numpy as np
 import pickle
 import os

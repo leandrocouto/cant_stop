@@ -31,8 +31,9 @@ def define_model_experimental(reg, conv_number, column_range, offset, initial_he
     temp = len(list(range(2, dice_value * 2 + 1)))
     n_actions = temp * temp + temp + 2
 
+    n_channels = 6
     
-    state_channels = Input(shape = (height, width, 6), name='States_Channels_Input')
+    state_channels = Input(shape = (n_channels, height, width), name='States_Channels_Input')
     valid_actions_dist = Input(shape = (n_actions,), name='Valid_Actions_Input')
 
     zeropadding = keras.layers.ZeroPadding2D((2, 2))(state_channels)
@@ -62,7 +63,7 @@ def define_model_experimental(reg, conv_number, column_range, offset, initial_he
     #model.compile(loss=softmax_cross_entropy_with_logits,
     model.compile(loss=['categorical_crossentropy','mean_squared_error'],
                         optimizer='adam', metrics={'Output_Dist':'categorical_crossentropy', 'Output_Value':'mean_squared_error'},
-                        loss_weights = [0.5, 0.5])
+                        loss_weights = [1, 1])
     return model 
 
 def define_model(reg, conv_number, column_range, offset, initial_height, dice_value):
@@ -76,8 +77,9 @@ def define_model(reg, conv_number, column_range, offset, initial_height, dice_va
     temp = len(list(range(2, dice_value * 2 + 1)))
     n_actions = temp * temp + temp + 2
 
-    
-    state_channels = Input(shape = (height, width, 6), name='States_Channels_Input')
+    n_channels = 6
+
+    state_channels = Input(shape = (n_channels, height, width), name='States_Channels_Input')
     valid_actions_dist = Input(shape = (n_actions,), name='Valid_Actions_Input')
 
     conv = Conv2D(filters=10, kernel_size=2, kernel_initializer='glorot_normal', kernel_regularizer=regularizers.l2(reg), activation='relu', name='Conv_Layer')(state_channels)
@@ -108,14 +110,12 @@ def define_model(reg, conv_number, column_range, offset, initial_height, dice_va
     #model.compile(loss=softmax_cross_entropy_with_logits,
     model.compile(loss=['categorical_crossentropy','mean_squared_error'],
                         optimizer='adam', metrics={'Output_Dist':'categorical_crossentropy', 'Output_Value':'mean_squared_error'},
-                        loss_weights = [0.5, 0.5])
+                        loss_weights = [1, 1])
     return model  
 
 def main():
     # Command line parameters: n_simulations, n_games, alpha_zero, conv_number, use_UCT_playout
-    #s = Statistic()
-    #s.generate_report()
-    #exit()
+
     # If the user does not pass any extra command line arguments,
     # then it will open the dialog to generate a report.
     if len(sys.argv) == 1:
@@ -166,31 +166,30 @@ def main():
         exit()
 
     # Cluster configurations
-    if int(sys.argv[1]) == 0: n_simulations = 10
-    if int(sys.argv[1]) == 1: n_simulations = 20
-    if int(sys.argv[1]) == 2: n_simulations = 50
-    if int(sys.argv[1]) == 3: n_simulations = 100
-    if int(sys.argv[2]) == 0: n_games = 10
-    if int(sys.argv[2]) == 1: n_games = 100
-    if int(sys.argv[2]) == 2: n_games = 250
-    if int(sys.argv[3]) == 0: alphazero_iterations = 10
-    #if int(sys.argv[3]) == 1: alphazero_iterations = 100
+    if int(sys.argv[1]) == 0: n_simulations = 50
+    if int(sys.argv[1]) == 1: n_simulations = 100
+    if int(sys.argv[1]) == 2: n_simulations = 200
+    if int(sys.argv[1]) == 3: n_simulations = 500
+    if int(sys.argv[2]) == 0: n_games = 100
+    if int(sys.argv[2]) == 1: n_games = 250
+    if int(sys.argv[2]) == 2: n_games = 500
+    if int(sys.argv[3]) == 0: alphazero_iterations = 150
     if int(sys.argv[4]) == 0: conv_number = 1
     if int(sys.argv[4]) == 1: conv_number = 2
-    if int(sys.argv[5]) == 0: use_UCT_playout = True
-    if int(sys.argv[5]) == 1: use_UCT_playout = False
+    #if int(sys.argv[5]) == 0: use_UCT_playout = True
+    if int(sys.argv[5]) == 0: use_UCT_playout = False
 
     #Config parameters
 
     c = 1
     epochs = 1
     reg = 0.01
-    n_games_evaluate = 10
+    n_games_evaluate = 100
     victory_rate = 55
     mini_batch = 2048
     n_training_loop = 1000
-    dataset_size = 2000
-    '''
+    dataset_size = 4000
+    
     # Toy version
     column_range = [2,6]
     offset = 2
@@ -208,7 +207,7 @@ def main():
     dice_number = 4
     dice_value = 6 
     max_game_length = 500
-    
+    '''
     
 
     #Neural network specification
@@ -245,7 +244,7 @@ def main():
     with open(file_name, 'a') as f:
         print('The arguments are: ' , str(sys.argv), file=f)
 
-    experiment.play_alphazero(player1, player2, UCTs_eval,  use_UCT_playout = use_UCT_playout, 
+    experiment.play_alphazero(player1, player2, UCTs_eval,  use_UCT_playout = use_UCT_playout, reg = reg,
                                                                         epochs = epochs, conv_number = conv_number,
                                                                         alphazero_iterations = alphazero_iterations,
                                                                         mini_batch = mini_batch,

@@ -27,24 +27,28 @@ class Vanilla_UCT(UCTPlayer):
             child_state.action_taken = action
             parent.children[action] = child_state
 
-    def rollout(self, node, scratch_game):
+    def rollout(self, node):
         """Take random actions until a game is finished and return the value."""
 
         # Special case where 'node' is a terminal state
         winner, terminal_state = node.state.is_finished()
         if terminal_state:
-            return winner
+            if winner == 1:
+                return 1
+            else:
+                return -1
 
         end_game = False
+        game = node.state.clone()
         while not end_game:
             #avoid infinite loops in smaller boards
-            who_won, end_game = scratch_game.is_finished()
-            moves = scratch_game.available_moves()
-            if scratch_game.is_player_busted(moves):
+            who_won, end_game = game.is_finished()
+            moves = game.available_moves()
+            if game.is_player_busted(moves):
                 continue
             chosen_move = random.choice(moves)
-            scratch_game.play(chosen_move)
-            who_won, end_game = scratch_game.is_finished()
+            game.play(chosen_move)
+            who_won, end_game = game.is_finished()
         if who_won == 1:
             return 1
         else:

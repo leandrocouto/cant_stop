@@ -45,14 +45,14 @@ class Experiment:
             rounds += 1
             # Collecting data for later input to the NN if any of the players are
             # subclasses of AlphaZeroPlayer.
-            if isinstance(player1, AlphaZeroPlayer):
+            if isinstance(player1, AlphaZeroPlayer) and game.player_turn == 1:
                 channel_valid = player1.valid_positions_channel(self.column_range, self.offset, self.initial_height)
                 channel_finished_1, channel_finished_2 = player1.finished_columns_channels(game, channel_valid)
                 channel_won_column_1, channel_won_column_2 = player1.player_won_column_channels(game, channel_valid)
                 channel_turn = player1.player_turn_channel(game, channel_valid)
                 list_of_channels = [channel_valid, channel_finished_1, channel_finished_2,
                                     channel_won_column_1, channel_won_column_2, channel_turn]
-            elif isinstance(player2, AlphaZeroPlayer):
+            elif isinstance(player2, AlphaZeroPlayer) and game.player_turn == 2:
                 channel_valid = player2.valid_positions_channel(self.column_range, self.offset, self.initial_height)
                 channel_finished_1, channel_finished_2 = player2.finished_columns_channels(game, channel_valid)
                 channel_won_column_1, channel_won_column_2 = player2.player_won_column_channels(game, channel_valid)
@@ -81,7 +81,7 @@ class Experiment:
                     dist_probability = []
                     if isinstance(player2, UCTPlayer):
                         dist_probability = player2.get_dist_probability()
-                if isinstance(player1, AlphaZeroPlayer) or isinstance(player2, AlphaZeroPlayer):
+                if isinstance(player1, AlphaZeroPlayer) and isinstance(player2, AlphaZeroPlayer):
                     # Collecting data for network
                     current_play = [list_of_channels, dist_probability]
                     data_of_a_game.append(current_play)
@@ -115,7 +115,7 @@ class Experiment:
 
         return data_of_a_game, who_won
 
-    def play_alphazero(self, current_model, old_model, UCTs_eval, use_UCT_playout, epochs, conv_number,
+    def play_alphazero(self, current_model, old_model, UCTs_eval, use_UCT_playout, reg, epochs, conv_number,
                                     alphazero_iterations, mini_batch, n_training_loop, n_games, 
                                     n_games_evaluate, victory_rate, dataset_size):
         """
@@ -164,6 +164,7 @@ class Experiment:
             victory_0 = 0
             victory_1 = 0
             victory_2 = 0
+
             start = time.time()
 
             #
@@ -173,11 +174,15 @@ class Experiment:
             #
 
             start_selfplay = time.time()
+
+            copy_model = current_model.clone(reg, conv_number)
+
             for i in range(n_games):
                 start_one_selfplay_game = time.time()
-                data_of_a_game, who_won = self.play_single_game(current_model, copy.deepcopy(current_model))
+
+                data_of_a_game, who_won = self.play_single_game(current_model, copy_model)
                 elapsed_time_one_selfplay_game = time.time() - start_one_selfplay_game
-                print('Self-play - GAME', i ,'OVER - PLAYER', who_won, 'WON - Time elapsed:', elapsed_time_one_selfplay_game)
+                #print('Self-play - GAME', i ,'OVER - PLAYER', who_won, 'WON - Time elapsed:', elapsed_time_one_selfplay_game)
                 if who_won == 1:
                     victory_1 += 1
                 elif who_won == 2:
@@ -187,6 +192,8 @@ class Experiment:
                 # After the game is finished, we now know who won the game.
                 # Therefore, save this info in all instances saved so far
                 # for later use as input for the NN.
+                if who_won == 2:
+                    who_won = -1
                 for single_game in data_of_a_game:
                         single_game.append(who_won)
 
@@ -195,6 +202,8 @@ class Experiment:
                     dataset_for_network.append(data_of_a_game)
 
             elapsed_time_selfplay = time.time() - start_selfplay
+
+            
 
             with open(file_name, 'a') as f:
                 print('Self-play - Player 1 won', victory_1,'time(s).', file=f)
@@ -216,9 +225,10 @@ class Experiment:
             #
             #
 
+
             with open(file_name, 'a') as f:
                 print('TRAINING LOOP', file=f)
-
+            
             start_training = time.time()
 
             # If the current dataset is bigger than dataset_size, then removes the oldest games accordingly.
@@ -229,6 +239,7 @@ class Experiment:
             # Transform the dataset collected into network input
             channels_input, valid_actions_dist_input, dist_probs_label, who_won_label = \
                                             current_model.transform_dataset_to_input(dataset_for_network)
+
             for i in range(n_training_loop):
                 # Sample random mini_batch inputs for training
                 x_train, y_train = current_model.sample_input(channels_input, valid_actions_dist_input, 
@@ -259,7 +270,7 @@ class Experiment:
                 print('Value loss: ', output_value_loss_history, file=f)
                 print('Dist. error: ', dist_metric_history, file=f)
                 print('Value error: ', value_metric_history, file=f)
-
+            
             #
             #    
             # Model evaluation
