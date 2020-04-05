@@ -1,16 +1,19 @@
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
-#from pylatex import Document, Section, Figure, NoEscape
-#from pylatex.utils import bold
+from pylatex import Document, Section, Figure, NoEscape
+from pylatex.utils import bold
 import numpy as np
 import pickle
 import os
 
 class Statistic:
-    def __init__(self, data_net_vs_net_training = None, data_net_vs_net_eval = None, data_net_vs_uct = None, 
-                    n_simulations = None, n_games = None, alphazero_iterations = None, 
-                    use_UCT_playout = None, conv_number = None):
+    def __init__(self, data_net_vs_net_training = None, 
+                    data_net_vs_net_eval = None, data_net_vs_uct = None, 
+                    n_simulations = None, n_games = None, 
+                    alphazero_iterations = None, use_UCT_playout = None, 
+                    conv_number = None
+                    ):
         self.data_net_vs_net_training = data_net_vs_net_training
         self.data_net_vs_net_eval = data_net_vs_net_eval
         self.data_net_vs_uct = data_net_vs_uct
@@ -19,28 +22,34 @@ class Statistic:
         self.alphazero_iterations = alphazero_iterations
         self.use_UCT_playout = use_UCT_playout
         self.conv_number = conv_number
-        if n_simulations != None and n_games != None and alphazero_iterations != None and \
-            use_UCT_playout != None and conv_number != None:
-            self.path = 'data_'+str(self.n_simulations)+'_'+str(self.n_games) \
-                + '_' + str(self.alphazero_iterations) + '_' + str(self.conv_number) + \
-                '_' + str(self.use_UCT_playout) + '/'
+        if n_simulations != None and n_games != None \
+            and alphazero_iterations != None \
+            and use_UCT_playout != None and conv_number != None:
+            self.path = 'data_' + str(self.n_simulations) + '_' \
+                + str(self.n_games) + '_' + str(self.alphazero_iterations) \
+                + '_' + str(self.conv_number) + '_' \
+                + str(self.use_UCT_playout) + '/'
                 
 
     def save_to_file(self, alphazero_iteration):
         """Save the analysis data of this iteration to file."""
+
         if not os.path.exists(self.path):
             os.makedirs(self.path)
-        filename = self.path + '/' + str(self.n_simulations)+'_'+str(self.n_games) \
-                + '_' + str(self.alphazero_iterations) + '_' + str(self.conv_number) + \
-                '_' + str(self.use_UCT_playout) + '_' + str(alphazero_iteration)
+        filename = self.path + '/' + str(self.n_simulations) + '_' \
+                + str(self.n_games) + '_' + str(self.alphazero_iterations) \
+                + '_' + str(self.conv_number) + '_' \
+                + str(self.use_UCT_playout) + '_' + str(alphazero_iteration)
         with open(filename, 'wb') as file:
             pickle.dump(self.__dict__, file)
 
     def load_from_file(self, path):
         """
         Load data from file to self object.
-        path is a dictionary where key is Statistic attributes and value is the data.
+        path is a dictionary where key is Statistic attributes and 
+        value is the data.
         """
+
         with open(path, 'rb') as file:
             stats = pickle.load(file)
             self.data_net_vs_net_training = stats['data_net_vs_net_training']
@@ -56,14 +65,19 @@ class Statistic:
 
     def save_model_to_file(self, model, alphazero_iteration):
         """Save the networkmodel of this iteration to file."""
+
         if not os.path.exists(self.path):
             os.makedirs(self.path)
-        filename = self.path + '/' + str(self.n_simulations)+'_'+str(self.n_games) \
-                + '_' + str(self.alphazero_iterations) + '_' + str(self.conv_number) + \
-                '_' + str(self.use_UCT_playout) + '_' + str(alphazero_iteration) + '_model.h5'
+        filename = self.path + '/' + str(self.n_simulations) + '_' \
+                + str(self.n_games) + '_' + str(self.alphazero_iterations) \
+                + '_' + str(self.conv_number) + '_' \
+                + str(self.use_UCT_playout) + '_' \
+                + str(alphazero_iteration) + '_model.h5'
         model.save(filename)
 
     def info_header_latex(self, doc):
+        """Create a header used before each graph in the report."""
+
         doc.append(bold('Number of UCT simulations: '))
         doc.append(str(self.n_simulations))
         doc.append(bold('\nNumber of games in selfplay: '))
@@ -76,6 +90,8 @@ class Statistic:
         doc.append(str(self.alphazero_iterations))
 
     def generate_report(self):
+        """Generate and export the report."""
+
         matplotlib.use('Agg')  # Not to use X server. For TravisCI.
 
         # Data preparation
@@ -134,9 +150,9 @@ class Statistic:
             victory_2_eval_uct.append(temp_list_2)       
 
         geometry_options = {"right": "2cm", "left": "2cm"}
-        pdf_name = str(self.n_simulations)+'_'+str(self.n_games) \
-                + '_' + str(self.alphazero_iterations) + '_' + str(self.conv_number) + \
-                '_' + str(self.use_UCT_playout)
+        pdf_name = str(self.n_simulations) + '_' + str(self.n_games) \
+                + '_' + str(self.alphazero_iterations) + '_' \
+                + str(self.conv_number) + '_' + str(self.use_UCT_playout)
         doc = Document(pdf_name, geometry_options=geometry_options)
         
         # Total loss
@@ -252,7 +268,9 @@ class Statistic:
         # previous one.
         if len(victory_1_eval_net) != 0:
             # Player victories in evaluation - Net vs. Net
-            with doc.create(Section('Player victories in evaluation - Net vs. Net')):
+            with doc.create(
+                    Section('Player victories in evaluation - Net vs. Net')
+                    ):
                 self.info_header_latex(doc)   
                 x = np.array(range(1, len(self.data_net_vs_net_eval) + 1))
                 y = np.array(victory_1_eval_net)
@@ -277,8 +295,9 @@ class Statistic:
 
             for i in range(len(list_of_n_simulations[0])):
                 # Player victories in evaluation - Net vs. UCT
-                title_name = 'Player victories in evaluation - Net vs. UCT - ' +  str(list_of_n_simulations[0][i]) + ' simulations'
-                with doc.create(Section(title_name)):
+                title = 'Player victories in evaluation - Net vs. UCT - ' \
+                        +  str(list_of_n_simulations[0][i]) + ' simulations'
+                with doc.create(Section(title)):
                     self.info_header_latex(doc)  
                     x = np.array(range(1, len(victory_1_eval_uct[i]) + 1))
                     y = np.array(victory_1_eval_uct[i])
@@ -292,8 +311,10 @@ class Statistic:
                     ax.plot(a, b, label='UCT')
                     ax.plot(m, n, label='Draw')
                     ax.legend(loc="upper right")
-                    ax.set(xlabel='AZ Iterations', ylabel='Number of victories', 
-                    title=title_name)
+                    ax.set(xlabel='AZ Iterations', 
+                            ylabel='Number of victories', 
+                            title=title
+                            )
 
                     with doc.create(Figure(position='htbp')) as plot:
                         plot.add_plot(width=NoEscape(r'1\textwidth'), dpi=300)

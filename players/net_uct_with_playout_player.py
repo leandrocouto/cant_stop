@@ -41,21 +41,28 @@ class Network_UCT_With_Playout(AlphaZeroPlayer):
             return -1
 
     def clone(self, reg, conv_number):
-        '''
-        Clones self player.
+        """
+        Clone self player.
         Tensorflow 1.3 complains about deepcopying keras models 
         while TF 2.0 > does not. Using this method in order to be able
         to run in either versions.
         Return a Network_UCT_With_Playout player.
-        '''
+        """
+
         from main import define_model
         import pickle
-        self_copy = Network_UCT_With_Playout(self.c, self.n_simulations, self.column_range, 
-                        self.offset, self.initial_height, self.dice_value, None)
+        self_copy = Network_UCT_With_Playout(self.c, self.n_simulations, 
+                        self.column_range, self.offset, self.initial_height, 
+                        self.dice_value, None
+                        )
         self_copy.root = pickle.loads(pickle.dumps(self.root, -1))
         self_copy.action = pickle.loads(pickle.dumps(self.action, -1))
-        self_copy.dist_probability = pickle.loads(pickle.dumps(self.dist_probability, -1))
+        self_copy.dist_probability = pickle.loads(
+                                    pickle.dumps(self.dist_probability, -1)
+                                    )
         self_copy.network = define_model(reg, conv_number, self.column_range, 
-                                        self.offset, self.initial_height, self.dice_value)
+                                        self.offset, self.initial_height, 
+                                        self.dice_value
+                                        )
         self_copy.network.set_weights(self.network.get_weights())
         return self_copy

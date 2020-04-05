@@ -11,13 +11,17 @@ class Vanilla_UCT(UCTPlayer):
         super().__init__(c, n_simulations)
 
     def expand_children(self, parent):
+        """Expand the children of the "parent" node."""
 
-        # parent might not have any children given the dice configuration. Therefore,
-        # We should check if it the player is busted. is_player_busted() automatically
-        # change the game dynamics (player turn, etc) if the player is indeed busted.
+        # parent might not have any children given the dice configuration.
+        # Therefore, it should be checked if the player is busted. 
+        # is_player_busted() automatically changes the game dynamics 
+        # (player turn, etc) if the player is indeed busted.
         is_busted = True
         while is_busted:
-            is_busted = parent.state.is_player_busted(parent.state.available_moves())
+            is_busted = parent.state.is_player_busted(
+                            parent.state.available_moves()
+                        )
         valid_actions = parent.state.available_moves()
         
         for action in valid_actions:
@@ -30,7 +34,7 @@ class Vanilla_UCT(UCTPlayer):
     def rollout(self, node):
         """Take random actions until a game is finished and return the value."""
 
-        # Special case where 'node' is a terminal state
+        # Special case where 'node' is a terminal state.
         winner, terminal_state = node.state.is_finished()
         if terminal_state:
             if winner == 1:
@@ -56,6 +60,7 @@ class Vanilla_UCT(UCTPlayer):
 
     def select_action(self, game, root, dist_probability):
         """Return the action with the highest visit score."""
+
         visit_counts = [(child.n_visits, action)
                       for action, child in root.children.items()]
         # Sort based on the number of visits
@@ -64,17 +69,15 @@ class Vanilla_UCT(UCTPlayer):
         return action
 
     def calculate_ucb_max(self, node, action):
-        """
-        Return the node UCB1 value of the MAX player.
-        """
+        """Return the node UCB1 value of the MAX player."""
+
         return node.q_a[action] + self.c * math.sqrt(
                                     np.divide(math.log(node.n_visits),
                                   node.n_a[action]))
 
     def calculate_ucb_min(self, node, action):
-        """
-        Return the node UCB1 value of the MIN player.
-        """
+        """Return the node UCB1 value of the MIN player."""
+        
         return node.q_a[action] - self.c * math.sqrt(
                                     np.divide(math.log(node.n_visits),
                                   node.n_a[action]))

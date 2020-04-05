@@ -107,8 +107,8 @@ class UCTPlayer(Player):
         Reset the tree. In the current implementation, UCT keeps the
         relevant tree for future UCT simulations. Use this method if you
         will play several games in a row using the same UCTPlayer.
-        If this is not called, the tree will grow indefinitely after many games,
-        resulting in a stack overflow.
+        If this isn't called, the tree will grow indefinitely, resulting in a
+        stack overflow.
         """
         self.root = None
         self.action = None
@@ -135,28 +135,31 @@ class UCTPlayer(Player):
         # If current tree is null, create one using game
         if self.root == None:
             self.root = Node(game.clone())
-        # If it is not, check if there are actions from actions_taken to update the tree from this player.
+        # If it's not, check if there are actions from actions_taken to update
+        # the tree from this player.
         # If the list is not empty, update the root accordingly.
-        # If the list is empty, that means this player hasn't passed the turn, therefore the root is 
-        # already updated.
+        # If the list is empty, that means this player hasn't passed the turn,
+        # therefore the root is already updated.
         elif len(actions_taken) != 0:
             for i in range(len(actions_taken)):
-                # Check if action from history in in current self.root.children
+                # Check if action from history is in current root.children.
                 if actions_taken[i][0] in self.root.children:
                     # Check if the actions are made from the same player
-                    if self.root.children[actions_taken[i][0]].state.player_turn == actions_taken[i][1] and \
-                        set(self.root.state.available_moves()) == set(game.available_moves()):
-                        self.root = self.root.children[actions_taken[i][0]]
+                    child_node = self.root.children[actions_taken[i][0]]
+                    if child_node.state.player_turn == actions_taken[i][1] \
+                        and set(self.root.state.available_moves()) \
+                        == set(game.available_moves()):
+                        self.root = child_node
                     else:
                         self.root = None
                         self.root = Node(actions_taken[i][2].clone())
                 else:
                     self.root = None
                     self.root = Node(actions_taken[i][2].clone())
-        # This means the player is still playing (i.e.: didn't choose 'n' action)
+        # This means the player is still playing (i.e.: didn't choose 'n').
         else:
-            # Therefore, check if current root has the same children as "game" offers.
-            # If not, reset the tree.
+            # Therefore, check if current root has the same children as "game"
+            # offers. If not, reset the tree.
             if set(self.root.children) != set(game.available_moves()):
                 self.root = None
                 self.root = Node(game.clone())
@@ -176,19 +179,20 @@ class UCTPlayer(Player):
                 node.action_taken = action
                 search_path.append(new_node)
                 node = new_node
-            #At this point, a leaf was reached.
-            #If it was not visited yet, then perform the rollout and
-            #backpropagates the reward returned from the end of the simulation.
-            #If it has been visited, then expand its children, choose the one
-            #with the highest ucb score and do a rollout from there.
+            # At this point, a leaf was reached.
+            # If it was not visited yet, then perform the rollout and
+            # backpropagates the reward returned from the simulation.
+            # If it has been visited, then expand its children, choose the one
+            # with the highest ucb score and do a rollout from there.
             if node.n_visits == 0:
                 rollout_value = self.rollout(node)
                 self.backpropagate(search_path, rollout_value)
             else:
                 _, terminal_state = node.state.is_finished()
-                # Special case: if "node" is actually a leaf of the game (not a leaf
-                # from the current tree), then only rollout should be applied since
-                # it does not make sense to expand the children of a leaf.
+                # Special case: if "node" is actually a leaf of the game (not 
+                # a leaf from the current tree), then only rollout should be 
+                # applied since it does not make sense to expand the children
+                # of a leaf.
                 if terminal_state:
                     rollout_value = self.rollout(node)
                     self.backpropagate(search_path, rollout_value)
@@ -215,7 +219,7 @@ class UCTPlayer(Player):
         Currently works only when node == self.root.
         """
 
-        # If the tree has not been created yet 
+        # If the tree has not been created yet.
         if node == None:
             return 0
         n_nodes = 1
@@ -224,7 +228,7 @@ class UCTPlayer(Player):
         return n_nodes
 
     def backpropagate(self, search_path, value):
-        """Propagate the value from rollout all the way up the tree to the root."""
+        """Propagate the game value all the way up the tree to the root."""
         
         for node in search_path:
             node.n_visits += 1
@@ -233,7 +237,6 @@ class UCTPlayer(Player):
             node.q_a[node.action_taken] = (node.q_a[node.action_taken] * 
                                             (node.n_visits - 1) + value) / \
                                                 node.n_visits
-        #exit()
 
     def select_child(self, node):
         """Return the child Node with the highest UCB score."""

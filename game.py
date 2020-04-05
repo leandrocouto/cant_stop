@@ -5,17 +5,21 @@ import pickle
 
 class Cell:
     def __init__(self):
-        """A list of markers.
+        """
+        A list of markers.
         Neutral markers are represented as 0.
         Markers from Player 1 are represented as 1, and so forth.
         """
+
         self.markers = []
 
 class Board:
     def __init__(self, column_range, offset, initial_height):
-        """First two columns are unused.
+        """
+        First two columns are unused.
         Used columns vary from range 2 to 12 (inclusive).
         """
+
         self.column_range = column_range
         self.offset = offset
         self.initial_height = initial_height
@@ -31,10 +35,13 @@ class Board:
                 height -= self.offset
 
     def print_board(self, rows):
-        """Print the board. The asterisk means that the current player
-        has completed that row but they are still playing (i.e.: the player has
+        """
+        Print the board. 
+        The asterisk means that the current player
+        has completed that row but they are still playing (i.e.: player has
         not chosen "n" action yet).
         """
+
         partial_completed_rows = [item[0] for item in rows]
         for x in range(self.column_range[0],self.column_range[1]+1):
             list_of_cells = self.board[x]
@@ -47,13 +54,15 @@ class Board:
 
     def check_board_equality(self, board_2):
         """ Check if two boards are equal. """
+
         height = self.initial_height
         for x in range(self.column_range[0],self.column_range[1]+1):
             list_of_cells = self.board[x]
             list_of_cells_2 = board_2.board[x]
             for i in range(len(list_of_cells)):
                 # Check if all Cell in [x] are equal
-                if sorted(list_of_cells[i].markers) != sorted(list_of_cells_2[i].markers):
+                if sorted(list_of_cells[i].markers) \
+                    != sorted(list_of_cells_2[i].markers):
                     return False
             if x < self.column_range[1]/2 +1:
                 height += self.offset
@@ -65,29 +74,32 @@ class Game:
     def __init__(self, n_players, dice_number, dice_value, column_range,
                     offset, initial_height):
         """
-        - n_players is the number of players (At the moment, only 2 is possible).
+        - n_players is the number of players (only 2 is possible).
         - dice_number is the number of dice used in the Can't Stop game.
         - dice_value is the number of faces of a single die.
         - column_range is a list denoting the range of the board game columns.
         - offset is the height difference between columns.
-        - initial_height is the height of the columns at the border of the board.
+        - initial_height is the height of the columns at the board border.
         - finished_columns is a list of 2-tuples indicating which columns were
-          won by a certain player. Ex.: (2, 3) meaning column 2 won by player 3.
-        - player_won_column is a list of 2-tuples indicating which 
-          columns were won by a certain player in the current round.
-          Ex.: (2, 3) meaning column 2 won by player 3 in the current round.
-        - dice_action refers to which action the game is at at the moment, if the
-          player is choosing which combination or if the player is choosing if he
-          wants to continue playing the turn or not.
+          won by a certain player. Ex.: (2, 3) = column 2 won by player 3.
+        - player_won_column is a list of 2-tuples indicating which columns
+          were won by a certain player in the current round.
+          Ex.: (2, 3) = column 2 won by player 3 in the current round.
+        - dice_action refers to which action the game is at at the moment, 
+          if the player is choosing which combination or if the player is 
+          choosing if he wants to continue playing the turn or not.
         - current_roll refers to all dice_number dice roll.
         """
+
         self.n_players = n_players
         self.dice_number = dice_number
         self.dice_value = dice_value
         self.column_range = column_range 
         self.offset = offset
         self.initial_height = initial_height
-        self.board_game = Board(self.column_range, self.offset, self.initial_height)
+        self.board_game = Board(self.column_range, self.offset, 
+                                self.initial_height
+                                )
         self.player_turn = 1
         self.finished_columns = []
         self.player_won_column = []
@@ -96,17 +108,21 @@ class Game:
         self.actions_taken = [] 
     
     def check_boardgame_equality(self, game):
-        """ Check if self and parameters represents the same state."""
+        """ Check if self and 'game' represents the same state."""
+
         condition_1 = self.board_game.check_board_equality(game.board_game)
-        condition_2 = sorted(self.finished_columns) == sorted(game.finished_columns)
-        condition_3 = sorted(self.player_won_column) == sorted(game.player_won_column)
+        condition_2 = sorted(self.finished_columns) \
+                        == sorted(game.finished_columns)
+        condition_3 = sorted(self.player_won_column) \
+                        == sorted(game.player_won_column)
                 
         return condition_1 and condition_2 and condition_3
 
     def number_positions_conquered_this_round(self, column):
         """
-        Returns the number of position conquered in this round for a given column.
-        This is the same as counting the number of neutral markers the player has in column.
+        Return the number of position conquered in this round for a given
+        column. This is the same as counting the number of neutral markers 
+        the player has in column.
         """
         counter = 0
         previously_conquered = -1
@@ -125,8 +141,9 @@ class Game:
     
     def number_positions_conquered(self, column):
         """
-        Returns the number of position conquered in the game for a given column.
+        Return the number of position conquered in the game for a given column.
         """
+
         previously_conquered = -1
         list_of_cells = self.board_game.board[column]
         
@@ -147,9 +164,11 @@ class Game:
     
     def columns_won_current_round(self):
         """
-        Returns a list containing the set of columns won by the player in the current round.
-        That is, the number of columns won should the player stopped playing now. 
+        Return a list containing the set of columns won by the player in the
+        current round. That is, the number of columns won should the player 
+        stopped playing now. 
         """
+
         return self.player_won_column
 
     def play(self, chosen_play):
@@ -157,6 +176,7 @@ class Game:
         Apply the "chosen_play" to the game.
         Depending on the play and dice roll, it will change player_turn.
         """
+
         if chosen_play == 'n':
             self.transform_neutral_markers()
             # Next action should be to choose a dice combination
@@ -181,7 +201,8 @@ class Game:
             # If there's a zero in that column ahead of the player_id marker
             if current_position_id < current_position_zero:
                 # If there's no zero and no player_id marker
-                if current_position_zero == 0 and 0 not in cell_list[0].markers:
+                if current_position_zero == 0 \
+                    and 0 not in cell_list[0].markers:
                     cell_list[current_position_zero].markers.append(0)
                 else: # Zero is ahead of the player_id marker
                     #First check if the player will win that column
@@ -196,7 +217,7 @@ class Game:
                     self.player_won_column.append((row, self.player_turn))
                 else:
                     cell_list[current_position_id+1].markers.append(0)
-        # Next action should be to choose if the player wants to continue or not
+        # Next action should be [y,n]
         self.dice_action = False
         # Then a new dice roll is done (same is done if the player is busted)
         self.current_roll = self.roll_dice()
@@ -208,7 +229,8 @@ class Game:
             for i in range(len(self.board_game.board[x])):
                 for j in range(len(self.board_game.board[x][i].markers)):
                     if self.board_game.board[x][i].markers[j] == 0:
-                        self.board_game.board[x][i].markers[j] = self.player_turn
+                        self.board_game.board[x][i].markers[j] = \
+                                                            self.player_turn
         # Check if there are duplicates of player_id in the columns
         # If so, keep only the furthest one. Must make sure to not check
         # already won columns.
@@ -231,9 +253,10 @@ class Game:
         
         # Check if the player won some column and update it accordingly.
 
-        # Special case: Player 1 is about to win, for ex. column 7 but he rolled
-        # a (7,7) tuple. That would add two instances (1,7) in the finished
-        # columns list. Remove the duplicates from player_won_column.
+        # Special case example: Player 1 is about to win, for ex. column 7 
+        # but they rolled a (7,7) tuple. That would add two instances (1,7) 
+        # in the finished columns list. Remove the duplicates 
+        # from player_won_column.
         self.player_won_column = list(set(self.player_won_column))
 
         for column_won in self.player_won_column:
@@ -251,6 +274,7 @@ class Game:
 
     def erase_neutral_markers(self):
         """Remove the neutral markers because the player is busted."""
+
         for x in range(self.column_range[0], self.column_range[1]+1):
             for i in range(len(self.board_game.board[x])):
                 if 0 in self.board_game.board[x][i].markers:
@@ -259,6 +283,7 @@ class Game:
 
     def count_neutral_markers(self):
         """Return the number of neutral markers present in the current board."""
+
         count = 0
         # Has to take into account the columns the player won in the current
         # round.
@@ -279,11 +304,13 @@ class Game:
 
 
     def is_player_busted(self, all_moves):
-        """Check if the player has no remaining plays. Return a boolean.
+        """
+        Check if the player has no remaining plays. Return a boolean.
         - all_moves is a list of 2-tuples or integers relating to the possible
         plays the player can make or the [y,n] list regarding the turn the
         player chooses if he wants to continue playing or not.
         """
+
         if all_moves == ['y', 'n']:
         	return False
         if len(all_moves) == 0:
@@ -293,7 +320,7 @@ class Game:
                 self.player_turn = 1
             else:
                 self.player_turn += 1
-            # Then a new dice roll is done (same is done if a play is completed)
+            # A new dice roll is done (same is done if a play is completed)
             self.current_roll = self.roll_dice()
             return True
         if self.count_neutral_markers() < 3:
@@ -310,13 +337,14 @@ class Game:
             self.player_turn = 1
         else:
             self.player_turn += 1
-        # Then a new dice roll is done (same is done if a play is completed)
+        # A new dice roll is done (same is done if a play is completed)
         self.current_roll = self.roll_dice()
         return True
 
 
     def roll_dice(self):
         """Return a tuple with integers representing the dice roll."""
+
         my_list = []
         for _ in range(0,self.dice_number):
           my_list.append(random.randrange(1,self.dice_value+1))
@@ -324,10 +352,12 @@ class Game:
 
 
     def check_tuple_availability(self, tuple):
-        """Return a boolean.
+        """
         Check if there is a neutral marker in both tuples columns taking into
         account the number of neutral_markers currently on the board.
+        Return a boolean.
         """
+
         #First check if the column 'value' is already completed
         for tuple_finished in self.finished_columns:
             if tuple_finished[0] == tuple[0] or tuple_finished[0] == tuple[1]:
@@ -373,9 +403,11 @@ class Game:
 
 
     def check_value_availability(self, value):
-        """Return a boolean. 
-        Check if there's a neutral marker in the 'value' column.
         """
+        Check if there's a neutral marker in the 'value' column.
+        Return a boolean. 
+        """
+
         #First check if the column 'value' is already completed
         for tuple_finished in self.finished_columns:
             if tuple_finished[0] == value:
@@ -398,9 +430,9 @@ class Game:
         Return a list of 2-tuples of possible combinations player_id can play
         if neutral counter is less than 2 or return the list [y,n] in case the
         current action is to continue to play or not.
-        dice is a 4-tuple with 4 integers representing the dice roll. Otherwise, 
-        return a list of 2-tuples or integers according to the current board 
-        schematic.
+        dice is a 4-tuple with 4 integers representing the dice roll. 
+        Otherwise, return a list of 2-tuples or integers according to the 
+        current board schematic.
         """
         if not self.dice_action:
             return ['y','n']
@@ -425,17 +457,18 @@ class Game:
                       self.check_value_availability(comb[0]):
                 combination.append((comb[1],))
 
-        # Remove duplicate actions (Example: dice = (2,6,6,6) will give actions
-        # = [(8,12), (8,12), (8,12)])
+        # Remove duplicate actions (Example: dice = (2,6,6,6) will give 
+        # actions = [(8,12), (8,12), (8,12)])
 
         return list(set(combination))
 
 
     def is_finished(self):
-        """Return two values: what player won (player 1 = 1, player 2 = 2 and 0 
-        if the game is not over yet) and a boolean value representing if the 
+        """Return two values: what player won (player 1 = 1, player 2 = 2 and 
+        0 if the game is not over yet) and a boolean value representing if the 
         game is over or not.
         """
+
         won_columns_player_1 = 0
         won_columns_player_2 = 0
         for tuples in self.finished_columns:
