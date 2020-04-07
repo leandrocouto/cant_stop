@@ -206,16 +206,18 @@ class Experiment:
             #
             #
 
-            start_selfplay = time.time()
+            with open(file_name, 'a') as f:
+                print('SELFPLAY', file=f)
 
-            copy_model = current_model.clone(reg, conv_number)
+            start_selfplay = time.time()
 
             for i in range(n_games):
                 start_one_selfplay_game = time.time()
 
                 data_of_a_game, who_won = self.play_single_game(
-                                                    current_model, copy_model
-                                                    )
+                                                current_model,
+                                                copy.deepcopy(current_model)
+                                                )
                 elapsed_time_one_selfplay_game = time.time() \
                                                 - start_one_selfplay_game
                 #print('Self-play - GAME', i ,'OVER - PLAYER', 
@@ -244,10 +246,15 @@ class Experiment:
             
 
             with open(file_name, 'a') as f:
-                print('Selfplay - Player 1 won', victory_1,'time(s).', file=f)
-                print('Selfplay - Player 2 won', victory_2,'time(s).', file=f)
-                print('Selfplay - Ties:', victory_0, file=f)
-                print('Time elapsed in Selfplay:', elapsed_time_selfplay, file=f)
+                print('    Selfplay - Player 1 won', victory_1, 'time(s).', \
+                        file=f)
+                print('    Selfplay - Player 2 won', victory_2, 'time(s).', \
+                        file=f)
+                print('    Selfplay - Ties:', victory_0, file=f)
+                print('    Time elapsed in Selfplay:', elapsed_time_selfplay,\
+                        file=f)
+                print('    Average time of a game: ', elapsed_time_selfplay \
+                        / n_games, 's', sep = '', file=f)
 
             # This means all of the selfplay games (of the first iteration) 
             # ended in a draw.
@@ -255,7 +262,7 @@ class Experiment:
             # for the network training. Stops this iteration.
             if len(dataset_for_network) == 0:
                 with open(file_name, 'a') as f:
-                    print('All selfplay games ended in a draw.' 
+                    print('    All selfplay games ended in a draw.' 
                             + ' Stopping current iteration.', file=f)
                 continue
 
@@ -300,12 +307,6 @@ class Experiment:
                     # Saving data
                     loss = sum(history_callback.history["loss"]) \
                                     / len(history_callback.history["loss"])
-                    output_dist_loss = sum(
-                            history_callback.history["Output_Dist_loss"]) \
-                            / len(history_callback.history["Output_Dist_loss"])
-                    output_value_loss = \
-                            sum(history_callback.history["Output_Value_loss"]) \
-                            / len(history_callback.history["Output_Value_loss"])
                     dist_metric = \
                             sum(history_callback.history[
                                 "Output_Dist_categorical_crossentropy"
@@ -321,19 +322,18 @@ class Experiment:
                                     "Output_Value_mean_squared_error"
                                     ])
                 
-            data_net_vs_net_training.append((loss, output_dist_loss, 
-                    output_value_loss, dist_metric, value_metric, victory_0, 
-                    victory_1, victory_2))
+            data_net_vs_net_training.append(
+                                            (loss, dist_metric, value_metric,
+                                            victory_0, victory_1, victory_2)
+                                            )
 
             elapsed_time_training = time.time() - start_training
             with open(file_name, 'a') as f:
-                print('Time elapsed of training: ', 
+                print('    Time elapsed of training:', 
                     elapsed_time_training, file=f)
-                print('Total loss: ', loss, file=f)
-                print('Dist. loss: ', output_dist_loss, file=f)
-                print('Value loss: ', output_value_loss, file=f)
-                print('Dist. error: ', dist_metric, file=f)
-                print('Value error: ', value_metric, file=f)
+                print('    Total loss:', loss, file=f)
+                print('    Dist. error:', dist_metric, file=f)
+                print('    Value error:', value_metric, file=f)
             
             #
             #    
@@ -389,20 +389,30 @@ class Experiment:
 
             if victory_1_eval_net <= necessary_won_games:
                 with open(file_name, 'a') as f:
-                    print('New model is worse...', file=f)
-                    print('New model victories: ', victory_1_eval_net, file=f)
-                    print('Old model victories: ', victory_2_eval_net, file=f)
-                    print('Draws: ', victory_0_eval_net, file=f)
-                    print('Time elapsed in evaluation (Net vs. Net): ', 
+                    print('    New model is worse...', file=f)
+                    print('    New model victories:', victory_1_eval_net,\
+                            file=f)
+                    print('    Old model victories:', victory_2_eval_net,\
+                            file=f)
+                    print('    Draws:', victory_0_eval_net, file=f)
+                    print('    Time elapsed in evaluation (Net vs. Net):', 
                             elapsed_time_evaluate_net, file=f)
+                    print('    Average time of a game: ', \
+                            elapsed_time_evaluate_net / n_games_evaluate, \
+                            's', sep = '', file=f)
             else:
                 with open(file_name, 'a') as f:
-                    print('New model is better!', file=f)
-                    print('New model victories: ', victory_1_eval_net, file=f)
-                    print('Old model victories: ', victory_2_eval_net, file=f)
-                    print('Draws: ', victory_0_eval_net, file=f)
-                    print('Time elapsed in evaluation (Net vs. Net): ', 
+                    print('    New model is better!', file=f)
+                    print('    New model victories:', victory_1_eval_net,\
+                            file=f)
+                    print('    Old model victories:', victory_2_eval_net,\
+                            file=f)
+                    print('    Draws:', victory_0_eval_net, file=f)
+                    print('    Time elapsed in evaluation (Net vs. Net):', 
                             elapsed_time_evaluate_net, file=f)
+                    print('    Average time of a game: ', \
+                            elapsed_time_evaluate_net / n_games_evaluate, \
+                            's', sep = '', file=f)
 
                 # The new model is better. Therefore, evaluate it against
                 # a list of vanilla UCTs and store the data for later analysis.
@@ -449,14 +459,17 @@ class Experiment:
                                                 - start_evaluate_uct
 
                     with open(file_name, 'a') as f:
-                        print('Net vs UCT - Network won', 
+                        print('    Net vs UCT - Network won', 
                             victory_1_eval[ucts],'time(s).', file=f)
-                        print('Net vs UCT - UCT won', 
+                        print('    Net vs UCT - UCT won', 
                             victory_2_eval[ucts],'time(s).', file=f)
-                        print('Net vs UCT - Draws: ', 
+                        print('    Net vs UCT - Draws:', 
                             victory_0_eval[ucts], file=f)
-                        print('Time elapsed in evaluation (Net vs. UCT): ', 
+                        print('    Time elapsed in evaluation (Net vs. UCT):', 
                             elapsed_time_evaluate_uct, file=f)
+                        print('    Average time of a game: ', \
+                            elapsed_time_evaluate_uct / n_games_evaluate, \
+                            's', sep = '', file=f)
 
                 list_of_n_simulations = [uct.n_simulations 
                                         for uct in UCTs_eval
@@ -467,31 +480,11 @@ class Experiment:
                     list_of_n_simulations)
                     )
 
-                elapsed_time = time.time() - start
-                with open(file_name, 'a') as f:
-                    print('Time elapsed of this AZ iteration: ', 
-                        elapsed_time, file=f)
-
-                stats = Statistic(
-                        data_net_vs_net_training, 
-                        data_net_vs_net_eval, 
-                        data_net_vs_uct, 
-                        n_simulations = current_model.n_simulations, 
-                        n_games = n_games, 
-                        alphazero_iterations = alphazero_iterations, 
-                        use_UCT_playout = use_UCT_playout, 
-                        conv_number = conv_number
-                        )
-
                 # New model is better, therefore we can copy current_model
                 # weights to old_model to be used in the next AZ iteration.
                 old_model.network.set_weights(
                     current_model.network.get_weights()
                     )
-                # Write the data collected only if the new network was better 
-                # than the old one.
-                stats.save_to_file(count)
-                stats.save_model_to_file(current_model.network, count)
 
             # New model is worse, therefore we can copy old_model weights
             # to current_model to be used in the next AZ iteration.
@@ -500,4 +493,24 @@ class Experiment:
             current_model.network.set_weights(
                 old_model.network.get_weights()
                 )
+
+            elapsed_time = time.time() - start
+            with open(file_name, 'a') as f:
+                print('Time elapsed of this AZ iteration: ', 
+                    elapsed_time, file=f)
+                print(file=f)
+
+            # Saves this iteration's data to file
+            stats = Statistic(
+                    data_net_vs_net_training, 
+                    data_net_vs_net_eval, 
+                    data_net_vs_uct, 
+                    n_simulations = current_model.n_simulations, 
+                    n_games = n_games, 
+                    alphazero_iterations = alphazero_iterations, 
+                    use_UCT_playout = use_UCT_playout, 
+                    conv_number = conv_number
+                    )
+            stats.save_to_file(count)
+            stats.save_model_to_file(current_model.network, count)
                	

@@ -250,7 +250,7 @@ def main():
 
         # Sort the files using natural sorting
         # Source: https://stackoverflow.com/questions/5967500
-                    #/how-to-correctly-sort-a-string-with-a-number-inside
+        #            /how-to-correctly-sort-a-string-with-a-number-inside
 
         def atoi(text):
             return int(text) if text.isdigit() else text
@@ -273,8 +273,11 @@ def main():
             stats = Statistic()
             stats.load_from_file(file)
             data_net_vs_net_training.append(stats.data_net_vs_net_training[0]) 
-            data_net_vs_net_eval.append(stats.data_net_vs_net_eval[0]) 
-            data_net_vs_uct.append(stats.data_net_vs_uct[0]) 
+            data_net_vs_net_eval.append(stats.data_net_vs_net_eval[0])
+            # In case the new network was worse than the old one, the UCT data
+            # does not exist, therefore there's no data
+            if stats.data_net_vs_uct:
+                data_net_vs_uct.append(stats.data_net_vs_uct[0]) 
             n_simulations = stats.n_simulations
             n_games = stats.n_games
             alphazero_iterations = stats.alphazero_iterations
@@ -293,10 +296,10 @@ def main():
     if int(sys.argv[1]) == 1: n_simulations = 100
     if int(sys.argv[1]) == 2: n_simulations = 200
     if int(sys.argv[1]) == 3: n_simulations = 500
-    if int(sys.argv[2]) == 0: n_games = 1
+    if int(sys.argv[2]) == 0: n_games = 5
     if int(sys.argv[2]) == 1: n_games = 250
     if int(sys.argv[2]) == 2: n_games = 500
-    if int(sys.argv[3]) == 0: alphazero_iterations = 150
+    if int(sys.argv[3]) == 0: alphazero_iterations = 10
     if int(sys.argv[4]) == 0: conv_number = 1
     if int(sys.argv[4]) == 1: conv_number = 2
     if int(sys.argv[5]) == 0: use_UCT_playout = True
@@ -307,10 +310,10 @@ def main():
     c = 1
     epochs = 1
     reg = 0.01
-    n_games_evaluate = 100
+    n_games_evaluate = 5
     victory_rate = 55
     mini_batch = 2048
-    n_training_loop = 1000
+    n_training_loop = 5
     dataset_size = 1000
     '''
     # Toy version
