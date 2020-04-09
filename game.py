@@ -434,6 +434,7 @@ class Game:
         Otherwise, return a list of 2-tuples or integers according to the 
         current board schematic.
         """
+
         if not self.dice_action:
             return ['y','n']
         standard_combination = [(self.current_roll[0] + self.current_roll[1], 
@@ -459,12 +460,19 @@ class Game:
 
         # Remove duplicate actions (Example: dice = (2,6,6,6) will give 
         # actions = [(8,12), (8,12), (8,12)])
+        # Also remove redundant actions (Example: (8,12) and (12,8))
+        combination = [list(elem) for elem in combination]
+        for t in combination:
+            t.sort()
+        combination = [tuple(elem) for elem in combination]
+        combination = list(set(combination))
 
-        return list(set(combination))
+        return combination
 
 
     def is_finished(self):
-        """Return two values: what player won (player 1 = 1, player 2 = 2 and 
+        """
+        Return two values: what player won (player 1 = 1, player 2 = 2 and 
         0 if the game is not over yet) and a boolean value representing if the 
         game is over or not.
         """

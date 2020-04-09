@@ -28,9 +28,10 @@ def define_model_experimental(reg, conv_number, column_range, offset,
     height = column_range[1] - column_range[0] + 1
     longest_column = (column_range[1] // 2) + 1
     width = initial_height + offset * (longest_column - column_range[0])
-    # Calculating total number of actions possible
+    # Calculating total number of actions possible (does not take into
+    # consideration duplicate actions. Ex.: (2,3) and (3,2))
     temp = len(list(range(2, dice_value * 2 + 1)))
-    n_actions = temp * temp + temp + 2
+    n_actions = (temp*(1+temp))//2 + temp + 2
 
     n_channels = 6
     
@@ -130,9 +131,10 @@ def define_model(reg, conv_number, column_range, offset,
     height = column_range[1] - column_range[0] + 1
     longest_column = (column_range[1] // 2) + 1
     width = initial_height + offset * (longest_column - column_range[0])
-    # Calculating total number of actions possible
+    # Calculating total number of actions possible (does not take into
+    # consideration duplicate actions. Ex.: (2,3) and (3,2))
     temp = len(list(range(2, dice_value * 2 + 1)))
-    n_actions = temp * temp + temp + 2
+    n_actions = (temp*(1+temp))//2 + temp + 2
 
     n_channels = 6
 
@@ -292,14 +294,15 @@ def main():
         exit()
 
     # Cluster configurations
-    if int(sys.argv[1]) == 0: n_simulations = 5
+    if int(sys.argv[1]) == 0: n_simulations = 50
     if int(sys.argv[1]) == 1: n_simulations = 100
-    if int(sys.argv[1]) == 2: n_simulations = 200
+    if int(sys.argv[1]) == 2: n_simulations = 250
     if int(sys.argv[1]) == 3: n_simulations = 500
-    if int(sys.argv[2]) == 0: n_games = 5
-    if int(sys.argv[2]) == 1: n_games = 250
-    if int(sys.argv[2]) == 2: n_games = 500
-    if int(sys.argv[3]) == 0: alphazero_iterations = 10
+    if int(sys.argv[2]) == 0: n_games = 50
+    if int(sys.argv[2]) == 1: n_games = 100
+    if int(sys.argv[2]) == 2: n_games = 250
+    if int(sys.argv[2]) == 3: n_games = 500
+    if int(sys.argv[3]) == 0: alphazero_iterations = 150
     if int(sys.argv[4]) == 0: conv_number = 1
     if int(sys.argv[4]) == 1: conv_number = 2
     if int(sys.argv[5]) == 0: use_UCT_playout = True
@@ -310,10 +313,10 @@ def main():
     c = 1
     epochs = 1
     reg = 0.01
-    n_games_evaluate = 5
+    n_games_evaluate = 100
     victory_rate = 55
     mini_batch = 2048
-    n_training_loop = 5
+    n_training_loop = 1000
     dataset_size = 1000
     '''
     # Toy version

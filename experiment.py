@@ -213,10 +213,10 @@ class Experiment:
 
             for i in range(n_games):
                 start_one_selfplay_game = time.time()
-
+                copy_model = current_model.clone(reg, conv_number)
                 data_of_a_game, who_won = self.play_single_game(
                                                 current_model,
-                                                copy.deepcopy(current_model)
+                                                copy_model
                                                 )
                 elapsed_time_one_selfplay_game = time.time() \
                                                 - start_one_selfplay_game

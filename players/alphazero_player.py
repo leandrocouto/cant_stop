@@ -370,30 +370,32 @@ class AlphaZeroPlayer(UCTPlayer):
 
     def get_standard_dist_with_id(self):
         """Return a list with all possible actions with an ID to it."""
+        
         standard_dist = []
 
-        counter = 0
+        action_id = 0
         for i in range(2, self.dice_value * 2 + 1):
-            for j in range(2, self.dice_value * 2 + 1):
-                standard_dist.append(((i, j), counter))
-                counter += 1
+            for j in range(i, self.dice_value * 2 + 1):
+                standard_dist.append(((i, j), action_id))
+                action_id += 1
 
         for i in range(2, self.dice_value * 2 + 1):
-            standard_dist.append(((i,), counter))
-            counter += 1
+            standard_dist.append(((i,), action_id))
+            action_id += 1
 
-        standard_dist.append((('y'), counter))
-        counter += 1
-        standard_dist.append((('n'), counter))
+        standard_dist.append((('y'), action_id))
+        action_id += 1
+        standard_dist.append((('n'), action_id))
 
         return standard_dist
 
     def get_zeroed_standard_dist(self):
         """Return a list with all possible actions with an ID = 0 to it."""
+        
         standard_dist = []
 
         for i in range(2, self.dice_value * 2 + 1):
-            for j in range(2, self.dice_value * 2 + 1):
+            for j in range(i, self.dice_value * 2 + 1):
                 standard_dist.append(((i, j), 0))
 
         for i in range(2, self.dice_value * 2 + 1):
@@ -401,5 +403,6 @@ class AlphaZeroPlayer(UCTPlayer):
 
         standard_dist.append((('y'), 0))
         standard_dist.append((('n'), 0))
+
 
         return standard_dist
