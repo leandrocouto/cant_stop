@@ -120,9 +120,8 @@ class Game:
 
     def number_positions_conquered_this_round(self, column):
         """
-        Return the number of position conquered in this round for a given
-        column. This is the same as counting the number of neutral markers 
-        the player has in column.
+        Return the number of positions advanced in this round for a given
+        column by the player.
         """
         counter = 0
         previously_conquered = -1
@@ -141,7 +140,8 @@ class Game:
     
     def number_positions_conquered(self, column):
         """
-        Return the number of position conquered in the game for a given column.
+        Return how far the player is in 'column'. -1 if the player is not in 
+        the column.
         """
 
         previously_conquered = -1

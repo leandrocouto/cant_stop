@@ -153,6 +153,7 @@ class Statistic:
         pdf_name = str(self.n_simulations) + '_' + str(self.n_games) \
                 + '_' + str(self.alphazero_iterations) + '_' \
                 + str(self.conv_number) + '_' + str(self.use_UCT_playout)
+        print()
         doc = Document(pdf_name, geometry_options=geometry_options)
         
         # Total loss
