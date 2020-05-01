@@ -9,7 +9,7 @@ class DSL:
         self.start = 'S'
         
         self._grammar = {}
-        self._grammar[self.start] = ['if BOOL OP']
+        self._grammar[self.start] = ['if BOOL OP S', '']
         self._grammar['BOOL'] = ['B_0', 'B_1']
         self._grammar['OP'] = ['and BOOL OP', 'or BOOL OP', '']
         self._grammar['B_0'] = ['DSL.is_doubled_action(a)', 

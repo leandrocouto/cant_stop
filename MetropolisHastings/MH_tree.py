@@ -32,7 +32,7 @@ class DSLTree:
         self.root = node
         self.dsl = dsl
         self.node_id = 0
-        self.max_nodes = 10
+        self.max_nodes = 20
 
     def build_tree(self):
         self._build_tree(self.root)
@@ -182,3 +182,9 @@ class DSLTree:
             print(indentation, node.state, ', parent = ', node.parent, ', id = ', node.node_id)
         for child in node.children:
             self.print_tree(child, 2*indentation)
+
+dsl = DSL()
+tree = DSLTree(Node('S', ''), dsl)
+tree.build_tree()
+current_best_program = tree.generate_random_program()
+print('current = ', current_best_program)

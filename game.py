@@ -88,6 +88,10 @@ class Game:
         - dice_action refers to which action the game is at at the moment, 
           if the player is choosing which combination or if the player is 
           choosing if he wants to continue playing the turn or not.
+        - n_neutral_markers is the number of neutral markers currently in the
+          board.
+        - neutral_positions is a 2-tuple storing where the neutral markers are
+          stored in the board (column index, cell index).
         - current_roll refers to all dice_number dice roll.
         """
 
@@ -105,6 +109,8 @@ class Game:
         self.player_won_column = []
         self.dice_action = True
         self.current_roll = self.roll_dice()
+        self.n_neutral_markers = 0
+        self.neutral_positions = []
         self.actions_taken = [] 
     
     def check_boardgame_equality(self, game):
@@ -176,47 +182,66 @@ class Game:
         Apply the "chosen_play" to the game.
         Depending on the play and dice roll, it will change player_turn.
         """
-
+        #print()
+        #print('board do iniciao - chosen play = ', chosen_play)
+        #print('player turn = ', self.player_turn)
+        #self.print_board()
         if chosen_play == 'n':
             self.transform_neutral_markers()
             # Next action should be to choose a dice combination
             self.dice_action = True
+            #print('escolheu nao')
             return
         if chosen_play == 'y':
             # Next action should be to choose a dice combination
             self.dice_action = True
+            #print('escolheu ism')
             return
         if self.is_player_busted(self.available_moves()):
+            #print('foi busted')
             return
         for die_position in range(len(chosen_play)):
-            current_position_zero = 0
+            current_position_zero = -1
             current_position_id = -1
-            row = chosen_play[die_position]
-            cell_list = self.board_game.board[row]
+            col = chosen_play[die_position]
+            cell_list = self.board_game.board[col]
             for i in range(0, len(cell_list)):
                 if 0 in cell_list[i].markers:
+                    #print('descobriu um 0')
                     current_position_zero = i
                 if self.player_turn in cell_list[i].markers:
+                    #print('descobriu um id')
                     current_position_id = i
-            # If there's a zero in that column ahead of the player_id marker
-            if current_position_id < current_position_zero:
-                # If there's no zero and no player_id marker
-                if current_position_zero == 0 \
-                    and 0 not in cell_list[0].markers:
-                    cell_list[current_position_zero].markers.append(0)
-                else: # Zero is ahead of the player_id marker
-                    #First check if the player will win that column
-                    if current_position_zero == len(cell_list) - 1:
-                        self.player_won_column.append((row, self.player_turn))
-                    else:
-                        cell_list[current_position_zero].markers.remove(0)
-                        cell_list[current_position_zero+1].markers.append(0)
-            else: #There's no zero yet in that column
+
+            #print('die position = ', die_position, 'col = ', col)
+            #print('current id position = ', current_position_id)
+            #print('current 0 position = ', current_position_zero)
+            # If there's no zero and no player_id marker
+            if current_position_zero == current_position_id == -1:
+                cell_list[0].markers.append(0)
+                self.n_neutral_markers += 1
+                self.neutral_positions.append((col, 0))
+            # If there's no zero but there is player id marker
+            elif current_position_zero == -1:
                 #First check if the player will win that column
+                self.n_neutral_markers += 1
                 if current_position_id == len(cell_list) - 1:
-                    self.player_won_column.append((row, self.player_turn))
+                    if (col, self.player_turn) not in self.player_won_column:
+                        self.player_won_column.append((col, self.player_turn))
                 else:
                     cell_list[current_position_id+1].markers.append(0)
+                    self.neutral_positions.append((col, current_position_id+1))
+            # If there's zero    
+            else:
+                #First check if the player will win that column
+                if current_position_zero == len(cell_list) - 1:
+                    if (col, self.player_turn) not in self.player_won_column:
+                        self.player_won_column.append((col, self.player_turn))
+                else:
+                    cell_list[current_position_zero].markers.remove(0)
+                    cell_list[current_position_zero+1].markers.append(0)
+                    self.neutral_positions.remove((col, current_position_zero))
+                    self.neutral_positions.append((col, current_position_zero+1))
         # Next action should be [y,n]
         self.dice_action = False
         # Then a new dice roll is done (same is done if the player is busted)
@@ -225,82 +250,61 @@ class Game:
 
     def transform_neutral_markers(self):
         """Transform the neutral markers into player_id markers (1 or 2)."""
-        for x in range(self.column_range[0],self.column_range[1]+1):
-            for i in range(len(self.board_game.board[x])):
-                for j in range(len(self.board_game.board[x][i].markers)):
-                    if self.board_game.board[x][i].markers[j] == 0:
-                        self.board_game.board[x][i].markers[j] = \
-                                                            self.player_turn
-        # Check if there are duplicates of player_id in the columns
-        # If so, keep only the furthest one. Must make sure to not check
-        # already won columns.
-        completed_rows = [item[0] for item in self.finished_columns]
-        for x in range(self.column_range[0],self.column_range[1]+1):
-            if x in completed_rows:
-                continue
-            list_of_cells = self.board_game.board[x]
-            count = 0
-            ocurrences_index = []
-            for i in range(len(list_of_cells)):
-                for j in range(len(list_of_cells[i].markers)):
-                    if list_of_cells[i].markers[j] == self.player_turn:
-                        count += 1
-                        ocurrences_index.append((x,i,j))
-                       
-            if count == 2:
-                x, i, _ = ocurrences_index[0]
-                self.board_game.board[x][i].markers.remove(self.player_turn)
-        
-        # Check if the player won some column and update it accordingly.
+
+        for neutral in self.neutral_positions:
+            markers = self.board_game.board[neutral[0]][neutral[1]].markers
+            for i in range(len(markers)):
+                if markers[i] == 0:
+                    markers[i] = self.player_turn
+            # Remove the previous player_turn id in order to keep only the
+            # the furthest one
+            col_cell_list = self.board_game.board[neutral[0]]
+            for i in range(neutral[1]-1, -1, -1):
+                if self.player_turn in col_cell_list[i].markers:
+                    col_cell_list[i].markers.remove(self.player_turn)
+                    break
 
         # Special case example: Player 1 is about to win, for ex. column 7 
         # but they rolled a (7,7) tuple. That would add two instances (1,7) 
         # in the finished columns list. Remove the duplicates 
         # from player_won_column.
+
         self.player_won_column = list(set(self.player_won_column))
+
+        # Check if the player won some column and update it accordingly.
 
         for column_won in self.player_won_column:
             self.finished_columns.append((column_won[0], column_won[1]))
             for cell in self.board_game.board[column_won[0]]:
                 cell.markers.clear()
                 cell.markers.append(self.player_turn)
+
         self.player_won_column.clear()
 
         if self.player_turn == self.n_players:
-                self.player_turn = 1
+            self.player_turn = 1
         else:
             self.player_turn += 1
+
+        self.n_neutral_markers = 0
+        self.neutral_positions = []
 
 
     def erase_neutral_markers(self):
         """Remove the neutral markers because the player is busted."""
 
-        for x in range(self.column_range[0], self.column_range[1]+1):
-            for i in range(len(self.board_game.board[x])):
-                if 0 in self.board_game.board[x][i].markers:
-                    self.board_game.board[x][i].markers.remove(0)
+        for neutral in self.neutral_positions:
+            markers = self.board_game.board[neutral[0]][neutral[1]].markers
+            if 0 in markers:
+                markers.remove(0)
+
+        self.n_neutral_markers = 0
+        self.neutral_positions = []
 
 
     def count_neutral_markers(self):
         """Return the number of neutral markers present in the current board."""
-
-        count = 0
-        # Has to take into account the columns the player won in the current
-        # round.
-        partial_completed_rows = [item[0] for item in self.player_won_column]
-        for row in partial_completed_rows:
-            for cell in self.board_game.board[row]:
-                if 0 in cell.markers:
-                    count += 1
-        # Iterate through the other rows.
-        for x in range(self.column_range[0],self.column_range[1]+1):
-            if x in partial_completed_rows:
-                continue
-            list_of_cells = self.board_game.board[x]
-            for cell in list_of_cells:
-                if 0 in cell.markers:
-                    count += 1  
-        return count
+        return self.n_neutral_markers
 
 
     def is_player_busted(self, all_moves):
@@ -365,9 +369,13 @@ class Game:
         for tuple_column in self.player_won_column:
             if tuple_column[0] == tuple[0] or tuple_column[0] == tuple[1]:
                 return False
+
+        # Variables to store if there is a neutral marker in tuples columns.
         is_first_value_valid = False
         is_second_value_valid = False
+
         neutral_markers = self.count_neutral_markers()
+
         for cell in self.board_game.board[tuple[0]]:
             if 0 in cell.markers:
                 is_first_value_valid = True
@@ -375,31 +383,25 @@ class Game:
         for cell in self.board_game.board[tuple[1]]:
             if 0 in cell.markers:
                 is_second_value_valid = True
-        if not is_first_value_valid and not is_second_value_valid and \
-                neutral_markers == 0:
-            return True  
-        elif is_first_value_valid and is_second_value_valid:
+
+        if neutral_markers == 0 or neutral_markers == 1:
             return True
-        elif is_first_value_valid and not is_second_value_valid and \
-                neutral_markers == 2:
-            return True
-        elif is_first_value_valid and not is_second_value_valid and \
-                neutral_markers == 3:
-            return False
-        elif not is_first_value_valid and is_second_value_valid and \
-                neutral_markers == 2:
-            return True
-        elif not is_first_value_valid and is_second_value_valid and \
-                neutral_markers == 3:
-            return False
-        elif not is_first_value_valid and not is_second_value_valid and \
-                neutral_markers == 2 and tuple[0] == tuple[1]:
-            return True
-        elif not is_first_value_valid and not is_second_value_valid and \
-                neutral_markers == 1:
-            return True
+        elif neutral_markers == 2:
+            if is_first_value_valid and is_second_value_valid:
+                return True
+            elif not is_first_value_valid and is_second_value_valid:
+                return True
+            elif is_first_value_valid and not is_second_value_valid:
+                return True
+            elif tuple[0] == tuple[1]:
+                return True
+            else:
+                return False
         else:
-            return False
+            if is_first_value_valid and is_second_value_valid:
+                return True
+            else:
+                return False
 
 
     def check_value_availability(self, value):
@@ -445,30 +447,28 @@ class Game:
                                 self.current_roll[1] + self.current_roll[2])]
         combination = []
         for comb in standard_combination:
+            first_value_available = self.check_value_availability(comb[0])
+            second_value_available = self.check_value_availability(comb[1])
             if self.check_tuple_availability(comb):
                 combination.append(comb)
-            elif self.check_value_availability(comb[0]) and \
-                      self.check_value_availability(comb[1]):
+            elif first_value_available and second_value_available:
                 combination.append((comb[0],))
                 combination.append((comb[1],))
-            if self.check_value_availability(comb[0]) and not\
-                      self.check_value_availability(comb[1]):
+            if first_value_available and not second_value_available:
                 combination.append((comb[0],))
-            if self.check_value_availability(comb[1]) and not\
-                      self.check_value_availability(comb[0]):
+            if second_value_available and not first_value_available:
                 combination.append((comb[1],))
 
         # Remove duplicate actions (Example: dice = (2,6,6,6) will give 
         # actions = [(8,12), (8,12), (8,12)])
         # Also remove redundant actions (Example: (8,12) and (12,8))
+
         combination = [list(elem) for elem in combination]
         for t in combination:
             t.sort()
         combination = [tuple(elem) for elem in combination]
         combination = list(set(combination))
-
         return combination
-
 
     def is_finished(self):
         """
