@@ -1,5 +1,4 @@
 from statistics import Statistic
-from experiment import Experiment
 import tkinter.filedialog
 from os import listdir
 from os.path import isfile, join
@@ -8,6 +7,11 @@ import re
 
 
 def main():
+
+    # User should specify the root folder of where all the Statistic files are
+    # located.
+
+    # The report is generated in the same directory of where this file is.
     root = tkinter.Tk()
     root.withdraw()
     file_path = tkinter.filedialog.askdirectory()

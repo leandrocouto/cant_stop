@@ -127,20 +127,6 @@ def main():
                         max_game_length = max_game_length
                         )
 
-    uct_evaluation_1 = Vanilla_UCT(
-                                c = c, 
-                                n_simulations = round(0.25 * n_simulations)
-                                )
-    uct_evaluation_2 = Vanilla_UCT(
-                                c = c, 
-                                n_simulations = round(0.5 * n_simulations)
-                                )
-    uct_evaluation_3 = Vanilla_UCT(
-                                c = c, 
-                                n_simulations =  n_simulations
-                                )
-    UCTs_eval = [uct_evaluation_1, uct_evaluation_2, uct_evaluation_3]
-
     file_name = str(n_simulations) + '_' + str(n_games) \
                 + '_' + str(alphazero_iterations) + '_' + str(conv_number) \
                 + '_' + str(use_UCT_playout) + '.txt'
@@ -150,8 +136,7 @@ def main():
 
     experiment.play_alphazero(
                     player1, 
-                    player2, 
-                    UCTs_eval,  
+                    player2,  
                     use_UCT_playout = use_UCT_playout, 
                     reg = reg,
                     epochs = epochs, 

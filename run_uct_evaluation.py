@@ -15,7 +15,12 @@ from keras.models import load_model
 
 def get_list_of_networks(n_simulations, n_games, alphazero_iterations,
                             conv_number, use_UCT_playout):
-    
+    """
+    Return the AlphaZeroPlayer and Statitisc of the AZ iteration that won 
+    against the previous network.
+    Parameters passed are used only to locate the source folder of the 
+    experiment.
+    """
     
     source_folder = 'training_data_' + str(n_simulations) + '_' + \
                     str(n_games) + '_' + str(alphazero_iterations) + '_' +\

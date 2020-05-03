@@ -147,13 +147,12 @@ class Experiment:
 
         return data_of_a_game, who_won
 
-    def play_alphazero(self, current_model, old_model, UCTs_eval, 
-                        use_UCT_playout, reg, epochs, conv_number,
-                        alphazero_iterations, mini_batch, n_training_loop, 
-                        n_games, n_games_evaluate, victory_rate, dataset_size):
+    def play_alphazero(self, current_model, old_model, use_UCT_playout, reg, 
+                        epochs, conv_number, alphazero_iterations, mini_batch, 
+                        n_training_loop, n_games, n_games_evaluate, 
+                        victory_rate, dataset_size):
         """
         - current_model and old_model are instances of AlphaZeroPlayer.
-        - UCTs_eval is a list of Vanilla_UCT players used in evaluation.
         - epochs is the number of epochs usued in the training stage.
         - alphazero_iterations is the total number of iterations of the 
           learning algorithm: selfplay -> training loop -> evaluate network.
@@ -220,9 +219,7 @@ class Experiment:
                                                 )
                 elapsed_time_one_selfplay_game = time.time() \
                                                 - start_one_selfplay_game
-                #print('Self-play - GAME', i ,'OVER - PLAYER', 
-                #    who_won, 'WON - Time elapsed:', 
-                #    elapsed_time_one_selfplay_game)
+
                 if who_won == 1:
                     victory_1 += 1
                 elif who_won == 2:
@@ -486,7 +483,22 @@ class Experiment:
                	
     def play_network_versus_UCT(self, network, stat, networks_dir, prefix_name, 
                                 UCTs_eval, n_games_evaluate):
-        """Play the network against three baseline UCTs."""
+        """
+        Play the network against three baseline UCTs and save all the data
+        accordingly.
+        
+        - network is an AlphaZeroPlayer that won against a previous network 
+          and for evaluation purposes will now face the UCTs.
+        - stat is an instance of Statistics that stores data related to this
+          player. It is used to generate a report.
+        - networks_dir is the directory where all info about the current 
+          experiment is located.
+        - prefix_name is a string used to identify the configs used in this 
+          experiment, as well as the AZ iteration it corresponds to.
+        - UCTs_eval is a list of Vanilla_UCT players used in evaluation.
+        - n_games_evaluate is the number of games played between the network
+          and the vanilla UCTs.
+        """
 
         file_name = networks_dir + '/results_uct/'
         file_name_data = networks_dir + '/results_uct/' + prefix_name + '_data'
