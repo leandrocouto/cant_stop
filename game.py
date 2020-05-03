@@ -463,12 +463,7 @@ class Game:
         # actions = [(8,12), (8,12), (8,12)])
         # Also remove redundant actions (Example: (8,12) and (12,8))
 
-        combination = [list(elem) for elem in combination]
-        for t in combination:
-            t.sort()
-        combination = [tuple(elem) for elem in combination]
-        combination = list(set(combination))
-        return combination
+        return [t for t in {x[::-1] if x[0] > x[-1] else x for x in combination}]
 
     def is_finished(self):
         """

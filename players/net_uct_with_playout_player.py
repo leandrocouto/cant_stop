@@ -5,6 +5,8 @@ import numpy as np
 import copy
 import collections
 from players.alphazero_player import AlphaZeroPlayer, Node
+from models import define_model
+import pickle
 
 class Network_UCT_With_Playout(AlphaZeroPlayer):
 
@@ -49,8 +51,6 @@ class Network_UCT_With_Playout(AlphaZeroPlayer):
         Return a Network_UCT_With_Playout player.
         """
 
-        from main import define_model
-        import pickle
         self_copy = Network_UCT_With_Playout(self.c, self.n_simulations, 
                         self.column_range, self.offset, self.initial_height, 
                         self.dice_value, None

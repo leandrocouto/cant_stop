@@ -22,26 +22,50 @@ class Statistic:
         self.alphazero_iterations = alphazero_iterations
         self.use_UCT_playout = use_UCT_playout
         self.conv_number = conv_number
-        if n_simulations != None and n_games != None \
-            and alphazero_iterations != None \
-            and use_UCT_playout != None and conv_number != None:
-            self.path = 'data_' + str(self.n_simulations) + '_' \
-                + str(self.n_games) + '_' + str(self.alphazero_iterations) \
-                + '_' + str(self.conv_number) + '_' \
-                + str(self.use_UCT_playout) + '/'
+        self.path = 'training_data_' + str(self.n_simulations) + '_' \
+            + str(self.n_games) + '_' + str(self.alphazero_iterations) \
+            + '_' + str(self.conv_number) + '_' \
+            + str(self.use_UCT_playout) + '/'
+        self.uct_path = 'uct_data_' + str(self.n_simulations) + '_' \
+            + str(self.n_games) + '_' + str(self.alphazero_iterations) \
+            + '_' + str(self.conv_number) + '_' \
+            + str(self.use_UCT_playout) + '/'
                 
 
-    def save_to_file(self, alphazero_iteration):
+    def save_to_file(self, alphazero_iteration, won):
         """Save the analysis data of this iteration to file."""
 
-        if not os.path.exists(self.path):
-            os.makedirs(self.path)
-        filename = self.path + '/' + str(self.n_simulations) + '_' \
-                + str(self.n_games) + '_' + str(self.alphazero_iterations) \
-                + '_' + str(self.conv_number) + '_' \
-                + str(self.use_UCT_playout) + '_' + str(alphazero_iteration)
-        with open(filename, 'wb') as file:
-            pickle.dump(self.__dict__, file)
+        # if the file being saved is related to the training
+        if self.data_net_vs_uct == None:
+            # if the new network won against the previous one
+            if won:
+                if not os.path.exists(self.path + 'won/'):
+                    os.makedirs(self.path + 'won/')
+                filename = self.path + 'won/' + str(self.n_simulations) + '_' \
+                        + str(self.n_games) + '_' + str(self.alphazero_iterations) \
+                        + '_' + str(self.conv_number) + '_' \
+                        + str(self.use_UCT_playout) + '_' + str(alphazero_iteration)
+                with open(filename, 'wb') as file:
+                    pickle.dump(self.__dict__, file)
+            # Save all files either way
+            if not os.path.exists(self.path):
+                os.makedirs(self.path)
+            filename = self.path + '/' + str(self.n_simulations) + '_' \
+                    + str(self.n_games) + '_' + str(self.alphazero_iterations) \
+                    + '_' + str(self.conv_number) + '_' \
+                    + str(self.use_UCT_playout) + '_' + str(alphazero_iteration)
+            with open(filename, 'wb') as file:
+                pickle.dump(self.__dict__, file)
+        # if the file being saved is related to the uct (save everything)
+        else:
+            if not os.path.exists(self.uct_path):
+                os.makedirs(self.uct_path)
+            filename = self.uct_path + '/' + str(self.n_simulations) + '_' \
+                    + str(self.n_games) + '_' + str(self.alphazero_iterations) \
+                    + '_' + str(self.conv_number) + '_' \
+                    + str(self.use_UCT_playout) + '_' + str(alphazero_iteration)
+            with open(filename, 'wb') as file:
+                pickle.dump(self.__dict__, file)
 
     def load_from_file(self, path):
         """
@@ -63,17 +87,52 @@ class Statistic:
             self.path = stats['path']
 
 
-    def save_model_to_file(self, model, alphazero_iteration):
-        """Save the networkmodel of this iteration to file."""
-
+    def save_model_to_file(self, model, alphazero_iteration, won):
+        """Save the network model of this iteration to file."""
+        if won:
+            if not os.path.exists(self.path + 'won/'):
+                os.makedirs(self.path + 'won/')
+            filename = self.path + 'won/' + str(self.n_simulations) + '_' \
+                    + str(self.n_games) + '_' + str(self.alphazero_iterations) \
+                    + '_' + str(self.conv_number) + '_' \
+                    + str(self.use_UCT_playout) + '_' \
+                    + str(alphazero_iteration) + '_model.h5'
+            model.save(filename)
+        # save all either way
         if not os.path.exists(self.path):
-            os.makedirs(self.path)
+                os.makedirs(self.path)
         filename = self.path + '/' + str(self.n_simulations) + '_' \
                 + str(self.n_games) + '_' + str(self.alphazero_iterations) \
                 + '_' + str(self.conv_number) + '_' \
                 + str(self.use_UCT_playout) + '_' \
                 + str(alphazero_iteration) + '_model.h5'
         model.save(filename)
+
+    def save_player_config(self, player, alphazero_iteration, reg, 
+                            conv_number, won):
+        """Save which Player is being played."""
+        player_clone = player.clone(reg, conv_number)
+        player_clone.network = None
+        if won:
+            if not os.path.exists(self.path + 'won/'):
+                os.makedirs(self.path + 'won/')
+            filename = self.path + 'won/' + str(self.n_simulations) + '_' \
+                    + str(self.n_games) + '_' + str(self.alphazero_iterations) \
+                    + '_' + str(self.conv_number) + '_' \
+                    + str(self.use_UCT_playout) + '_' \
+                    + str(alphazero_iteration) + '_player'
+            with open(filename, 'wb') as file:
+                    pickle.dump(player_clone, file)
+        # save all either way
+        if not os.path.exists(self.path):
+                os.makedirs(self.path)
+        filename = self.path + '/' + str(self.n_simulations) + '_' \
+                + str(self.n_games) + '_' + str(self.alphazero_iterations) \
+                + '_' + str(self.conv_number) + '_' \
+                + str(self.use_UCT_playout) + '_' \
+                + str(alphazero_iteration) + '_player'
+        with open(filename, 'wb') as file:
+                    pickle.dump(player_clone, file)
 
     def info_header_latex(self, doc):
         """Create a header used before each graph in the report."""
@@ -90,7 +149,7 @@ class Statistic:
         doc.append(str(self.alphazero_iterations))
 
     def generate_report(self):
-        """Generate and export the report."""
+        """Generate and export the report (training + UCT)."""
 
         matplotlib.use('Agg')
 
@@ -125,12 +184,13 @@ class Statistic:
             victory_0_eval_net.append(analysis[0])
             victory_1_eval_net.append(analysis[1])
             victory_2_eval_net.append(analysis[2])
+        
         for analysis in self.data_net_vs_uct:
             victory_0_eval_uct_temp.append(analysis[0])
             victory_1_eval_uct_temp.append(analysis[1])
             victory_2_eval_uct_temp.append(analysis[2])
             list_of_n_simulations.append(analysis[3])
-
+        
         victory_0_eval_uct = [] # vs. UCT - Tie
         victory_1_eval_uct = [] # vs. UCT
         victory_2_eval_uct = [] # vs. UCT

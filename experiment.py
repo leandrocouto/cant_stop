@@ -1,6 +1,8 @@
 from game import Game
 import time
 import copy
+import os
+import pickle
 from players.vanilla_uct_player import Vanilla_UCT
 from players.alphazero_player import AlphaZeroPlayer
 from players.uct_player import UCTPlayer
@@ -184,8 +186,6 @@ class Experiment:
             data_net_vs_net_training = []
             # Stores data from net vs net in evaluation for later analysis.
             data_net_vs_net_eval = []
-            # Stores data from net vs uct in evaluation for later analysis.
-            data_net_vs_uct = []
 
             #
             #
@@ -387,7 +387,7 @@ class Experiment:
 
             necessary_won_games = (victory_rate * n_games_evaluate) / 100
 
-            if victory_1_eval_net <= necessary_won_games:
+            if victory_1_eval_net < necessary_won_games:
                 with open(file_name, 'a') as f:
                     print('    New model is worse...', file=f)
                     print('    New model victories:', victory_1_eval_net,\
@@ -400,6 +400,39 @@ class Experiment:
                     print('    Average time of a game: ', \
                             elapsed_time_evaluate_net / n_games_evaluate, \
                             's', sep = '', file=f)
+
+                # Saves this iteration's data to file
+                stats = Statistic(
+                        data_net_vs_net_training, 
+                        data_net_vs_net_eval, 
+                        None, 
+                        n_simulations = current_model.n_simulations, 
+                        n_games = n_games, 
+                        alphazero_iterations = alphazero_iterations, 
+                        use_UCT_playout = use_UCT_playout, 
+                        conv_number = conv_number
+                        )
+                stats.save_to_file(count, won = False)
+                stats.save_model_to_file(
+                                        current_model.network, 
+                                        count, 
+                                        won = False
+                                        )
+                stats.save_player_config(
+                                        current_model, 
+                                        count, 
+                                        reg, 
+                                        conv_number, 
+                                        won = False
+                                        )
+
+                # New model is worse, therefore we can copy old_model weights
+                # to current_model to be used in the next AZ iteration.
+                # This way, we are discarding everything current_model learned 
+                #during the learning stage because it was worse than old_model.
+                current_model.network.set_weights(
+                                        old_model.network.get_weights()
+                                        )
             else:
                 with open(file_name, 'a') as f:
                     print('    New model is better!', file=f)
@@ -414,103 +447,121 @@ class Experiment:
                             elapsed_time_evaluate_net / n_games_evaluate, \
                             's', sep = '', file=f)
 
-                # The new model is better. Therefore, evaluate it against
-                # a list of vanilla UCTs and store the data for later analysis.
-
-                # List of victories of each vanilla UCTs
-                victory_0_eval = [0 for i in range(len(UCTs_eval))]
-                victory_1_eval = [0 for i in range(len(UCTs_eval))]
-                victory_2_eval = [0 for i in range(len(UCTs_eval))]
-
-                for ucts in range(len(UCTs_eval)):
-                    with open(file_name, 'a') as f:
-                        print('MODEL EVALUATION - Network vs. UCT - ', 
-                            UCTs_eval[ucts].n_simulations,' simulations', 
-                            file=f)
-
-                    start_evaluate_uct = time.time()
-
-                    for i in range(n_games_evaluate):
-                        # If "i" is even, current_model is Player 1, otherwise
-                        # current_model is Player 2.
-                        # This helps reduce possible victory biases.
-                        if i % 2 == 0:
-                            _, who_won = self.play_single_game(
-                                            current_model, UCTs_eval[ucts]
-                                            )
-                            if who_won == 1:
-                                victory_1_eval[ucts] += 1
-                            elif who_won == 2:
-                                victory_2_eval[ucts] += 1
-                            else:
-                                victory_0_eval[ucts] += 1
-                        else:
-                            _, who_won = self.play_single_game(
-                                            UCTs_eval[ucts], current_model
-                                            )
-                            if who_won == 2:
-                                victory_1_eval[ucts] += 1
-                            elif who_won == 1:
-                                victory_2_eval[ucts] += 1
-                            else:
-                                victory_0_eval[ucts] += 1
-
-                    elapsed_time_evaluate_uct = time.time() \
-                                                - start_evaluate_uct
-
-                    with open(file_name, 'a') as f:
-                        print('    Net vs UCT - Network won', 
-                            victory_1_eval[ucts],'time(s).', file=f)
-                        print('    Net vs UCT - UCT won', 
-                            victory_2_eval[ucts],'time(s).', file=f)
-                        print('    Net vs UCT - Draws:', 
-                            victory_0_eval[ucts], file=f)
-                        print('    Time elapsed in evaluation (Net vs. UCT):', 
-                            elapsed_time_evaluate_uct, file=f)
-                        print('    Average time of a game: ', \
-                            elapsed_time_evaluate_uct / n_games_evaluate, \
-                            's', sep = '', file=f)
-
-                list_of_n_simulations = [uct.n_simulations 
-                                        for uct in UCTs_eval
-                                        ]
-                # Saving data
-                data_net_vs_uct.append(
-                    (victory_0_eval, victory_1_eval, victory_2_eval, 
-                    list_of_n_simulations)
-                    )
+                # Saves this iteration's data to file
+                stats = Statistic(
+                        data_net_vs_net_training, 
+                        data_net_vs_net_eval, 
+                        None, 
+                        n_simulations = current_model.n_simulations, 
+                        n_games = n_games, 
+                        alphazero_iterations = alphazero_iterations, 
+                        use_UCT_playout = use_UCT_playout, 
+                        conv_number = conv_number
+                        )
+                stats.save_to_file(count, won = True)
+                stats.save_model_to_file(
+                                        current_model.network, 
+                                        count, 
+                                        won = True
+                                        )
+                stats.save_player_config(
+                                        current_model, 
+                                        count, 
+                                        reg, 
+                                        conv_number, 
+                                        won = True
+                                        )
 
                 # New model is better, therefore we can copy current_model
                 # weights to old_model to be used in the next AZ iteration.
                 old_model.network.set_weights(
-                    current_model.network.get_weights()
-                    )
-
-            # New model is worse, therefore we can copy old_model weights
-            # to current_model to be used in the next AZ iteration.
-            # This way, we are discarding everything current_model learned 
-            #during the learning stage because it was worse than old_model.
-            current_model.network.set_weights(
-                old_model.network.get_weights()
-                )
+                                    current_model.network.get_weights()
+                                    )
 
             elapsed_time = time.time() - start
             with open(file_name, 'a') as f:
                 print('Time elapsed of this AZ iteration: ', 
                     elapsed_time, file=f)
                 print(file=f)
-
-            # Saves this iteration's data to file
-            stats = Statistic(
-                    data_net_vs_net_training, 
-                    data_net_vs_net_eval, 
-                    data_net_vs_uct, 
-                    n_simulations = current_model.n_simulations, 
-                    n_games = n_games, 
-                    alphazero_iterations = alphazero_iterations, 
-                    use_UCT_playout = use_UCT_playout, 
-                    conv_number = conv_number
-                    )
-            stats.save_to_file(count)
-            stats.save_model_to_file(current_model.network, count)
                	
+    def play_network_versus_UCT(self, network, stat, networks_dir, prefix_name, 
+                                UCTs_eval, n_games_evaluate):
+        """Play the network against three baseline UCTs."""
+
+        file_name = networks_dir + '/results_uct/'
+        file_name_data = networks_dir + '/results_uct/' + prefix_name + '_data'
+
+        # Create the target directory if it is not created yet
+        if not os.path.exists(file_name):
+            os.makedirs(file_name)
+
+        file_name = file_name + prefix_name + '_log_uct.txt'
+        # Stores data from net vs uct in evaluation for later analysis.
+        data_net_vs_uct = []
+
+        # List of victories of each vanilla UCTs
+        victory_0_eval = [0 for i in range(len(UCTs_eval))]
+        victory_1_eval = [0 for i in range(len(UCTs_eval))]
+        victory_2_eval = [0 for i in range(len(UCTs_eval))]
+
+        for ucts in range(len(UCTs_eval)):
+            with open(file_name, 'a') as f:
+                print('MODEL EVALUATION - Network vs. UCT - ', 
+                    UCTs_eval[ucts].n_simulations,' simulations', 
+                    file=f)
+
+            start_evaluate_uct = time.time()
+
+            for i in range(n_games_evaluate):
+                # If "i" is even, network is Player 1, otherwise
+                # network is Player 2.
+                # This helps reduce possible victory biases.
+                if i % 2 == 0:
+                    _, who_won = self.play_single_game(
+                                    network, UCTs_eval[ucts]
+                                    )
+                    if who_won == 1:
+                        victory_1_eval[ucts] += 1
+                    elif who_won == 2:
+                        victory_2_eval[ucts] += 1
+                    else:
+                        victory_0_eval[ucts] += 1
+                else:
+                    _, who_won = self.play_single_game(
+                                    UCTs_eval[ucts], network
+                                    )
+                    if who_won == 2:
+                        victory_1_eval[ucts] += 1
+                    elif who_won == 1:
+                        victory_2_eval[ucts] += 1
+                    else:
+                        victory_0_eval[ucts] += 1
+
+            elapsed_time_evaluate_uct = time.time() - start_evaluate_uct
+
+            with open(file_name, 'a') as f:
+                print('    Net vs UCT - Network won', 
+                    victory_1_eval[ucts],'time(s).', file=f)
+                print('    Net vs UCT - UCT won', 
+                    victory_2_eval[ucts],'time(s).', file=f)
+                print('    Net vs UCT - Draws:', 
+                    victory_0_eval[ucts], file=f)
+                print('    Time elapsed in evaluation (Net vs. UCT):', 
+                    elapsed_time_evaluate_uct, file=f)
+                print('    Average time of a game: ', \
+                    elapsed_time_evaluate_uct / n_games_evaluate, \
+                    's', sep = '', file=f)
+
+        list_of_n_simulations = [uct.n_simulations for uct in UCTs_eval]
+        # Saving data
+        data_net_vs_uct.append(
+            (victory_0_eval, victory_1_eval, victory_2_eval, 
+            list_of_n_simulations)
+            )
+        stat.data_net_vs_uct = data_net_vs_uct
+        # Save the data of uct
+        with open(file_name_data, 'wb') as file:
+                pickle.dump(data_net_vs_uct, file)
+        # Save the updated stats file
+        with open(networks_dir + '/results_uct/' + prefix_name, 'wb') as file:
+                pickle.dump(stat.__dict__, file)
