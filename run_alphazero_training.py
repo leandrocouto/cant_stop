@@ -22,7 +22,7 @@ def main():
     if int(sys.argv[2]) == 1: n_games = 100
     if int(sys.argv[2]) == 2: n_games = 250
     if int(sys.argv[2]) == 3: n_games = 500
-    if int(sys.argv[3]) == 0: alphazero_iterations = 10
+    if int(sys.argv[3]) == 0: alphazero_iterations = 20
     if int(sys.argv[4]) == 0: conv_number = 1
     if int(sys.argv[4]) == 1: conv_number = 2
     if int(sys.argv[5]) == 0: use_UCT_playout = True
@@ -37,7 +37,7 @@ def main():
     victory_rate = 55
     mini_batch = 2048
     n_training_loop = 10
-    dataset_size = 1000
+    dataset_size = 200
     '''
     # Toy version
     column_range = [2,6]

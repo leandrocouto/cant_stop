@@ -9,7 +9,7 @@ from keras import regularizers
 from keras.losses import categorical_crossentropy
 
 def define_model_experimental(reg, conv_number, column_range, offset, 
-                                initial_height, dice_value):
+    initial_height, dice_value):
     """Neural Network model implementation using Keras + Tensorflow."""
 
     # Calculating the channel dimensions given the board dynamics

@@ -1,4 +1,5 @@
 import math, random
+import keras.backend as K
 import numpy as np
 import copy
 import collections

@@ -3,6 +3,8 @@ import time
 import copy
 import os
 import pickle
+import psutil
+import os.path
 from players.vanilla_uct_player import Vanilla_UCT
 from players.alphazero_player import AlphaZeroPlayer
 from players.uct_player import UCTPlayer
@@ -11,7 +13,7 @@ from statistics import Statistic
 class Experiment:
 
     def __init__(self, n_players, dice_number, dice_value, column_range,
-                    offset, initial_height, max_game_length):
+        offset, initial_height, max_game_length):
         self.n_players = n_players
         self.dice_number = dice_number
         self.dice_value = dice_value
@@ -20,7 +22,7 @@ class Experiment:
         self.initial_height = initial_height
         self.max_game_length = max_game_length
 
-    def play_single_game(self, player1, player2):
+    def _play_single_game(self, player1, player2):
         """
         Play a single game between self.player1 and self.player2.
         Return the data of the game in a NN channel format and who won.
@@ -147,10 +149,254 @@ class Experiment:
 
         return data_of_a_game, who_won
 
+    def _selfplay(self, current_model, dataset_for_network, n_games, reg, 
+        conv_number, file_name):
+
+        with open(file_name, 'a') as f:
+            print('SELFPLAY', file=f)
+
+        start_selfplay = time.time()
+        # 0 -> draw
+        victory_0 = 0
+        victory_1 = 0
+        victory_2 = 0
+
+        copy_model = current_model.clone(reg, conv_number)
+        
+        for i in range(n_games):
+            #start_one_selfplay_game = time.time()
+            data_of_a_game = []
+            data_of_a_game, who_won = self._play_single_game(
+                                            current_model,
+                                            copy_model
+                                            )
+            #elapsed_time_one_selfplay_game = time.time() \
+            #                                - start_one_selfplay_game
+
+            if who_won == 1:
+                victory_1 += 1
+            elif who_won == 2:
+                victory_2 += 1
+            else:
+                victory_0 += 1
+            # After the game is finished, we now know who won the game.
+            # Therefore, save this info in all instances saved so far
+            # for later use as input for the NN.
+            if who_won == 2:
+                who_won = -1
+            for single_game in data_of_a_game:
+                    single_game.append(who_won)
+
+            # Ties (infinite games) are not trained
+            if who_won != 0:
+                dataset_for_network.append(data_of_a_game)
+
+        del copy_model
+
+        elapsed_time_selfplay = time.time() - start_selfplay
+
+        with open(file_name, 'a') as f:
+            print('    Selfplay - Player 1 won', victory_1, 'time(s).', \
+                    file=f)
+            print('    Selfplay - Player 2 won', victory_2, 'time(s).', \
+                    file=f)
+            print('    Selfplay - Ties:', victory_0, file=f)
+            print('    Time elapsed in Selfplay:', elapsed_time_selfplay,\
+                    file=f)
+            print('    Average time of a game: ', elapsed_time_selfplay \
+                    / n_games, 's', sep = '', file=f)
+
+        return victory_0, victory_1, victory_2
+            
+    def _training(self, current_model, dataset_for_network, dataset_size,
+        data_net_vs_net_training, n_training_loop, mini_batch, epochs, 
+        victory_0, victory_1, victory_2, file_name):
+        # If the current dataset is bigger than dataset_size, then removes
+        # the oldest games accordingly.
+        
+        with open(file_name, 'a') as f:
+                print('TRAINING LOOP', file=f)
+            
+        start_training = time.time()
+
+        process = psutil.Process(os.getpid())
+        with open(file_name, 'a') as f:
+            print('Memoria antes de deletar = ', process.memory_info().rss / 1000000, file=f)
+
+        current_dataset_size =  len(dataset_for_network)
+        to_delete = current_dataset_size - dataset_size
+
+        with open(file_name, 'a') as f:
+            print('Tamanho do dataset antes = ', len(dataset_for_network), file=f)
+
+        if current_dataset_size > dataset_size:
+            del dataset_for_network[:to_delete]
+            
+        with open(file_name, 'a') as f:
+            print('Tamanho do dataset depois = ', len(dataset_for_network), file=f)
+
+        process = psutil.Process(os.getpid())
+        with open(file_name, 'a') as f:
+            print('Memoria depois de deletar = ', process.memory_info().rss / 1000000, file=f)
+
+        process = psutil.Process(os.getpid())
+        with open(file_name, 'a') as f:
+            print('Memoria antes transform dataset = ', process.memory_info().rss / 1000000, file=f)
+
+        # Transform the dataset collected into network input
+        channels_input, valid_actions_dist_input, dist_probs_label, \
+            who_won_label = current_model.transform_dataset_to_input(
+                                            dataset_for_network
+                                            )
+
+        process = psutil.Process(os.getpid())
+        with open(file_name, 'a') as f:
+            print('Memoria dps transform dataset = ', process.memory_info().rss / 1000000, file=f)
+        
+        for i in range(n_training_loop):
+            # Sample random mini_batch inputs for training
+            x_train, y_train = current_model.sample_input(
+                                channels_input, valid_actions_dist_input, 
+                                dist_probs_label, who_won_label, 
+                                mini_batch
+                                )
+
+            history_callback = current_model.network.fit(
+                                x_train, y_train, epochs = epochs, 
+                                shuffle = True, verbose = 0
+                                )
+
+            _ = current_model.network.fit(
+                                x_train, y_train, epochs = epochs, 
+                                shuffle = True, verbose = 0
+                                )
+
+            if i == n_training_loop - 1:
+                # Saving data
+                loss = sum(history_callback.history["loss"]) \
+                                / len(history_callback.history["loss"])
+                dist_metric = \
+                        sum(history_callback.history[
+                            "Output_Dist_categorical_crossentropy"
+                            ]) \
+                            / len(history_callback.history[
+                                "Output_Dist_categorical_crossentropy"
+                                ])
+                value_metric = \
+                        sum(history_callback.history[
+                            "Output_Value_mean_squared_error"
+                            ]) \
+                            / len(history_callback.history[
+                                "Output_Value_mean_squared_error"
+                                ])
+        
+        process = psutil.Process(os.getpid())
+        with open(file_name, 'a') as f:
+            print('Memoria dps loop treinamento = ', process.memory_info().rss / 1000000, file=f)
+        
+        data_net_vs_net_training.append(
+                                        (loss, dist_metric, value_metric,
+                                        victory_0, victory_1, victory_2)
+                                        )
+        
+
+        elapsed_time_training = time.time() - start_training
+        
+        with open(file_name, 'a') as f:
+            print('    Time elapsed of training:', 
+                elapsed_time_training, file=f)
+            
+            print('    Total loss:', loss, file=f)
+            print('    Dist. error:', dist_metric, file=f)
+            print('    Value error:', value_metric, file=f)
+            
+
+    def _evaluation(self, current_model, old_model, data_net_vs_net_eval, 
+        n_games_evaluate, victory_rate, file_name):
+
+        with open(file_name, 'a') as f:
+                print('MODEL EVALUATION - Network vs. Old Network', file=f)
+
+        # The current network faces the previous one.
+        # If it does not win victory_rate % it completely
+        # discards the current network.
+
+        victory_0_eval = 0 # Draw
+        victory_1_eval = 0 # Current model
+        victory_2_eval = 0 # Old model
+
+        start_eval = time.time()
+
+        process = psutil.Process(os.getpid())
+        with open(file_name, 'a') as f:
+            print('Memoria antes eval = ', process.memory_info().rss / 1000000, file=f)
+        for i in range(n_games_evaluate):
+            # If "i" is even, current_model is Player 1, otherwise 
+            # current_model is Player 2.
+            # This helps reduce possible victory biases.
+
+            start_one_eval_game = time.time()
+            if i % 2 == 0:
+                _, who_won = self._play_single_game(
+                                    current_model, old_model
+                                    )
+                if who_won == 1:
+                    victory_1_eval += 1
+                elif who_won == 2:
+                    victory_2_eval += 1
+                else:
+                    victory_0_eval += 1
+            else:
+                _, who_won = self._play_single_game(
+                                    old_model, current_model
+                                    )
+                if who_won == 2:
+                    victory_1_eval += 1
+                elif who_won == 1:
+                    victory_2_eval += 1
+                else:
+                    victory_0_eval += 1
+
+            elapsed_time_one_eval_game = time.time() - start_one_eval_game
+
+        elapsed_time_eval = time.time() - start_eval
+
+        data_net_vs_net_eval.append(
+            (victory_0_eval, victory_1_eval, victory_2_eval)
+            )
+
+        necessary_won_games = (victory_rate * n_games_evaluate) / 100
+
+        if victory_1_eval < necessary_won_games:
+            with open(file_name, 'a') as f:
+                print('    New model is worse...', file=f)
+                print('    New model victories:', victory_1_eval, file=f)
+                print('    Old model victories:', victory_2_eval, file=f)
+                print('    Draws:', victory_0_eval, file=f)
+                print('    Time elapsed in evaluation (Net vs. Net):', 
+                        elapsed_time_eval, file=f)
+                print('    Average time of a game: ', \
+                        elapsed_time_eval / n_games_evaluate, \
+                        's', sep = '', file=f)
+
+            return False
+        else:
+            with open(file_name, 'a') as f:
+                print('    New model is better!', file=f)
+                print('    New model victories:', victory_1_eval, file=f)
+                print('    Old model victories:', victory_2_eval, file=f)
+                print('    Draws:', victory_0_eval, file=f)
+                print('    Time elapsed in evaluation (Net vs. Net):', 
+                        elapsed_time_eval, file=f)
+                print('    Average time of a game: ', \
+                        elapsed_time_eval / n_games_evaluate, \
+                        's', sep = '', file=f)
+
+            return True
+
     def play_alphazero(self, current_model, old_model, use_UCT_playout, reg, 
-                        epochs, conv_number, alphazero_iterations, mini_batch, 
-                        n_training_loop, n_games, n_games_evaluate, 
-                        victory_rate, dataset_size):
+        epochs, conv_number, alphazero_iterations, mini_batch, n_training_loop, 
+        n_games, n_games_evaluate, victory_rate, dataset_size):
         """
         - current_model and old_model are instances of AlphaZeroPlayer.
         - epochs is the number of epochs usued in the training stage.
@@ -168,92 +414,58 @@ class Experiment:
           training.  
         """
 
+        
+
         file_name = str(current_model.n_simulations) + '_' + str(n_games) \
                 + '_' + str(alphazero_iterations) + '_' + str(conv_number) \
                 + '_' + str(use_UCT_playout) + '.txt'
 
-        # dataset_for_network stores a list of info used as input for the 
-        # network.
-        # A list of: states of the game, distribution probability of the state
-        # returned by the UCT and who won the game this state is in.
-        dataset_for_network = []
+        dataset_file = str(current_model.n_simulations) + '_' + str(n_games) \
+                + '_' + str(alphazero_iterations) + '_' + str(conv_number) \
+                + '_' + str(use_UCT_playout) + '_dataset'
+        
 
         for count in range(alphazero_iterations):
             with open(file_name, 'a') as f:
                 print('ALPHAZERO ITERATION -', count, file=f)
+            
+            # dataset_for_network stores a list of info used as input for the 
+            # network.
+            # A list of: states of the game, distribution probability of the state
+            # returned by the UCT and who won the game this state is in.
+            dataset_for_network = []
+
+            # If there is a file that contains data for training, read it
+            if os.path.exists(dataset_file):
+                with open(dataset_file, 'rb') as file:
+                    dataset_for_network = pickle.load(file)
+
             # Stores data from net vs net in training for later analysis.
             data_net_vs_net_training = []
             # Stores data from net vs net in evaluation for later analysis.
             data_net_vs_net_eval = []
 
             #
-            #
             # Main loop of the algorithm
             #
-            #
 
-            # 0 -> draw
-            victory_0 = 0
-            victory_1 = 0
-            victory_2 = 0
 
             start = time.time()
 
             #
-            #
             # Self-play
             #
-            #
 
-            with open(file_name, 'a') as f:
-                print('SELFPLAY', file=f)
+            victory_0, victory_1, victory_2 = self._selfplay(
+                                                            current_model, 
+                                                            dataset_for_network, 
+                                                            n_games, 
+                                                            reg, 
+                                                            conv_number, 
+                                                            file_name
+                                                            )
 
-            start_selfplay = time.time()
-
-            for i in range(n_games):
-                start_one_selfplay_game = time.time()
-                copy_model = current_model.clone(reg, conv_number)
-                data_of_a_game, who_won = self.play_single_game(
-                                                current_model,
-                                                copy_model
-                                                )
-                elapsed_time_one_selfplay_game = time.time() \
-                                                - start_one_selfplay_game
-
-                if who_won == 1:
-                    victory_1 += 1
-                elif who_won == 2:
-                    victory_2 += 1
-                else:
-                    victory_0 += 1
-                # After the game is finished, we now know who won the game.
-                # Therefore, save this info in all instances saved so far
-                # for later use as input for the NN.
-                if who_won == 2:
-                    who_won = -1
-                for single_game in data_of_a_game:
-                        single_game.append(who_won)
-
-                # Ties (infinite games) are not trained
-                if who_won != 0:
-                    dataset_for_network.append(data_of_a_game)
-
-            elapsed_time_selfplay = time.time() - start_selfplay
-
-            
-
-            with open(file_name, 'a') as f:
-                print('    Selfplay - Player 1 won', victory_1, 'time(s).', \
-                        file=f)
-                print('    Selfplay - Player 2 won', victory_2, 'time(s).', \
-                        file=f)
-                print('    Selfplay - Ties:', victory_0, file=f)
-                print('    Time elapsed in Selfplay:', elapsed_time_selfplay,\
-                        file=f)
-                print('    Average time of a game: ', elapsed_time_selfplay \
-                        / n_games, 's', sep = '', file=f)
-
-            # This means all of the selfplay games (of the first iteration) 
+            # This means all of the selfplay games (from the first iteration) 
             # ended in a draw.
             # This is not interesting since it does not add any valued info 
             # for the network training. Stops this iteration.
@@ -264,225 +476,97 @@ class Experiment:
                 continue
 
             #
-            #
             # Training
             #
-            #
-
-
-            with open(file_name, 'a') as f:
-                print('TRAINING LOOP', file=f)
             
-            start_training = time.time()
+            self._training(
+                            current_model, 
+                            dataset_for_network, 
+                            dataset_size,
+                            data_net_vs_net_training, 
+                            n_training_loop, 
+                            mini_batch,
+                            epochs,
+                            victory_0, 
+                            victory_1, 
+                            victory_2, 
+                            file_name
+                            )
 
-            # If the current dataset is bigger than dataset_size, then removes
-            # the oldest games accordingly.
-            current_dataset_size =  len(dataset_for_network)
-            if current_dataset_size > dataset_size:
-                del dataset_for_network[:(current_dataset_size - dataset_size)]
+            # Since the selfplay data is not important from now on, free the 
+            # memory and save the data in a file for later usage in the next
+            # AZ iteration.
+            with open(dataset_file, 'wb') as file:
+                pickle.dump(dataset_for_network, file)
+            dataset_for_network = []
 
-            # Transform the dataset collected into network input
-            channels_input, valid_actions_dist_input, dist_probs_label, \
-                who_won_label = current_model.transform_dataset_to_input(
-                                                dataset_for_network
-                                                )
-
-            for i in range(n_training_loop):
-                # Sample random mini_batch inputs for training
-                x_train, y_train = current_model.sample_input(
-                                    channels_input, valid_actions_dist_input, 
-                                    dist_probs_label, who_won_label, 
-                                    mini_batch
-                                    )
-
-                history_callback = current_model.network.fit(
-                                    x_train, y_train, epochs = epochs, 
-                                    shuffle = True, verbose = 0
-                                    )
-                
-                if i == n_training_loop - 1:
-                    # Saving data
-                    loss = sum(history_callback.history["loss"]) \
-                                    / len(history_callback.history["loss"])
-                    dist_metric = \
-                            sum(history_callback.history[
-                                "Output_Dist_categorical_crossentropy"
-                                ]) \
-                                / len(history_callback.history[
-                                    "Output_Dist_categorical_crossentropy"
-                                    ])
-                    value_metric = \
-                            sum(history_callback.history[
-                                "Output_Value_mean_squared_error"
-                                ]) \
-                                / len(history_callback.history[
-                                    "Output_Value_mean_squared_error"
-                                    ])
-                
-            data_net_vs_net_training.append(
-                                            (loss, dist_metric, value_metric,
-                                            victory_0, victory_1, victory_2)
-                                            )
-
-            elapsed_time_training = time.time() - start_training
-            with open(file_name, 'a') as f:
-                print('    Time elapsed of training:', 
-                    elapsed_time_training, file=f)
-                print('    Total loss:', loss, file=f)
-                print('    Dist. error:', dist_metric, file=f)
-                print('    Value error:', value_metric, file=f)
-            
-            #
             #    
             # Model evaluation
             #
-            #
 
-            with open(file_name, 'a') as f:
-                print('MODEL EVALUATION - Network vs. Old Network', file=f)
+            won = self._evaluation(
+                                current_model, 
+                                old_model, 
+                                data_net_vs_net_eval, 
+                                n_games_evaluate, 
+                                victory_rate,
+                                file_name
+                                )
 
-            # The current network faces the previous one.
-            # If it does not win victory_rate % it completely
-            # discards the current network.
+            # Saves this iteration's data to file
+            stats = Statistic(
+                    data_net_vs_net_training, 
+                    data_net_vs_net_eval, 
+                    None, 
+                    n_simulations = current_model.n_simulations, 
+                    n_games = n_games, 
+                    alphazero_iterations = alphazero_iterations, 
+                    use_UCT_playout = use_UCT_playout, 
+                    conv_number = conv_number
+                    )
+            stats.save_to_file(count, won = won)
+            stats.save_model_to_file(
+                                    current_model.network, 
+                                    count, 
+                                    won = won
+                                    )
+            stats.save_player_config(
+                                    current_model, 
+                                    count, 
+                                    reg, 
+                                    conv_number, 
+                                    won = won
+                                    )
 
-            victory_0_eval_net = 0 # Draw
-            victory_1_eval_net = 0 # Current model
-            victory_2_eval_net = 0 # Old model
-
-            start_evaluate_net = time.time()
-
-            for i in range(n_games_evaluate):
-                # If "i" is even, current_model is Player 1, otherwise 
-                # current_model is Player 2.
-                # This helps reduce possible victory biases.
-                if i % 2 == 0:
-                    _, who_won = self.play_single_game(
-                                        current_model, old_model
-                                        )
-                    if who_won == 1:
-                        victory_1_eval_net += 1
-                    elif who_won == 2:
-                        victory_2_eval_net += 1
-                    else:
-                        victory_0_eval_net += 1
-                else:
-                    _, who_won = self.play_single_game(
-                                        old_model, current_model
-                                        )
-                    if who_won == 2:
-                        victory_1_eval_net += 1
-                    elif who_won == 1:
-                        victory_2_eval_net += 1
-                    else:
-                        victory_0_eval_net += 1
-
-            elapsed_time_evaluate_net = time.time() - start_evaluate_net
-
-            data_net_vs_net_eval.append(
-                (victory_0_eval_net, victory_1_eval_net, victory_2_eval_net)
-                )
-
-            necessary_won_games = (victory_rate * n_games_evaluate) / 100
-
-            if victory_1_eval_net < necessary_won_games:
-                with open(file_name, 'a') as f:
-                    print('    New model is worse...', file=f)
-                    print('    New model victories:', victory_1_eval_net,\
-                            file=f)
-                    print('    Old model victories:', victory_2_eval_net,\
-                            file=f)
-                    print('    Draws:', victory_0_eval_net, file=f)
-                    print('    Time elapsed in evaluation (Net vs. Net):', 
-                            elapsed_time_evaluate_net, file=f)
-                    print('    Average time of a game: ', \
-                            elapsed_time_evaluate_net / n_games_evaluate, \
-                            's', sep = '', file=f)
-
-                # Saves this iteration's data to file
-                stats = Statistic(
-                        data_net_vs_net_training, 
-                        data_net_vs_net_eval, 
-                        None, 
-                        n_simulations = current_model.n_simulations, 
-                        n_games = n_games, 
-                        alphazero_iterations = alphazero_iterations, 
-                        use_UCT_playout = use_UCT_playout, 
-                        conv_number = conv_number
-                        )
-                stats.save_to_file(count, won = False)
-                stats.save_model_to_file(
-                                        current_model.network, 
-                                        count, 
-                                        won = False
-                                        )
-                stats.save_player_config(
-                                        current_model, 
-                                        count, 
-                                        reg, 
-                                        conv_number, 
-                                        won = False
-                                        )
-
-                # New model is worse, therefore we can copy old_model weights
-                # to current_model to be used in the next AZ iteration.
-                # This way, we are discarding everything current_model learned 
-                #during the learning stage because it was worse than old_model.
-                current_model.network.set_weights(
-                                        old_model.network.get_weights()
-                                        )
-            else:
-                with open(file_name, 'a') as f:
-                    print('    New model is better!', file=f)
-                    print('    New model victories:', victory_1_eval_net,\
-                            file=f)
-                    print('    Old model victories:', victory_2_eval_net,\
-                            file=f)
-                    print('    Draws:', victory_0_eval_net, file=f)
-                    print('    Time elapsed in evaluation (Net vs. Net):', 
-                            elapsed_time_evaluate_net, file=f)
-                    print('    Average time of a game: ', \
-                            elapsed_time_evaluate_net / n_games_evaluate, \
-                            's', sep = '', file=f)
-
-                # Saves this iteration's data to file
-                stats = Statistic(
-                        data_net_vs_net_training, 
-                        data_net_vs_net_eval, 
-                        None, 
-                        n_simulations = current_model.n_simulations, 
-                        n_games = n_games, 
-                        alphazero_iterations = alphazero_iterations, 
-                        use_UCT_playout = use_UCT_playout, 
-                        conv_number = conv_number
-                        )
-                stats.save_to_file(count, won = True)
-                stats.save_model_to_file(
-                                        current_model.network, 
-                                        count, 
-                                        won = True
-                                        )
-                stats.save_player_config(
-                                        current_model, 
-                                        count, 
-                                        reg, 
-                                        conv_number, 
-                                        won = True
-                                        )
-
+            if won:
                 # New model is better, therefore we can copy current_model
                 # weights to old_model to be used in the next AZ iteration.
                 old_model.network.set_weights(
                                     current_model.network.get_weights()
                                     )
+            else:
+                # New model is worse, therefore we can copy old_model weights
+                # to current_model to be used in the next AZ iteration.
+                # This way, we are discarding everything current_model learned 
+                #during the learning stage because it was worse than old_model.
+                current_model.network.set_weights(
+                                                old_model.network.get_weights()
+                                                )
 
             elapsed_time = time.time() - start
+            process = psutil.Process(os.getpid())
+            memory = process.memory_info().rss / 1000000
             with open(file_name, 'a') as f:
                 print('Time elapsed of this AZ iteration: ', 
                     elapsed_time, file=f)
+                print('Current usage of RAM (mb): ', memory, file=f)
                 print(file=f)
-               	
+
+            import gc
+            gc.collect()
+
     def play_network_versus_UCT(self, network, stat, networks_dir, prefix_name, 
-                                UCTs_eval, n_games_evaluate):
+        UCTs_eval, n_games_evaluate):
         """
         Play the network against three baseline UCTs and save all the data
         accordingly.
@@ -529,7 +613,7 @@ class Experiment:
                 # network is Player 2.
                 # This helps reduce possible victory biases.
                 if i % 2 == 0:
-                    _, who_won = self.play_single_game(
+                    _, who_won = self._play_single_game(
                                     network, UCTs_eval[ucts]
                                     )
                     if who_won == 1:
@@ -539,7 +623,7 @@ class Experiment:
                     else:
                         victory_0_eval[ucts] += 1
                 else:
-                    _, who_won = self.play_single_game(
+                    _, who_won = self._play_single_game(
                                     UCTs_eval[ucts], network
                                     )
                     if who_won == 2:

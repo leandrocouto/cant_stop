@@ -1,3 +1,4 @@
+import keras.backend as K
 from collections import defaultdict
 from game import Game
 import math, random
@@ -7,6 +8,7 @@ import collections
 from players.alphazero_player import AlphaZeroPlayer, Node
 from models import define_model
 import pickle
+import tensorflow as tf
 
 
 class Network_UCT(AlphaZeroPlayer):
@@ -43,7 +45,7 @@ class Network_UCT(AlphaZeroPlayer):
         to run in either versions.
         Return a Network_UCT player.
         """
-        
+
         self_copy = Network_UCT(self.c, self.n_simulations, self.column_range, 
                         self.offset, self.initial_height, 
                         self.dice_value, None)
