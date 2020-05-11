@@ -9,11 +9,13 @@ from players.vanilla_uct_player import Vanilla_UCT
 from players.alphazero_player import AlphaZeroPlayer
 from players.uct_player import UCTPlayer
 from statistics import Statistic
+from concurrent.futures import ProcessPoolExecutor
 
 class Experiment:
 
     def __init__(self, n_players, dice_number, dice_value, column_range,
-        offset, initial_height, max_game_length):
+        offset, initial_height, max_game_length, n_cores):
+        """n_cpus is the number of cores used for parallel computations. """
         self.n_players = n_players
         self.dice_number = dice_number
         self.dice_value = dice_value
@@ -21,10 +23,11 @@ class Experiment:
         self.offset = offset
         self.initial_height = initial_height
         self.max_game_length = max_game_length
+        self.n_cores = n_cores
 
-    def _play_single_game(self, player1, player2):
+    def _play_single_game(self, players):
         """
-        Play a single game between self.player1 and self.player2.
+        Play a single game between player1 and player2.
         Return the data of the game in a NN channel format and who won.
         If the game reaches the maximum number of iterations, it returns 0
         0 representing a draw. 
@@ -32,6 +35,9 @@ class Experiment:
         AlphaZeroPlayer or the data collected from the game otherwise.
         Return 1 if player1 won and 2 if player2 won.
         """
+
+        player1 = players[0]
+        player2 = players[1]
 
         data_of_a_game = []
         game = Game(self.n_players, self.dice_number, self.dice_value, 
@@ -163,34 +169,38 @@ class Experiment:
 
         copy_model = current_model.clone(reg, conv_number)
         
-        for i in range(n_games):
-            #start_one_selfplay_game = time.time()
-            data_of_a_game = []
-            data_of_a_game, who_won = self._play_single_game(
-                                            current_model,
-                                            copy_model
-                                            )
-            #elapsed_time_one_selfplay_game = time.time() \
-            #                                - start_one_selfplay_game
-
+        # ProcessPoolExecutor() will take care of joining() and closing()
+        # the processes after they are finished.
+        with ProcessPoolExecutor(max_workers=self.n_cores) as executor:
+            # Specify which arguments will be used for each parallel call
+            args = ((current_model, copy_model) for _ in range(n_games))
+            # data is a list of 2-tuples = (data_of_a_game, who_won) 
+            results = executor.map(self._play_single_game, args)
+        
+        
+        data_of_all_games = []
+        for result in results:
+            data_of_all_games.append(result)
+        
+        for single_game in data_of_all_games:
+            data_of_a_game = single_game[0]
+            who_won = single_game[1]
             if who_won == 1:
-                victory_1 += 1
+                    victory_1 += 1
             elif who_won == 2:
                 victory_2 += 1
             else:
                 victory_0 += 1
-            # After the game is finished, we now know who won the game.
-            # Therefore, save this info in all instances saved so far
-            # for later use as input for the NN.
-            if who_won == 2:
-                who_won = -1
-            for single_game in data_of_a_game:
-                    single_game.append(who_won)
-
-            # Ties (infinite games) are not trained
+            # Store who actually won in all states
+            for state in data_of_a_game:
+                if who_won == 1:
+                    state.append(1)
+                elif who_won == 2:
+                    state.append(-1)
+            # Save the data only if it was not a draw
             if who_won != 0:
                 dataset_for_network.append(data_of_a_game)
-
+        
         del copy_model
 
         elapsed_time_selfplay = time.time() - start_selfplay
@@ -219,39 +229,17 @@ class Experiment:
             
         start_training = time.time()
 
-        process = psutil.Process(os.getpid())
-        with open(file_name, 'a') as f:
-            print('Memoria antes de deletar = ', process.memory_info().rss / 1000000, file=f)
-
         current_dataset_size =  len(dataset_for_network)
         to_delete = current_dataset_size - dataset_size
 
-        with open(file_name, 'a') as f:
-            print('Tamanho do dataset antes = ', len(dataset_for_network), file=f)
-
         if current_dataset_size > dataset_size:
             del dataset_for_network[:to_delete]
-            
-        with open(file_name, 'a') as f:
-            print('Tamanho do dataset depois = ', len(dataset_for_network), file=f)
-
-        process = psutil.Process(os.getpid())
-        with open(file_name, 'a') as f:
-            print('Memoria depois de deletar = ', process.memory_info().rss / 1000000, file=f)
-
-        process = psutil.Process(os.getpid())
-        with open(file_name, 'a') as f:
-            print('Memoria antes transform dataset = ', process.memory_info().rss / 1000000, file=f)
 
         # Transform the dataset collected into network input
         channels_input, valid_actions_dist_input, dist_probs_label, \
             who_won_label = current_model.transform_dataset_to_input(
                                             dataset_for_network
                                             )
-
-        process = psutil.Process(os.getpid())
-        with open(file_name, 'a') as f:
-            print('Memoria dps transform dataset = ', process.memory_info().rss / 1000000, file=f)
         
         for i in range(n_training_loop):
             # Sample random mini_batch inputs for training
@@ -262,11 +250,6 @@ class Experiment:
                                 )
 
             history_callback = current_model.network.fit(
-                                x_train, y_train, epochs = epochs, 
-                                shuffle = True, verbose = 0
-                                )
-
-            _ = current_model.network.fit(
                                 x_train, y_train, epochs = epochs, 
                                 shuffle = True, verbose = 0
                                 )
@@ -289,10 +272,6 @@ class Experiment:
                             / len(history_callback.history[
                                 "Output_Value_mean_squared_error"
                                 ])
-        
-        process = psutil.Process(os.getpid())
-        with open(file_name, 'a') as f:
-            print('Memoria dps loop treinamento = ', process.memory_info().rss / 1000000, file=f)
         
         data_net_vs_net_training.append(
                                         (loss, dist_metric, value_metric,
@@ -327,38 +306,39 @@ class Experiment:
 
         start_eval = time.time()
 
-        process = psutil.Process(os.getpid())
-        with open(file_name, 'a') as f:
-            print('Memoria antes eval = ', process.memory_info().rss / 1000000, file=f)
-        for i in range(n_games_evaluate):
-            # If "i" is even, current_model is Player 1, otherwise 
-            # current_model is Player 2.
-            # This helps reduce possible victory biases.
+        # We do n_games//2 parallel games. Each of the operations we switch 
+        # who is the first player to avoid first player winning bias.
 
-            start_one_eval_game = time.time()
-            if i % 2 == 0:
-                _, who_won = self._play_single_game(
-                                    current_model, old_model
-                                    )
-                if who_won == 1:
-                    victory_1_eval += 1
-                elif who_won == 2:
-                    victory_2_eval += 1
-                else:
-                    victory_0_eval += 1
+        # ProcessPoolExecutor() will take care of joining() and closing()
+        # the processes after they are finished.
+        with ProcessPoolExecutor(max_workers=self.n_cores) as executor:
+            # Specify which arguments will be used for each parallel call
+            args = ((current_model, old_model) for _ in range(n_games_evaluate//2))
+            results_1 = executor.map(self._play_single_game, args)
+
+        with ProcessPoolExecutor(max_workers=self.n_cores) as executor:
+            # Specify which arguments will be used for each parallel call
+            args = ((old_model, current_model) for _ in range(n_games_evaluate//2))     
+            results_2 = executor.map(self._play_single_game, args)
+        
+        for result in results_1:
+            # result is a list of 2-tuples = (data_of_a_game, who_won)
+            if result[1] == 1:
+                victory_1_eval += 1
+            elif result[1] == 2:
+                victory_2_eval += 1
             else:
-                _, who_won = self._play_single_game(
-                                    old_model, current_model
-                                    )
-                if who_won == 2:
-                    victory_1_eval += 1
-                elif who_won == 1:
-                    victory_2_eval += 1
-                else:
-                    victory_0_eval += 1
+                victory_0_eval += 1
 
-            elapsed_time_one_eval_game = time.time() - start_one_eval_game
-
+        for result in results_2:
+            # result is a list of 2-tuples = (data_of_a_game, who_won)
+            if result[1] == 2:
+                victory_1_eval += 1
+            elif result[1] == 1:
+                victory_2_eval += 1
+            else:
+                victory_0_eval += 1
+        
         elapsed_time_eval = time.time() - start_eval
 
         data_net_vs_net_eval.append(
@@ -394,11 +374,11 @@ class Experiment:
 
             return True
 
-    def play_alphazero(self, current_model, old_model, use_UCT_playout, reg, 
-        epochs, conv_number, alphazero_iterations, mini_batch, n_training_loop, 
-        n_games, n_games_evaluate, victory_rate, dataset_size):
+    def play_alphazero(self, current_model, use_UCT_playout, reg, epochs, 
+        conv_number, alphazero_iterations, mini_batch, n_training_loop, 
+        n_games, n_games_evaluate, victory_rate, dataset_size, iteration):
         """
-        - current_model and old_model are instances of AlphaZeroPlayer.
+        - current_model is an instance of AlphaZeroPlayer.
         - epochs is the number of epochs usued in the training stage.
         - alphazero_iterations is the total number of iterations of the 
           learning algorithm: selfplay -> training loop -> evaluate network.
@@ -411,7 +391,9 @@ class Experiment:
         - victory_rate is the % of victories necessary for the new network to
           overwrite the previous one.
         - dataset_size is the max nubmer of games stored in memory for 
-          training.  
+          training. 
+        - iteration is an integer referring to which iteration AZ is at the
+          moment.
         """
 
         
@@ -425,145 +407,157 @@ class Experiment:
                 + '_' + str(use_UCT_playout) + '_dataset'
         
 
-        for count in range(alphazero_iterations):
+        with open(file_name, 'a') as f:
+            print('ALPHAZERO ITERATION -', iteration, file=f)
+        
+        process = psutil.Process(os.getpid())
+        memory = process.memory_info().rss / 1000000
+        with open(file_name, 'a') as f:
+            print('Current usage of RAM INICIO (mb): ', memory, file=f)
+
+        # dataset_for_network stores a list of info used as input for the 
+        # network.
+        # A list of: states of the game, distribution probability of the state
+        # returned by the UCT and who won the game this state is in.
+        dataset_for_network = []
+
+        # If there is a file that contains data for training, read it
+        if os.path.exists(dataset_file):
+            with open(dataset_file, 'rb') as file:
+                dataset_for_network = pickle.load(file)
+
+        # Stores data from net vs net in training for later analysis.
+        data_net_vs_net_training = []
+        # Stores data from net vs net in evaluation for later analysis.
+        data_net_vs_net_eval = []
+
+        #
+        # Main loop of the algorithm
+        #
+
+
+        start = time.time()
+
+        #
+        # Self-play
+        #
+
+        victory_0, victory_1, victory_2 = self._selfplay(
+                                                        current_model, 
+                                                        dataset_for_network, 
+                                                        n_games, 
+                                                        reg, 
+                                                        conv_number, 
+                                                        file_name
+                                                        )
+
+        # This means all of the selfplay games (from the first iteration) 
+        # ended in a draw.
+        # This is not interesting since it does not add any valued info 
+        # for the network training. Stops this iteration.
+        if len(dataset_for_network) == 0:
             with open(file_name, 'a') as f:
-                print('ALPHAZERO ITERATION -', count, file=f)
-            
-            # dataset_for_network stores a list of info used as input for the 
-            # network.
-            # A list of: states of the game, distribution probability of the state
-            # returned by the UCT and who won the game this state is in.
-            dataset_for_network = []
+                print('    All selfplay games ended in a draw.' 
+                        + ' Stopping current iteration.', file=f)
+            return current_model, old_model
 
-            # If there is a file that contains data for training, read it
-            if os.path.exists(dataset_file):
-                with open(dataset_file, 'rb') as file:
-                    dataset_for_network = pickle.load(file)
+        #
+        # Training
+        #
+        
+        process = psutil.Process(os.getpid())
+        with open(file_name, 'a') as f:
+            print('Memoria antes de clonar old model = ', process.memory_info().rss / 1000000, file=f)
 
-            # Stores data from net vs net in training for later analysis.
-            data_net_vs_net_training = []
-            # Stores data from net vs net in evaluation for later analysis.
-            data_net_vs_net_eval = []
+        # Save the current model before training for later evaluation
+        old_model = current_model.clone(reg, conv_number)
 
-            #
-            # Main loop of the algorithm
-            #
+        process = psutil.Process(os.getpid())
+        with open(file_name, 'a') as f:
+            print('Memoria antes do treinamento = ', process.memory_info().rss / 1000000, file=f)
 
+        self._training(
+                        current_model, 
+                        dataset_for_network, 
+                        dataset_size,
+                        data_net_vs_net_training, 
+                        n_training_loop, 
+                        mini_batch,
+                        epochs,
+                        victory_0, 
+                        victory_1, 
+                        victory_2, 
+                        file_name
+                        )
 
-            start = time.time()
+        process = psutil.Process(os.getpid())
+        with open(file_name, 'a') as f:
+            print('Memoria finzao do treinamento = ', process.memory_info().rss / 1000000, file=f)
 
-            #
-            # Self-play
-            #
+        # Since the selfplay data is not important from now on, free the 
+        # memory and save the data in a file for later usage in the next
+        # AZ iteration.
+        with open(dataset_file, 'wb') as file:
+            pickle.dump(dataset_for_network, file)
+        dataset_for_network = []
 
-            victory_0, victory_1, victory_2 = self._selfplay(
-                                                            current_model, 
-                                                            dataset_for_network, 
-                                                            n_games, 
-                                                            reg, 
-                                                            conv_number, 
-                                                            file_name
-                                                            )
+        #    
+        # Model evaluation
+        #
 
-            # This means all of the selfplay games (from the first iteration) 
-            # ended in a draw.
-            # This is not interesting since it does not add any valued info 
-            # for the network training. Stops this iteration.
-            if len(dataset_for_network) == 0:
-                with open(file_name, 'a') as f:
-                    print('    All selfplay games ended in a draw.' 
-                            + ' Stopping current iteration.', file=f)
-                continue
-
-            #
-            # Training
-            #
-            
-            self._training(
+        won = self._evaluation(
                             current_model, 
-                            dataset_for_network, 
-                            dataset_size,
-                            data_net_vs_net_training, 
-                            n_training_loop, 
-                            mini_batch,
-                            epochs,
-                            victory_0, 
-                            victory_1, 
-                            victory_2, 
+                            old_model, 
+                            data_net_vs_net_eval, 
+                            n_games_evaluate, 
+                            victory_rate,
                             file_name
                             )
+        if not won:
+            # New model is worse, therefore we can copy old_model weights
+            # to current_model to be used in the next AZ iteration.
+            # This way, we are discarding everything current_model learned 
+            #during the learning stage because it was worse than old_model.
+            current_model.network.set_weights(
+                                            old_model.network.get_weights()
+                                            )
 
-            # Since the selfplay data is not important from now on, free the 
-            # memory and save the data in a file for later usage in the next
-            # AZ iteration.
-            with open(dataset_file, 'wb') as file:
-                pickle.dump(dataset_for_network, file)
-            dataset_for_network = []
-
-            #    
-            # Model evaluation
-            #
-
-            won = self._evaluation(
+        # Saves this iteration's data to file
+        stats = Statistic(
+                data_net_vs_net_training, 
+                data_net_vs_net_eval, 
+                None, 
+                n_simulations = current_model.n_simulations, 
+                n_games = n_games, 
+                alphazero_iterations = alphazero_iterations, 
+                use_UCT_playout = use_UCT_playout, 
+                conv_number = conv_number
+                )
+        stats.save_to_file(iteration, won = won)
+        stats.save_model_to_file(
+                                current_model.network, 
+                                iteration, 
+                                won = won
+                                )
+        stats.save_player_config(
                                 current_model, 
-                                old_model, 
-                                data_net_vs_net_eval, 
-                                n_games_evaluate, 
-                                victory_rate,
-                                file_name
+                                iteration, 
+                                reg, 
+                                conv_number, 
+                                won = won
                                 )
 
-            # Saves this iteration's data to file
-            stats = Statistic(
-                    data_net_vs_net_training, 
-                    data_net_vs_net_eval, 
-                    None, 
-                    n_simulations = current_model.n_simulations, 
-                    n_games = n_games, 
-                    alphazero_iterations = alphazero_iterations, 
-                    use_UCT_playout = use_UCT_playout, 
-                    conv_number = conv_number
-                    )
-            stats.save_to_file(count, won = won)
-            stats.save_model_to_file(
-                                    current_model.network, 
-                                    count, 
-                                    won = won
-                                    )
-            stats.save_player_config(
-                                    current_model, 
-                                    count, 
-                                    reg, 
-                                    conv_number, 
-                                    won = won
-                                    )
+        elapsed_time = time.time() - start
+        import gc
+        gc.collect()
 
-            if won:
-                # New model is better, therefore we can copy current_model
-                # weights to old_model to be used in the next AZ iteration.
-                old_model.network.set_weights(
-                                    current_model.network.get_weights()
-                                    )
-            else:
-                # New model is worse, therefore we can copy old_model weights
-                # to current_model to be used in the next AZ iteration.
-                # This way, we are discarding everything current_model learned 
-                #during the learning stage because it was worse than old_model.
-                current_model.network.set_weights(
-                                                old_model.network.get_weights()
-                                                )
-
-            elapsed_time = time.time() - start
-            process = psutil.Process(os.getpid())
-            memory = process.memory_info().rss / 1000000
-            with open(file_name, 'a') as f:
-                print('Time elapsed of this AZ iteration: ', 
-                    elapsed_time, file=f)
-                print('Current usage of RAM (mb): ', memory, file=f)
-                print(file=f)
-
-            import gc
-            gc.collect()
+        process = psutil.Process(os.getpid())
+        memory = process.memory_info().rss / 1000000
+        with open(file_name, 'a') as f:
+            print('Time elapsed of this AZ iteration: ', 
+                elapsed_time, file=f)
+            print('Current usage of RAM (mb): ', memory, file=f)
+            print(file=f)
 
     def play_network_versus_UCT(self, network, stat, networks_dir, prefix_name, 
         UCTs_eval, n_games_evaluate):

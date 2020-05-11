@@ -1,4 +1,3 @@
-import keras.backend as K
 from collections import defaultdict
 from game import Game
 import math, random
@@ -8,7 +7,8 @@ import collections
 from players.alphazero_player import AlphaZeroPlayer, Node
 from models import define_model
 import pickle
-import tensorflow as tf
+#import tensorflow
+#import tensorflow.keras.backend as K
 
 
 class Network_UCT(AlphaZeroPlayer):
@@ -31,9 +31,12 @@ class Network_UCT(AlphaZeroPlayer):
         valid_actions_dist = self.transform_actions_to_dist(
                                             node.state.available_moves()
                                             )
+        #network_input = network_input.astype(float)
+        #_, network_value_output = self.network([network_input,valid_actions_dist])
+        #return K.eval(network_value_output)[0][0]
+
         _, network_value_output = self.network.predict(
-                                    [network_input,valid_actions_dist], 
-                                    batch_size = 1
+                                    [network_input,valid_actions_dist]
                                     )
         return network_value_output[0][0]
 
@@ -45,7 +48,6 @@ class Network_UCT(AlphaZeroPlayer):
         to run in either versions.
         Return a Network_UCT player.
         """
-
         self_copy = Network_UCT(self.c, self.n_simulations, self.column_range, 
                         self.offset, self.initial_height, 
                         self.dice_value, None)
@@ -59,4 +61,5 @@ class Network_UCT(AlphaZeroPlayer):
                                         self.dice_value
                                         )
         self_copy.network.set_weights(self.network.get_weights())
+        #self_copy = pickle.loads(pickle.dumps(self, -1))
         return self_copy

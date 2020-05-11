@@ -1,5 +1,6 @@
 import math, random
-import keras.backend as K
+#import tensorflow
+#import tensorflow.keras.backend as K
 import numpy as np
 import copy
 import collections
@@ -95,13 +96,22 @@ class AlphaZeroPlayer(UCTPlayer):
                                     self.initial_height
                                     )
         valid_actions_dist = self.transform_actions_to_dist(valid_actions)
+        
+        #network_input_parent = network_input_parent.astype(float)
+        #dist_prob, _= self.network(
+        #                        [network_input_parent, valid_actions_dist]
+        #                        )
+        #dist_prob = self.remove_invalid_actions(K.eval(dist_prob)[0], 
+        #                                parent.children.keys()
+        #                                )
+
         dist_prob, _= self.network.predict(
-                                [network_input_parent, valid_actions_dist], 
-                                batch_size = 1
+                                [network_input_parent, valid_actions_dist]
                                 )
         dist_prob = self.remove_invalid_actions(dist_prob[0], 
                                         parent.children.keys()
                                         )
+
         self.add_dist_prob_to_children(parent, dist_prob)
 
     def calculate_ucb_max(self, node, action):
