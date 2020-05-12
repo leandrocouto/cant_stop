@@ -12,6 +12,7 @@ from os import listdir
 from os.path import isfile, join
 import re
 from keras.models import load_model
+import multiprocessing
 
 def get_list_of_networks(n_simulations, n_games, alphazero_iterations,
                             conv_number, use_UCT_playout):
@@ -88,22 +89,23 @@ def get_list_of_networks(n_simulations, n_games, alphazero_iterations,
 def main():
 
     # Cluster configurations
-    if int(sys.argv[1]) == 0: n_simulations = 2
+    if int(sys.argv[1]) == 0: n_simulations = 250
     if int(sys.argv[1]) == 1: n_simulations = 100
     if int(sys.argv[1]) == 2: n_simulations = 250
     if int(sys.argv[1]) == 3: n_simulations = 500
-    if int(sys.argv[2]) == 0: n_games = 10
+    if int(sys.argv[2]) == 0: n_games = 250
     if int(sys.argv[2]) == 1: n_games = 100
     if int(sys.argv[2]) == 2: n_games = 250
     if int(sys.argv[2]) == 3: n_games = 500
-    if int(sys.argv[3]) == 0: alphazero_iterations = 10
+    if int(sys.argv[3]) == 0: alphazero_iterations = 20
     if int(sys.argv[4]) == 0: conv_number = 1
     if int(sys.argv[4]) == 1: conv_number = 2
     if int(sys.argv[5]) == 0: use_UCT_playout = True
     if int(sys.argv[5]) == 1: use_UCT_playout = False
 
     #Config parameters
-    n_games_evaluate = 10
+    n_games_evaluate = 100
+    n_cores = multiprocessing.cpu_count()
 
     '''
     # Toy version
@@ -125,16 +127,6 @@ def main():
     max_game_length = 500
     
 
-    experiment = Experiment(
-                        n_players = n_players, 
-                        dice_number = dice_number, 
-                        dice_value = dice_value, 
-                        column_range = column_range, 
-                        offset = offset, 
-                        initial_height = initial_height, 
-                        max_game_length = max_game_length
-                        )
-
     players, stats, prefix_names, net_dir = get_list_of_networks(
                                                         n_simulations,
                                                         n_games,
@@ -143,6 +135,16 @@ def main():
                                                         use_UCT_playout
                                                         )
     for i in range(len(players)):
+        experiment = Experiment(
+                        n_players = n_players, 
+                        dice_number = dice_number, 
+                        dice_value = dice_value, 
+                        column_range = column_range, 
+                        offset = offset, 
+                        initial_height = initial_height, 
+                        max_game_length = max_game_length,
+                        n_cores = n_cores
+                        )
         n_simulations = players[i].n_simulations
         uct_evaluation_1 = Vanilla_UCT(
                                     c = players[i].c, 

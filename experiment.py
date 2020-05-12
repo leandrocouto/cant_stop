@@ -5,6 +5,7 @@ import os
 import pickle
 import psutil
 import os.path
+import gc
 from players.vanilla_uct_player import Vanilla_UCT
 from players.alphazero_player import AlphaZeroPlayer
 from players.uct_player import UCTPlayer
@@ -413,7 +414,7 @@ class Experiment:
         process = psutil.Process(os.getpid())
         memory = process.memory_info().rss / 1000000
         with open(file_name, 'a') as f:
-            print('Current usage of RAM INICIO (mb): ', memory, file=f)
+            print('Current usage of RAM (mb): ', memory, file=f)
 
         # dataset_for_network stores a list of info used as input for the 
         # network.
@@ -464,17 +465,9 @@ class Experiment:
         #
         # Training
         #
-        
-        process = psutil.Process(os.getpid())
-        with open(file_name, 'a') as f:
-            print('Memoria antes de clonar old model = ', process.memory_info().rss / 1000000, file=f)
 
         # Save the current model before training for later evaluation
         old_model = current_model.clone(reg, conv_number)
-
-        process = psutil.Process(os.getpid())
-        with open(file_name, 'a') as f:
-            print('Memoria antes do treinamento = ', process.memory_info().rss / 1000000, file=f)
 
         self._training(
                         current_model, 
@@ -489,10 +482,6 @@ class Experiment:
                         victory_2, 
                         file_name
                         )
-
-        process = psutil.Process(os.getpid())
-        with open(file_name, 'a') as f:
-            print('Memoria finzao do treinamento = ', process.memory_info().rss / 1000000, file=f)
 
         # Since the selfplay data is not important from now on, free the 
         # memory and save the data in a file for later usage in the next
@@ -578,6 +567,8 @@ class Experiment:
           and the vanilla UCTs.
         """
 
+        start = time.time()
+
         file_name = networks_dir + '/results_uct/'
         file_name_data = networks_dir + '/results_uct/' + prefix_name + '_data'
 
@@ -594,38 +585,60 @@ class Experiment:
         victory_1_eval = [0 for i in range(len(UCTs_eval))]
         victory_2_eval = [0 for i in range(len(UCTs_eval))]
 
+        iteration = prefix_name.rsplit('_', 1)[-1]
+
+        with open(file_name, 'a') as f:
+                print('ALPHAZERO ITERATION -', iteration, file=f)
+
+        process = psutil.Process(os.getpid())
+        memory = process.memory_info().rss / 1000000
+        with open(file_name, 'a') as f:
+            print('Current usage of RAM (mb): ', memory, file=f)
+
         for ucts in range(len(UCTs_eval)):
             with open(file_name, 'a') as f:
                 print('MODEL EVALUATION - Network vs. UCT - ', 
-                    UCTs_eval[ucts].n_simulations,' simulations', 
-                    file=f)
+                    UCTs_eval[ucts].n_simulations,' simulations', file=f)
 
             start_evaluate_uct = time.time()
+            # We do n_games//2 parallel games. Each of the operations we switch 
+            # who is the first player to avoid first player winning bias.
 
-            for i in range(n_games_evaluate):
-                # If "i" is even, network is Player 1, otherwise
-                # network is Player 2.
-                # This helps reduce possible victory biases.
-                if i % 2 == 0:
-                    _, who_won = self._play_single_game(
-                                    network, UCTs_eval[ucts]
-                                    )
-                    if who_won == 1:
-                        victory_1_eval[ucts] += 1
-                    elif who_won == 2:
-                        victory_2_eval[ucts] += 1
-                    else:
-                        victory_0_eval[ucts] += 1
+            # ProcessPoolExecutor() will take care of joining() and closing()
+            # the processes after they are finished.
+            with ProcessPoolExecutor(max_workers=self.n_cores) as executor:
+                # Specify which arguments will be used for each parallel call
+                args = (
+                        (network, UCTs_eval[ucts]) 
+                        for _ in range(n_games_evaluate//2)
+                        )
+                results_1 = executor.map(self._play_single_game, args)
+
+            with ProcessPoolExecutor(max_workers=self.n_cores) as executor:
+                # Specify which arguments will be used for each parallel call
+                args = (
+                        (UCTs_eval[ucts], network) 
+                        for _ in range(n_games_evaluate//2)
+                        )     
+                results_2 = executor.map(self._play_single_game, args)
+            
+            for result in results_1:
+                # result is a list of 2-tuples = (data_of_a_game, who_won)
+                if result[1] == 1:
+                    victory_1_eval[ucts] += 1
+                elif result[1] == 2:
+                    victory_2_eval[ucts] += 1
                 else:
-                    _, who_won = self._play_single_game(
-                                    UCTs_eval[ucts], network
-                                    )
-                    if who_won == 2:
-                        victory_1_eval[ucts] += 1
-                    elif who_won == 1:
-                        victory_2_eval[ucts] += 1
-                    else:
-                        victory_0_eval[ucts] += 1
+                    victory_0_eval[ucts] += 1
+
+            for result in results_2:
+                # result is a list of 2-tuples = (data_of_a_game, who_won)
+                if result[1] == 2:
+                    victory_1_eval[ucts] += 1
+                elif result[1] == 1:
+                    victory_2_eval[ucts] += 1
+                else:
+                    victory_0_eval[ucts] += 1
 
             elapsed_time_evaluate_uct = time.time() - start_evaluate_uct
 
@@ -641,6 +654,16 @@ class Experiment:
                 print('    Average time of a game: ', \
                     elapsed_time_evaluate_uct / n_games_evaluate, \
                     's', sep = '', file=f)
+
+        gc.collect()
+        elapsed_time = time.time() - start
+
+        process = psutil.Process(os.getpid())
+        memory = process.memory_info().rss / 1000000
+        with open(file_name, 'a') as f:
+            print('Time elapsed of this AZ iteration: ', elapsed_time, file=f)
+            print('Current usage of RAM (mb): ', memory, file=f)
+            print(file=f)
 
         list_of_n_simulations = [uct.n_simulations for uct in UCTs_eval]
         # Saving data

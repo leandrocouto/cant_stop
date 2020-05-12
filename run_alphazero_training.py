@@ -77,11 +77,11 @@ def main():
     # conv_number, use_UCT_playout
 
     # Cluster configurations
-    if int(sys.argv[1]) == 0: n_simulations = 50
+    if int(sys.argv[1]) == 0: n_simulations = 10
     if int(sys.argv[1]) == 1: n_simulations = 100
     if int(sys.argv[1]) == 2: n_simulations = 250
     if int(sys.argv[1]) == 3: n_simulations = 500
-    if int(sys.argv[2]) == 0: n_games = 50
+    if int(sys.argv[2]) == 0: n_games = 10
     if int(sys.argv[2]) == 1: n_games = 100
     if int(sys.argv[2]) == 2: n_games = 250
     if int(sys.argv[2]) == 3: n_games = 500
