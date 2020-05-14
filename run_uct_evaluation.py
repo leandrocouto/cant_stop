@@ -14,8 +14,18 @@ import re
 from keras.models import load_model
 import multiprocessing
 
+def get_last_iteration(folder):
+    """ Return the next iteration of UCT evaluation to be made. """
+
+    files = [f for f in listdir(folder) if isfile(join(folder, f))]
+    stats_paths = []
+    for file in files:
+        if '_data' not in file and '.txt' not in file:
+            stats_paths.append(file)
+    return len(stats_paths)
+
 def get_list_of_networks(n_simulations, n_games, alphazero_iterations,
-                            conv_number, use_UCT_playout):
+    conv_number, use_UCT_playout):
     """
     Return the AlphaZeroPlayer and Statitisc of the AZ iteration that won 
     against the previous network.
@@ -89,11 +99,11 @@ def get_list_of_networks(n_simulations, n_games, alphazero_iterations,
 def main():
 
     # Cluster configurations
-    if int(sys.argv[1]) == 0: n_simulations = 250
+    if int(sys.argv[1]) == 0: n_simulations = 10
     if int(sys.argv[1]) == 1: n_simulations = 100
     if int(sys.argv[1]) == 2: n_simulations = 250
     if int(sys.argv[1]) == 3: n_simulations = 500
-    if int(sys.argv[2]) == 0: n_games = 250
+    if int(sys.argv[2]) == 0: n_games = 10
     if int(sys.argv[2]) == 1: n_games = 100
     if int(sys.argv[2]) == 2: n_games = 250
     if int(sys.argv[2]) == 3: n_games = 500
@@ -134,7 +144,16 @@ def main():
                                                         conv_number,
                                                         use_UCT_playout
                                                         )
-    for i in range(len(players)):
+    
+    # This means there are already data available, therefore continues from 
+    # where it first left off.
+    if os.path.isdir(net_dir + '/results_uct'):
+        begin_from = get_last_iteration(net_dir + '/results_uct')
+    # First time running the UCT evaluations, there's no data available
+    else:
+        begin_from = 0
+
+    for i in range(begin_from, len(players)):
         experiment = Experiment(
                         n_players = n_players, 
                         dice_number = dice_number, 
@@ -146,19 +165,19 @@ def main():
                         n_cores = n_cores
                         )
         n_simulations = players[i].n_simulations
-        uct_evaluation_1 = Vanilla_UCT(
+        uct_eval_1 = Vanilla_UCT(
                                     c = players[i].c, 
                                     n_simulations = round(0.25 * n_simulations)
                                     )
-        uct_evaluation_2 = Vanilla_UCT(
+        uct_eval_2 = Vanilla_UCT(
                                     c = players[i].c, 
                                     n_simulations = round(0.5 * n_simulations)
                                     )
-        uct_evaluation_3 = Vanilla_UCT(
+        uct_eval_3 = Vanilla_UCT(
                                     c = players[i].c, 
                                     n_simulations =  n_simulations
                                     )
-        UCTs_eval = [uct_evaluation_1, uct_evaluation_2, uct_evaluation_3]
+        UCTs_eval = [uct_eval_1, uct_eval_2, uct_eval_3]
 
         experiment.play_network_versus_UCT(
                                             players[i],

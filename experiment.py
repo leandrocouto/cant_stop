@@ -661,7 +661,7 @@ class Experiment:
         process = psutil.Process(os.getpid())
         memory = process.memory_info().rss / 1000000
         with open(file_name, 'a') as f:
-            print('Time elapsed of this AZ iteration: ', elapsed_time, file=f)
+            print('Time elapsed of this evaluation: ', elapsed_time, file=f)
             print('Current usage of RAM (mb): ', memory, file=f)
             print(file=f)
 

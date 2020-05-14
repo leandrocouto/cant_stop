@@ -16,6 +16,8 @@ from keras.models import load_model
 import multiprocessing
 
 def get_last_iteration(folder):
+    """ Return which iteration AZ should start from. """
+    
     cur_dir = os.path.dirname(os.path.realpath(__file__))
     file_path = cur_dir + '/' + folder
     files = [f for f in listdir(file_path) if isfile(join(file_path, f))]
@@ -40,6 +42,8 @@ def get_last_iteration(folder):
     return last_iteration + 1
 
 def get_last_player(folder):
+    """ Return the last player from the last AZ iteration. """
+
     cur_dir = os.path.dirname(os.path.realpath(__file__))
     file_path = cur_dir + '/' + folder
     files = [f for f in listdir(file_path) if isfile(join(file_path, f))]
