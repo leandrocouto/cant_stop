@@ -11,9 +11,37 @@ from os.path import isfile, join
 import re
 import pickle
 import gc
-from models import define_model, define_model_experimental
-from keras.models import load_model
 import multiprocessing
+
+def _unpack(model, training_config, weights):
+    from tensorflow.python.keras.layers import deserialize
+    from tensorflow.python.keras.saving import saving_utils
+    restored_model = deserialize(model)
+    if training_config is not None:
+        restored_model.compile(
+            **saving_utils.compile_args_from_training_config(
+                training_config
+            )
+        )
+    restored_model.set_weights(weights)
+    return restored_model
+
+# Hotfix function to make Keras model pickable
+def make_keras_picklable():
+
+    from tensorflow.keras.models import Model
+    def __reduce__(self):
+        from tensorflow.python.keras.layers import serialize
+        from tensorflow.python.keras.saving import saving_utils
+
+        model_metadata = saving_utils.model_metadata(self)
+        training_config = model_metadata.get("training_config", None)
+        model = serialize(self)
+        weights = self.get_weights()
+        return (_unpack, (model, training_config, weights))
+    cls = Model
+    cls.__reduce__ = __reduce__
+
 
 def get_last_iteration(folder):
     """ Return which iteration AZ should start from. """
@@ -69,7 +97,7 @@ def get_last_player(folder):
     players_paths.sort(key=natural_keys)
 
     last_model = file_path + '/' + networks_paths[-1]
-    last_model = load_model(last_model)
+    last_model = tensorflow.keras.models.load_model(last_model)
     player = file_path + '/' + players_paths[-1]
     with open(player, 'rb') as file:
         player = pickle.load(file)
@@ -177,6 +205,7 @@ def main():
 
     # First time running the algorithm, there's no data available
     else:
+        from models import define_model
         #Neural network specification
         current_model = define_model(
                                 reg = reg, 
@@ -240,4 +269,7 @@ def main():
             gc.collect()
 
 if __name__ == "__main__":
+    make_keras_picklable()
+    #import tensorflow
+    #tensorflow.compat.v1.disable_eager_execution()
     main()

@@ -7,8 +7,6 @@ import collections
 from players.alphazero_player import AlphaZeroPlayer, Node
 from models import define_model
 import pickle
-#import tensorflow
-#import tensorflow.keras.backend as K
 
 
 class Network_UCT(AlphaZeroPlayer):
@@ -31,9 +29,6 @@ class Network_UCT(AlphaZeroPlayer):
         valid_actions_dist = self.transform_actions_to_dist(
                                             node.state.available_moves()
                                             )
-        #network_input = network_input.astype(float)
-        #_, network_value_output = self.network([network_input,valid_actions_dist])
-        #return K.eval(network_value_output)[0][0]
 
         _, network_value_output = self.network.predict(
                                     [network_input,valid_actions_dist]

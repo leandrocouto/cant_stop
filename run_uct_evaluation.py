@@ -11,7 +11,6 @@ import os
 from os import listdir
 from os.path import isfile, join
 import re
-from keras.models import load_model
 import multiprocessing
 
 def get_last_iteration(folder):
@@ -68,7 +67,10 @@ def get_list_of_networks(n_simulations, n_games, alphazero_iterations,
     stats_paths.sort(key=natural_keys)
 
     # Instantiate the network models
-    networks = [load_model(net_path) for net_path in networks_paths]
+    networks = [
+                tensorflow.keras.models.load_model(net_path) 
+                for net_path in networks_paths
+                ]
 
     # Instantiate players
     players = []

@@ -37,6 +37,7 @@ class Experiment:
         Return 1 if player1 won and 2 if player2 won.
         """
 
+        print('fui chamado single game')
         player1 = players[0]
         player2 = players[1]
 
@@ -170,6 +171,7 @@ class Experiment:
 
         copy_model = current_model.clone(reg, conv_number)
         
+        print('antes selfplay')
         # ProcessPoolExecutor() will take care of joining() and closing()
         # the processes after they are finished.
         with ProcessPoolExecutor(max_workers=self.n_cores) as executor:
@@ -177,7 +179,7 @@ class Experiment:
             args = ((current_model, copy_model) for _ in range(n_games))
             # data is a list of 2-tuples = (data_of_a_game, who_won) 
             results = executor.map(self._play_single_game, args)
-        
+        print('dps selfplay')
         
         data_of_all_games = []
         for result in results:
