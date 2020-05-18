@@ -51,7 +51,7 @@ def get_last_iteration(folder):
     files = [f for f in listdir(file_path) if isfile(join(file_path, f))]
     stats_paths = []
     for file in files:
-        if 'h5' not in file and '_player' not in file:
+        if 'modelweights' not in file and '_player' not in file:
             stats_paths.append(file)
 
     # Sort the files using natural sorting
@@ -69,8 +69,11 @@ def get_last_iteration(folder):
     last_iteration = int(stats_paths[-1].rsplit('_', 1)[1])
     return last_iteration + 1
 
-def get_last_player(folder):
-    """ Return the last player from the last AZ iteration. """
+def get_last_player_info(folder):
+    """ 
+    Return the last player from the last AZ iteration and the weights used
+    in its network. 
+    """
 
     cur_dir = os.path.dirname(os.path.realpath(__file__))
     file_path = cur_dir + '/' + folder
@@ -78,7 +81,7 @@ def get_last_player(folder):
     networks_paths = []
     players_paths = []
     for file in files:
-        if 'h5' in file:
+        if 'modelweights' in file:
             networks_paths.append(file)
         elif '_player' in file:
             players_paths.append(file)
@@ -96,13 +99,14 @@ def get_last_player(folder):
     networks_paths.sort(key=natural_keys)
     players_paths.sort(key=natural_keys)
 
-    last_model = file_path + '/' + networks_paths[-1]
-    last_model = tensorflow.keras.models.load_model(last_model)
+    last_model_weights = file_path + '/' + networks_paths[-1]
+    #last_model = tensorflow.keras.models.load_model(last_model)
     player = file_path + '/' + players_paths[-1]
     with open(player, 'rb') as file:
         player = pickle.load(file)
-    player.network = last_model
-    return player
+    with open(last_model_weights, 'rb') as file:
+        last_model_weights = pickle.load(file)
+    return player, last_model_weights
 
 def main():
     # Command line parameters: n_simulations, n_games, alpha_zero, 
@@ -128,13 +132,13 @@ def main():
     c = 1
     epochs = 1
     reg = 0.01
-    n_games_evaluate = 100
+    n_games_evaluate = 50
     victory_rate = 55
     mini_batch = 2048
-    n_training_loop = 1000
+    n_training_loop = 50
     dataset_size = 1000
     n_cores = multiprocessing.cpu_count()
-    '''
+    
     # Toy version
     column_range = [2,6]
     offset = 2
@@ -152,7 +156,7 @@ def main():
     dice_number = 4
     dice_value = 6 
     max_game_length = 500
-    
+    '''
     
 
     
@@ -175,7 +179,7 @@ def main():
         for count in range(begin_from, alphazero_iterations):
             # Useful only for the first iteration since there will be no data
             # to read the player info from.
-            player = get_last_player('training_data_' + folder)
+            player, weights = get_last_player_info('training_data_' + folder)
             experiment = Experiment(
                         n_players = n_players, 
                         dice_number = dice_number, 
@@ -184,15 +188,16 @@ def main():
                         offset = offset, 
                         initial_height = initial_height, 
                         max_game_length = max_game_length,
+                        reg = reg,
+                        conv_number = conv_number,
                         n_cores = n_cores
                         )
 
             experiment.play_alphazero(
                                 player,
-                                use_UCT_playout = use_UCT_playout, 
-                                reg = reg,
-                                epochs = epochs, 
-                                conv_number = conv_number,
+                                weights,
+                                use_UCT_playout = use_UCT_playout,
+                                epochs = epochs,
                                 alphazero_iterations = alphazero_iterations,
                                 mini_batch = mini_batch,
                                 n_training_loop = n_training_loop, 
@@ -205,16 +210,6 @@ def main():
 
     # First time running the algorithm, there's no data available
     else:
-        from models import define_model
-        #Neural network specification
-        current_model = define_model(
-                                reg = reg, 
-                                conv_number = conv_number, 
-                                column_range = column_range, 
-                                offset = offset, 
-                                initial_height = initial_height, 
-                                dice_value = dice_value
-                                )
         if use_UCT_playout:
             player = Network_UCT_With_Playout(
                                     c = c, 
@@ -223,7 +218,7 @@ def main():
                                     offset = offset, 
                                     initial_height = initial_height, 
                                     dice_value = dice_value,
-                                    network = current_model
+                                    network = None
                                     )
         else:
             player = Network_UCT(
@@ -233,12 +228,22 @@ def main():
                                 offset = offset, 
                                 initial_height = initial_height, 
                                 dice_value = dice_value, 
-                                network = current_model
+                                network = None
                                 )
         # Main loop
         for count in range(alphazero_iterations):
             if os.path.isdir('training_data_' + folder):
-                player = get_last_player('training_data_' + folder)
+                player, weights = get_last_player_info(
+                                                    'training_data_' + folder
+                                                    )
+            else:
+                # Very first iteration where there's no weights file. Read
+                # the weights file generated after running the script
+                # generate_default_weights.py.
+                cur_dir = os.path.dirname(os.path.realpath(__file__))
+                weights_path = cur_dir + '/' + folder + '_currentweights'
+                with open(weights_path, 'rb') as file:
+                    weights = pickle.load(file)
             experiment = Experiment(
                         n_players = n_players, 
                         dice_number = dice_number, 
@@ -247,14 +252,15 @@ def main():
                         offset = offset, 
                         initial_height = initial_height, 
                         max_game_length = max_game_length,
+                        reg = reg,
+                        conv_number = conv_number,
                         n_cores = n_cores
                         )
             experiment.play_alphazero(
-                                player,  
-                                use_UCT_playout = use_UCT_playout, 
-                                reg = reg,
-                                epochs = epochs, 
-                                conv_number = conv_number,
+                                player,
+                                weights, 
+                                use_UCT_playout = use_UCT_playout,
+                                epochs = epochs,
                                 alphazero_iterations = alphazero_iterations,
                                 mini_batch = mini_batch,
                                 n_training_loop = n_training_loop, 
@@ -270,6 +276,10 @@ def main():
 
 if __name__ == "__main__":
     make_keras_picklable()
-    #import tensorflow
-    #tensorflow.compat.v1.disable_eager_execution()
+    import tensorflow 
+    # Unfortunately Eager Execution slows down the code SEVERELY when 
+    # predict() is called several times (which is the case for AZ). See below:
+    # https://stackoverflow.com/questions/61698995/
+    #                     tf-keras-predict-is-much-slower-than-keras-predict
+    tensorflow.compat.v1.disable_eager_execution()
     main()

@@ -87,7 +87,7 @@ class Statistic:
             self.path = stats['path']
 
 
-    def save_model_to_file(self, model, alphazero_iteration, won):
+    def save_model_to_file(self, model_weights, alphazero_iteration, won):
         """Save the network model of this iteration to file."""
         if won:
             if not os.path.exists(self.path + 'won/'):
@@ -96,8 +96,9 @@ class Statistic:
                     + str(self.n_games) + '_' + str(self.alphazero_iterations) \
                     + '_' + str(self.conv_number) + '_' \
                     + str(self.use_UCT_playout) + '_' \
-                    + str(alphazero_iteration) + '_model.h5'
-            model.save(filename)
+                    + str(alphazero_iteration) + '_modelweights'
+            with open(filename, 'wb') as file:
+                    pickle.dump(model_weights, file)
         # save all either way
         if not os.path.exists(self.path):
                 os.makedirs(self.path)
@@ -105,14 +106,13 @@ class Statistic:
                 + str(self.n_games) + '_' + str(self.alphazero_iterations) \
                 + '_' + str(self.conv_number) + '_' \
                 + str(self.use_UCT_playout) + '_' \
-                + str(alphazero_iteration) + '_model.h5'
-        model.save(filename)
+                + str(alphazero_iteration) + '_modelweights'
+        with open(filename, 'wb') as file:
+            pickle.dump(model_weights, file)
 
-    def save_player_config(self, player, alphazero_iteration, reg, 
-                            conv_number, won):
+    def save_player_config(self, player, alphazero_iteration, won):
         """Save which Player is being played."""
-        player_clone = player.clone(reg, conv_number)
-        player_clone.network = None
+        player_clone = player.clone()
         if won:
             if not os.path.exists(self.path + 'won/'):
                 os.makedirs(self.path + 'won/')

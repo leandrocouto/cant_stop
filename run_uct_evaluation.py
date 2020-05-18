@@ -45,7 +45,7 @@ def get_list_of_networks(n_simulations, n_games, alphazero_iterations,
     players_paths = []
     stats_paths = []
     for file in files:
-        if 'h5' in file:
+        if 'modelweights' in file:
             networks_paths.append(file_path + '/' + file)
         elif '_player' in file:
             players_paths.append(file_path + '/' + file)
@@ -66,11 +66,12 @@ def get_list_of_networks(n_simulations, n_games, alphazero_iterations,
     players_paths.sort(key=natural_keys)
     stats_paths.sort(key=natural_keys)
 
-    # Instantiate the network models
-    networks = [
-                tensorflow.keras.models.load_model(net_path) 
-                for net_path in networks_paths
-                ]
+    network_weights = []
+    # Save the weights
+    for net_path in networks_paths:
+        with open(net_path, 'rb') as file:
+            weight = pickle.load(file)
+            network_weights.append(weight)
 
     # Instantiate players
     players = []
@@ -78,10 +79,6 @@ def get_list_of_networks(n_simulations, n_games, alphazero_iterations,
         with open(player_path, 'rb') as file:
             player = pickle.load(file)
             players.append(player)
-    
-    # Embed the loaded models into their respective players
-    for i in range(len(players)):
-        players[i].network = networks[i]
 
     # Instantiate stats
     stats = []
@@ -96,7 +93,7 @@ def get_list_of_networks(n_simulations, n_games, alphazero_iterations,
         file_name = p.rsplit('/', 1)[-1].rsplit('_', 1)[0]
         prefix_names.append(file_name)
 
-    return players, stats, prefix_names, file_path
+    return players, network_weights, stats, prefix_names, file_path
 
 def main():
 
@@ -116,10 +113,11 @@ def main():
     if int(sys.argv[5]) == 1: use_UCT_playout = False
 
     #Config parameters
-    n_games_evaluate = 100
+    n_games_evaluate = 3
+    reg = 0.01
     n_cores = multiprocessing.cpu_count()
 
-    '''
+    
     # Toy version
     column_range = [2,6]
     offset = 2
@@ -137,9 +135,9 @@ def main():
     dice_number = 4
     dice_value = 6 
     max_game_length = 500
-    
+    '''
 
-    players, stats, prefix_names, net_dir = get_list_of_networks(
+    players, weights, stats, prefix_names, net_dir = get_list_of_networks(
                                                         n_simulations,
                                                         n_games,
                                                         alphazero_iterations,
@@ -164,6 +162,8 @@ def main():
                         offset = offset, 
                         initial_height = initial_height, 
                         max_game_length = max_game_length,
+                        reg = reg,
+                        conv_number = conv_number,
                         n_cores = n_cores
                         )
         n_simulations = players[i].n_simulations
@@ -183,6 +183,7 @@ def main():
 
         experiment.play_network_versus_UCT(
                                             players[i],
+                                            weights[i],
                                             stats[i],
                                             net_dir,
                                             prefix_names[i], 

@@ -1,8 +1,3 @@
-import tensorflow as tf
-from tensorflow.keras import Model, Input
-from tensorflow.keras.layers import Dense, Flatten, Conv2D, concatenate
-from tensorflow.keras import regularizers
-from tensorflow.keras.losses import categorical_crossentropy
 
 def define_model_experimental(reg, conv_number, column_range, offset, 
     initial_height, dice_value):
@@ -110,6 +105,12 @@ def define_model_experimental(reg, conv_number, column_range, offset,
 def define_model(reg, conv_number, column_range, offset, 
     initial_height, dice_value):
     """Neural Network model implementation using Keras + Tensorflow."""
+
+    import tensorflow as tf
+    from tensorflow.keras import Model, Input
+    from tensorflow.keras.layers import Dense, Flatten, Conv2D, concatenate
+    from tensorflow.keras import regularizers
+    from tensorflow.keras.losses import categorical_crossentropy
 
     # Calculating the channel dimensions given the board dynamics
     height = column_range[1] - column_range[0] + 1

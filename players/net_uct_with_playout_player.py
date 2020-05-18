@@ -5,7 +5,6 @@ import numpy as np
 import copy
 import collections
 from players.alphazero_player import AlphaZeroPlayer, Node
-from models import define_model
 import pickle
 
 class Network_UCT_With_Playout(AlphaZeroPlayer):
@@ -42,12 +41,10 @@ class Network_UCT_With_Playout(AlphaZeroPlayer):
         else:
             return -1
 
-    def clone(self, reg, conv_number):
+    def clone(self):
         """
-        Clone self player.
-        Tensorflow 1.3 complains about deepcopying keras models 
-        while TF 2.0 > does not. Using this method in order to be able
-        to run in either versions.
+        Clone self player except for the network (due to tf.keras issues when
+        using tf.keras models in parallel calls).
         Return a Network_UCT_With_Playout player.
         """
 
@@ -60,9 +57,5 @@ class Network_UCT_With_Playout(AlphaZeroPlayer):
         self_copy.dist_probability = pickle.loads(
                                     pickle.dumps(self.dist_probability, -1)
                                     )
-        self_copy.network = define_model(reg, conv_number, self.column_range, 
-                                        self.offset, self.initial_height, 
-                                        self.dice_value
-                                        )
-        self_copy.network.set_weights(self.network.get_weights())
+        self_copy.network = None
         return self_copy
