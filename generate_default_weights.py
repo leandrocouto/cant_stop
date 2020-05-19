@@ -7,15 +7,15 @@ def main():
     # conv_number, use_UCT_playout
 
     # Cluster configurations
-    if int(sys.argv[1]) == 0: n_simulations = 10
+    if int(sys.argv[1]) == 0: n_simulations = 5
     if int(sys.argv[1]) == 1: n_simulations = 100
     if int(sys.argv[1]) == 2: n_simulations = 250
     if int(sys.argv[1]) == 3: n_simulations = 500
-    if int(sys.argv[2]) == 0: n_games = 10
+    if int(sys.argv[2]) == 0: n_games = 100
     if int(sys.argv[2]) == 1: n_games = 100
     if int(sys.argv[2]) == 2: n_games = 250
     if int(sys.argv[2]) == 3: n_games = 500
-    if int(sys.argv[3]) == 0: alphazero_iterations = 20
+    if int(sys.argv[3]) == 0: alphazero_iterations = 10
     if int(sys.argv[4]) == 0: conv_number = 1
     if int(sys.argv[4]) == 1: conv_number = 2
     if int(sys.argv[5]) == 0: use_UCT_playout = True
@@ -24,7 +24,7 @@ def main():
     #Config parameters to create a model
 
     reg = 0.01
-    
+    '''
     # Toy version
     column_range = [2,6]
     offset = 2
@@ -42,7 +42,7 @@ def main():
     dice_number = 4
     dice_value = 6 
     max_game_length = 500
-    '''
+    
     
     model = define_model(
                         reg = reg, 

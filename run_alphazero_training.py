@@ -13,36 +13,6 @@ import pickle
 import gc
 import multiprocessing
 
-def _unpack(model, training_config, weights):
-    from tensorflow.python.keras.layers import deserialize
-    from tensorflow.python.keras.saving import saving_utils
-    restored_model = deserialize(model)
-    if training_config is not None:
-        restored_model.compile(
-            **saving_utils.compile_args_from_training_config(
-                training_config
-            )
-        )
-    restored_model.set_weights(weights)
-    return restored_model
-
-# Hotfix function to make Keras model pickable
-def make_keras_picklable():
-
-    from tensorflow.keras.models import Model
-    def __reduce__(self):
-        from tensorflow.python.keras.layers import serialize
-        from tensorflow.python.keras.saving import saving_utils
-
-        model_metadata = saving_utils.model_metadata(self)
-        training_config = model_metadata.get("training_config", None)
-        model = serialize(self)
-        weights = self.get_weights()
-        return (_unpack, (model, training_config, weights))
-    cls = Model
-    cls.__reduce__ = __reduce__
-
-
 def get_last_iteration(folder):
     """ Return which iteration AZ should start from. """
     
@@ -113,15 +83,15 @@ def main():
     # conv_number, use_UCT_playout
 
     # Cluster configurations
-    if int(sys.argv[1]) == 0: n_simulations = 10
+    if int(sys.argv[1]) == 0: n_simulations = 5
     if int(sys.argv[1]) == 1: n_simulations = 100
     if int(sys.argv[1]) == 2: n_simulations = 250
     if int(sys.argv[1]) == 3: n_simulations = 500
-    if int(sys.argv[2]) == 0: n_games = 10
+    if int(sys.argv[2]) == 0: n_games = 100
     if int(sys.argv[2]) == 1: n_games = 100
     if int(sys.argv[2]) == 2: n_games = 250
     if int(sys.argv[2]) == 3: n_games = 500
-    if int(sys.argv[3]) == 0: alphazero_iterations = 20
+    if int(sys.argv[3]) == 0: alphazero_iterations = 10
     if int(sys.argv[4]) == 0: conv_number = 1
     if int(sys.argv[4]) == 1: conv_number = 2
     if int(sys.argv[5]) == 0: use_UCT_playout = True
@@ -132,13 +102,13 @@ def main():
     c = 1
     epochs = 1
     reg = 0.01
-    n_games_evaluate = 50
+    n_games_evaluate = 100
     victory_rate = 55
     mini_batch = 2048
     n_training_loop = 50
     dataset_size = 1000
     n_cores = multiprocessing.cpu_count()
-    
+    '''
     # Toy version
     column_range = [2,6]
     offset = 2
@@ -156,10 +126,6 @@ def main():
     dice_number = 4
     dice_value = 6 
     max_game_length = 500
-    '''
-    
-
-    
 
     
     folder = str(n_simulations) + '_' + str(n_games) \
@@ -275,11 +241,4 @@ def main():
             gc.collect()
 
 if __name__ == "__main__":
-    make_keras_picklable()
-    import tensorflow 
-    # Unfortunately Eager Execution slows down the code SEVERELY when 
-    # predict() is called several times (which is the case for AZ). See below:
-    # https://stackoverflow.com/questions/61698995/
-    #                     tf-keras-predict-is-much-slower-than-keras-predict
-    tensorflow.compat.v1.disable_eager_execution()
     main()

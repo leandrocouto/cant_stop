@@ -11,7 +11,6 @@ from players.alphazero_player import AlphaZeroPlayer
 from players.uct_player import UCTPlayer
 from statistics import Statistic
 from concurrent.futures import ProcessPoolExecutor
-import tensorflow as tf
 
 class Experiment:
 
