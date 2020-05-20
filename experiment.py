@@ -44,6 +44,9 @@ class Experiment:
         type_of_game = args[2]
         player1_weights = args[3]
         player2_weights = args[4]
+
+        from keras import backend as K 
+        K.set_image_data_format('channels_first') 
         # Selfplay
         if type_of_game == 's':
             from models import define_model
@@ -234,6 +237,8 @@ class Experiment:
 
         with open(file_name, 'a') as f:
             print('SELFPLAY', file=f)
+            from keras import backend as K 
+            print(K.image_data_format(), file=f) 
 
         start_selfplay = time.time()
         # 0 -> draw
@@ -317,6 +322,9 @@ class Experiment:
                                             )
         
         from models import define_model
+        from keras import backend as K
+        K.set_image_data_format('channels_first') 
+
         model = define_model(
                             reg = self.reg, 
                             conv_number = self.conv_number, 

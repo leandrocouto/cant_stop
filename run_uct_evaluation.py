@@ -102,22 +102,22 @@ def main():
     if int(sys.argv[1]) == 1: n_simulations = 100
     if int(sys.argv[1]) == 2: n_simulations = 250
     if int(sys.argv[1]) == 3: n_simulations = 500
-    if int(sys.argv[2]) == 0: n_games = 10
+    if int(sys.argv[2]) == 0: n_games = 50
     if int(sys.argv[2]) == 1: n_games = 100
     if int(sys.argv[2]) == 2: n_games = 250
     if int(sys.argv[2]) == 3: n_games = 500
-    if int(sys.argv[3]) == 0: alphazero_iterations = 20
+    if int(sys.argv[3]) == 0: alphazero_iterations = 10
     if int(sys.argv[4]) == 0: conv_number = 1
     if int(sys.argv[4]) == 1: conv_number = 2
     if int(sys.argv[5]) == 0: use_UCT_playout = True
     if int(sys.argv[5]) == 1: use_UCT_playout = False
 
     #Config parameters
-    n_games_evaluate = 3
+    n_games_evaluate = 10
     reg = 0.01
     n_cores = multiprocessing.cpu_count()
 
-    
+    '''
     # Toy version
     column_range = [2,6]
     offset = 2
@@ -135,7 +135,6 @@ def main():
     dice_number = 4
     dice_value = 6 
     max_game_length = 500
-    '''
 
     players, weights, stats, prefix_names, net_dir = get_list_of_networks(
                                                         n_simulations,

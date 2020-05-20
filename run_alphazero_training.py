@@ -83,11 +83,11 @@ def main():
     # conv_number, use_UCT_playout
 
     # Cluster configurations
-    if int(sys.argv[1]) == 0: n_simulations = 5
+    if int(sys.argv[1]) == 0: n_simulations = 10
     if int(sys.argv[1]) == 1: n_simulations = 100
     if int(sys.argv[1]) == 2: n_simulations = 250
     if int(sys.argv[1]) == 3: n_simulations = 500
-    if int(sys.argv[2]) == 0: n_games = 100
+    if int(sys.argv[2]) == 0: n_games = 20
     if int(sys.argv[2]) == 1: n_games = 100
     if int(sys.argv[2]) == 2: n_games = 250
     if int(sys.argv[2]) == 3: n_games = 500
@@ -102,11 +102,11 @@ def main():
     c = 1
     epochs = 1
     reg = 0.01
-    n_games_evaluate = 100
+    n_games_evaluate = 50
     victory_rate = 55
     mini_batch = 2048
     n_training_loop = 50
-    dataset_size = 1000
+    dataset_size = 200
     n_cores = multiprocessing.cpu_count()
     '''
     # Toy version
@@ -241,4 +241,6 @@ def main():
             gc.collect()
 
 if __name__ == "__main__":
+    from keras import backend as K 
+    K.set_image_data_format('channels_first') 
     main()
