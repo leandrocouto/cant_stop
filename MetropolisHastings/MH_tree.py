@@ -1,7 +1,6 @@
 from Script import Script
 from DSL import DSL
 import random
-import copy
 import sys
 
 sys.path.insert(0,'..')
@@ -182,9 +181,3 @@ class DSLTree:
             print(indentation, node.state, ', parent = ', node.parent, ', id = ', node.node_id)
         for child in node.children:
             self.print_tree(child, 2*indentation)
-
-dsl = DSL()
-tree = DSLTree(Node('S', ''), dsl)
-tree.build_tree()
-current_best_program = tree.generate_random_program()
-print('current = ', current_best_program)

@@ -124,7 +124,7 @@ class Game:
                 
         return condition_1 and condition_2 and condition_3
 
-    def number_positions_conquered_this_round(self, column):
+    def number_cells_advanced_this_round(self, column):
         """
         Return the number of positions advanced in this round for a given
         column by the player.

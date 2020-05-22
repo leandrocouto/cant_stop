@@ -20,7 +20,7 @@ class DSL:
                                 ]
         self._grammar['B_1'] = [
                                 'DSL.is_column_in_action(a, COLS )',
-                                'DSL.number_positions_conquered_this_round(state, COLS ) > SMALL_NUM',
+                                'DSL.number_cells_advanced_this_round(state, COLS ) > SMALL_NUM',
                                 'DSL.number_positions_conquered(state, COLS ) > SMALL_NUM'
                                 ]
         #self._grammar['COLS'] = ['2', '3', '4', '5', '6']
@@ -55,7 +55,7 @@ class DSL:
     
     @staticmethod
     def action_wins_at_least_one_column(state, action):
-        copy_state = copy.deepcopy(state)
+        copy_state = state.clone()
         copy_state.play(action)
         columns_won = copy_state.columns_won_current_round()
         columns_won_previously = state.columns_won_current_round()
@@ -68,8 +68,8 @@ class DSL:
         return len(state.columns_won_current_round())
     
     @staticmethod
-    def number_positions_conquered_this_round(state, column):
-        return state.number_positions_conquered_this_round(column)
+    def number_cells_advanced_this_round(state, column):
+        return state.number_cells_advanced_this_round(column)
     
     @staticmethod
     def number_positions_conquered(state, column):

@@ -11,9 +11,11 @@ from MetropolisHastings.MH_tree import DSL, DSLTree, Node
 import time
 import pickle
 import os.path
+from random import sample
+import numpy as np
 
 class MetropolisHastings:
-    def __init__(self, beta, player_1, player_2, n_games, n_iterations):
+    def __init__(self, beta, player_1, player_2, n_games, n_iterations, k):
         """
         - beta is a constant used in the MH score function.
         - data is a list of game state and action gotten from the oracle.
@@ -21,6 +23,7 @@ class MetropolisHastings:
           generate the dataset used as the oracle.
         - n_games is the number of games to be generated between the players.
         - n_iterations is the number of iteration in the main MH loop.
+        - k is the number of samples from dataset to be evaluated.
         """
         self.beta = beta
         self.data = []
@@ -28,6 +31,7 @@ class MetropolisHastings:
         self.player_2 = player_2
         self.n_games = n_games
         self.n_iterations = n_iterations
+        self.k = k
         '''
         # Toy version
         self.column_range = [2,6]
@@ -53,6 +57,8 @@ class MetropolisHastings:
         tree = DSLTree(Node('S', ''), dsl)
         tree.build_tree()
         current_best_program = tree.generate_random_program()
+        print('initial program')
+        print(current_best_program)
 
         # Check if there's already data available. If not, generate it.
         if not os.path.isfile('dataset'):
@@ -64,25 +70,41 @@ class MetropolisHastings:
                     self.data.append(pickle.load(f))
                 except EOFError:
                     break
-        
         # Main loop
         for i in range(self.n_iterations):
             
-            new_tree = copy.deepcopy(tree)
-            mutated_program = new_tree.generate_mutated_program(current_best_program)
+            # Make a copy of the tree for future mutation
+            new_tree = pickle.loads(pickle.dumps(tree, -1))
 
+            mutated_program = new_tree.generate_mutated_program(
+                                                        current_best_program
+                                                        )
+            
             script_best_player = tree.generate_player(current_best_program)
             script_mutated_player = new_tree.generate_player(mutated_program)
+            
 
-            score_best, n_errors_best, errors_rate_best, v = \
-                        self.calculate_score_function(script_best_player)
-            score_mutated, n_errors_mutated, errors_rate_mutated, v2 = \
-                        self.calculate_score_function(script_mutated_player)
+            # Sample k data from the oracle dataset
+            new_data = self.sample_from_data(self.k)
+
+            score_best, n_errors_best, errors_rate_best, default = \
+                        self.calculate_score_function(
+                                                        script_best_player, 
+                                                        new_data
+                                                    )
+            score_mutated, n_errors_mutated, errors_rate_mutated, default2 = \
+                        self.calculate_score_function(
+                                                        script_mutated_player, 
+                                                        new_data
+                                                    )
 
             accept = min(1, score_mutated/score_best)
             if accept == 1:
                 current_best_program = mutated_program
                 tree = new_tree
+                print('Iteration -', i, 'New program accepted')
+            else:
+                print('Iteration -', i, 'New program not accepted')
             
         return current_best_program
 
@@ -103,29 +125,47 @@ class MetropolisHastings:
                 for data in single_game_data:
                     pickle.dump(data, f)
 
-    def calculate_score_function(self, program):
+    def calculate_score_function(self, program, new_data):
         """ 
         Score function that calculates who the program passed as parameter 
         "imitates" the actions taken by the oracle in the saved dataset.
-
+        Return this program's score.
         """
-        n_errors, errors_rate, v = self.calculate_errors(program)
-        return math.exp(-self.beta * n_errors), n_errors, errors_rate, v
+        n_errors, errors_rate, default = self.calculate_errors(
+                                                                program, 
+                                                                new_data
+                                                            )
+        score = math.exp(-self.beta * n_errors)
+        return score, n_errors, errors_rate, default
 
-    def calculate_errors(self, program):
+    def calculate_errors(self, program, new_data):
         """ 
         Calculate how many times the program passed as parameter chose a 
         different action when compared to the oracle (actions from dataset).
+        Return:
+            - n_errors is the number of errors that the program chose when 
+              compared to the actions chosen by the oracle.
+            - errors_rate is the error rate
+            - default is the number of times the if clause was not satisfied
+              and the default action was chosen.
         """
         n_errors = 0
-        v = 0
-        for i in range(len(self.data)):
-            chosen_play, value = program.get_action(self.data[i][0])
+        default = 0
+        for i in range(len(new_data)):
+            chosen_play, value = program.get_action(new_data[i][0])
             if value == 1:
-                v += 1
-            if chosen_play != self.data[i][1]:
+                default += 1
+            if chosen_play != new_data[i][1]:
                 n_errors += 1
-        return n_errors,  n_errors / len(self.data), v
+        errors_rate = n_errors / len(new_data)
+        return n_errors, errors_rate, default
+
+    def sample_from_data(self, k):
+        """ Sample k instances from oracle data for evaluation. """
+        index_list = sample(range(len(self.data)), len(self.data) - k)
+        new_data = np.delete(self.data, index_list, 0)
+
+        return new_data
 
 
     def simplified_play_single_game(self, player_1, player_2, game, 
@@ -200,10 +240,10 @@ if __name__ == "__main__":
     player_1 = Vanilla_UCT(c = 1, n_simulations = 50)
     player_2 = Vanilla_UCT(c = 1, n_simulations = 50)
     beta = 0.5
-    n_games = 3
-    iterations = 1000
-    MH = MetropolisHastings(beta, player_1, player_2, n_games, iterations)
+    n_games = 200
+    iterations = 20
+    k = 1000
+    MH = MetropolisHastings(beta, player_1, player_2, n_games, iterations, k)
     for i in range(1):
-        MH.data = []
         program = MH.run()
         print(program)
