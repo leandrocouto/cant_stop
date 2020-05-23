@@ -124,41 +124,6 @@ class Game:
                 
         return condition_1 and condition_2 and condition_3
 
-    def number_cells_advanced_this_round(self, column):
-        """
-        Return the number of positions advanced in this round for a given
-        column by the player.
-        """
-        counter = 0
-        previously_conquered = -1
-        list_of_cells = self.board_game.board[column]
-        
-        for i in range(len(list_of_cells)):
-            if self.player_turn in list_of_cells[i].markers:
-                previously_conquered = i
-            if 0 in list_of_cells[i].markers:
-                counter = i - previously_conquered
-                
-        partial_completed_rows = [item[0] for item in self.player_won_column]
-        if column in partial_completed_rows:
-            counter += 1
-        return counter
-    
-    def number_positions_conquered(self, column):
-        """
-        Return how far the player is in 'column'. -1 if the player is not in 
-        the column.
-        """
-
-        previously_conquered = -1
-        list_of_cells = self.board_game.board[column]
-        
-        for i in range(len(list_of_cells)):
-            if self.player_turn in list_of_cells[i].markers:
-                previously_conquered = i
-           
-        return previously_conquered
-            
     
     def print_board(self):
         self.board_game.print_board(self.player_won_column)
@@ -167,38 +132,23 @@ class Game:
         """Return a "deepcopy" of this game. Used for MCTS routines."""
         
         return pickle.loads(pickle.dumps(self, -1))
-    
-    def columns_won_current_round(self):
-        """
-        Return a list containing the set of columns won by the player in the
-        current round. That is, the number of columns won should the player 
-        stopped playing now. 
-        """
-
-        return self.player_won_column
 
     def play(self, chosen_play):
         """
         Apply the "chosen_play" to the game.
         Depending on the play and dice roll, it will change player_turn.
         """
-        #print()
-        #print('board do iniciao - chosen play = ', chosen_play)
-        #print('player turn = ', self.player_turn)
-        #self.print_board()
+        
         if chosen_play == 'n':
             self.transform_neutral_markers()
             # Next action should be to choose a dice combination
             self.dice_action = True
-            #print('escolheu nao')
             return
         if chosen_play == 'y':
             # Next action should be to choose a dice combination
             self.dice_action = True
-            #print('escolheu ism')
             return
         if self.is_player_busted(self.available_moves()):
-            #print('foi busted')
             return
         for die_position in range(len(chosen_play)):
             current_position_zero = -1
@@ -207,15 +157,10 @@ class Game:
             cell_list = self.board_game.board[col]
             for i in range(0, len(cell_list)):
                 if 0 in cell_list[i].markers:
-                    #print('descobriu um 0')
                     current_position_zero = i
                 if self.player_turn in cell_list[i].markers:
-                    #print('descobriu um id')
                     current_position_id = i
 
-            #print('die position = ', die_position, 'col = ', col)
-            #print('current id position = ', current_position_id)
-            #print('current 0 position = ', current_position_zero)
             # If there's no zero and no player_id marker
             if current_position_zero == current_position_id == -1:
                 cell_list[0].markers.append(0)

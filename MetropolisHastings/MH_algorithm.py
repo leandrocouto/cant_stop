@@ -97,15 +97,13 @@ class MetropolisHastings:
                                                         script_mutated_player, 
                                                         new_data
                                                     )
-
             accept = min(1, score_mutated/score_best)
             if accept == 1:
                 current_best_program = mutated_program
                 tree = new_tree
-                print('Iteration -', i, 'New program accepted')
+                print('Iteration -', i, 'New program accepted - Score = ', score_mutated,'Error rate = ', errors_rate_mutated)
             else:
                 print('Iteration -', i, 'New program not accepted')
-            
         return current_best_program
 
     def generate_oracle_data(self):
@@ -241,7 +239,7 @@ if __name__ == "__main__":
     player_2 = Vanilla_UCT(c = 1, n_simulations = 50)
     beta = 0.5
     n_games = 200
-    iterations = 20
+    iterations = 1000
     k = 1000
     MH = MetropolisHastings(beta, player_1, player_2, n_games, iterations, k)
     for i in range(1):
