@@ -8,6 +8,7 @@ from players.vanilla_uct_player import Vanilla_UCT
 from players.uct_player import UCTPlayer
 from players.random_player import RandomPlayer
 from MetropolisHastings.MH_tree import DSL, DSLTree, Node
+from Script import Script
 import time
 import pickle
 import os.path
@@ -25,6 +26,7 @@ class MetropolisHastings:
         - n_iterations is the number of iteration in the main MH loop.
         - k is the number of samples from dataset to be evaluated.
         """
+        self.tree = DSLTree(Node('S', ''), DSL())
         self.beta = beta
         self.data = []
         self.player_1 = player_1
@@ -50,16 +52,8 @@ class MetropolisHastings:
         self.dice_number = 4
         self.dice_value = 6 
         self.max_game_length = 500
-        
-    def run(self):
-        """ Main routine of the MH algorithm. """
-        dsl = DSL()
-        tree = DSLTree(Node('S', ''), dsl)
-        tree.build_tree()
-        current_best_program = tree.generate_random_program()
-        print('initial program')
-        print(current_best_program)
-
+    
+    def multiple_runs(self):
         # Check if there's already data available. If not, generate it.
         if not os.path.isfile('dataset'):
             self.generate_oracle_data()
@@ -70,41 +64,83 @@ class MetropolisHastings:
                     self.data.append(pickle.load(f))
                 except EOFError:
                     break
+
+        initial_data = self.sample_from_data(self.k)
+        rules = []
+        for i in range(5):
+            print('Iteração i = ', i)
+            print('len initial data = ', len(initial_data))
+            program, script = self.single_run(initial_data)
+            print('best program = ', program)
+            # Set of indexes to be deleted
+            correct_guesses = set()
+            # Check which inputs the generated program got it right
+            for j in range(len(initial_data)):
+                chosen_play = script.get_action(initial_data[j][0])
+                if chosen_play == initial_data[j][1]:
+                    correct_guesses.add(j)
+            # Now delete them and repeat the process in order to find a new
+            # program that "solves" the remaining instances
+            initial_data = [
+                            v 
+                            for i, v in enumerate(initial_data) 
+                            if i not in correct_guesses
+                            ] 
+            rules.append(program)
+
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        script = Script(rules, 0)
+        script.saveFile(dir_path + '/')
+        my_player = self.tree.generate_player(rules)
+        print('my player = ', my_player)
+        for i in range(10):
+            game = Game(self.n_players, self.dice_number, self.dice_value, 
+                        self.column_range, self.offset, self.initial_height
+                        )
+            _, who_won = self.simplified_play_single_game(
+                                                        my_player, 
+                                                        self.player_2, 
+                                                        game, 
+                                                        self.max_game_length
+                                                        )
+            print('game ', i, 'who won = ', who_won)
+            print(my_player.get_counter_calls())
+
+    def single_run(self, initial_data):
+        """ Main routine of the MH algorithm. """
+        self.tree.build_tree()
+        current_best_program = self.tree.generate_random_program()
+
         # Main loop
         for i in range(self.n_iterations):
             
             # Make a copy of the tree for future mutation
-            new_tree = pickle.loads(pickle.dumps(tree, -1))
+            new_tree = pickle.loads(pickle.dumps(self.tree, -1))
 
             mutated_program = new_tree.generate_mutated_program(
                                                         current_best_program
                                                         )
             
-            script_best_player = tree.generate_player(current_best_program)
-            script_mutated_player = new_tree.generate_player(mutated_program)
-            
-
-            # Sample k data from the oracle dataset
-            new_data = self.sample_from_data(self.k)
+            script_best_player = self.tree.generate_player([current_best_program])
+            script_mutated_player = new_tree.generate_player([mutated_program])
 
             score_best, n_errors_best, errors_rate_best, default = \
                         self.calculate_score_function(
                                                         script_best_player, 
-                                                        new_data
+                                                        initial_data
                                                     )
             score_mutated, n_errors_mutated, errors_rate_mutated, default2 = \
                         self.calculate_score_function(
                                                         script_mutated_player, 
-                                                        new_data
+                                                        initial_data
                                                     )
             accept = min(1, score_mutated/score_best)
             if accept == 1:
                 current_best_program = mutated_program
-                tree = new_tree
-                print('Iteration -', i, 'New program accepted - Score = ', score_mutated,'Error rate = ', errors_rate_mutated)
-            else:
-                print('Iteration -', i, 'New program not accepted')
-        return current_best_program
+                self.tree = new_tree
+                print('Iteration -', i, 'New program accepted - Score = ', score_mutated,'Error rate = ', errors_rate_mutated, 'n_errors = ', n_errors_mutated)
+        script_best_player = self.tree.generate_player([current_best_program])
+        return current_best_program, script_best_player
 
     def generate_oracle_data(self):
         """ Generate data by playing games between player_1 and player_2. """
@@ -112,7 +148,7 @@ class MetropolisHastings:
             game = Game(self.n_players, self.dice_number, self.dice_value, 
                         self.column_range, self.offset, self.initial_height
                         )
-            single_game_data = self.simplified_play_single_game(
+            single_game_data, _ = self.simplified_play_single_game(
                                                         self.player_1, 
                                                         self.player_2, 
                                                         game, 
@@ -133,7 +169,7 @@ class MetropolisHastings:
                                                                 program, 
                                                                 new_data
                                                             )
-        score = math.exp(-self.beta * n_errors)
+        score = math.exp(-self.beta * errors_rate)
         return score, n_errors, errors_rate, default
 
     def calculate_errors(self, program, new_data):
@@ -150,9 +186,7 @@ class MetropolisHastings:
         n_errors = 0
         default = 0
         for i in range(len(new_data)):
-            chosen_play, value = program.get_action(new_data[i][0])
-            if value == 1:
-                default += 1
+            chosen_play = program.get_action(new_data[i][0])
             if chosen_play != new_data[i][1]:
                 n_errors += 1
         errors_rate = n_errors / len(new_data)
@@ -229,9 +263,9 @@ class MetropolisHastings:
             if rounds > max_game_length:
                 is_over = True
             else:
-                _, is_over = game.is_finished()
+                who_won, is_over = game.is_finished()
 
-        return single_game_data
+        return single_game_data, who_won
 
 
 if __name__ == "__main__":
@@ -239,9 +273,7 @@ if __name__ == "__main__":
     player_2 = Vanilla_UCT(c = 1, n_simulations = 50)
     beta = 0.5
     n_games = 200
-    iterations = 1000
-    k = 1000
+    iterations = 10
+    k = 500
     MH = MetropolisHastings(beta, player_1, player_2, n_games, iterations, k)
-    for i in range(1):
-        program = MH.run()
-        print(program)
+    MH.multiple_runs()

@@ -27,10 +27,10 @@ class Script{0}(Player):
         self._if_string = r'''
             {0}:
                 self._counter_calls[{1}] += 1
-                return a, 0
+                return a
                     '''
         self._end_script = r'''
-        return actions[0], 1
+        return actions[0]
                     '''        
     
     def _generateTextScript(self):

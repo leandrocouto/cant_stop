@@ -164,7 +164,7 @@ class DSLTree:
         return locals()[class_name](*args, **kwargs)
 
     def generate_player(self, program):
-        script = Script([program], 0)
+        script = Script(program, 0)
         script_generated = self.string_to_object(script._generateTextScript())
         return script_generated
 
