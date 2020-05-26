@@ -113,7 +113,7 @@ class MetropolisHastings:
 
         # Main loop
         for i in range(self.n_iterations):
-            
+            start = time.time()
             # Make a copy of the tree for future mutation
             new_tree = pickle.loads(pickle.dumps(self.tree, -1))
 
@@ -139,6 +139,9 @@ class MetropolisHastings:
                 current_best_program = mutated_program
                 self.tree = new_tree
                 print('Iteration -', i, 'New program accepted - Score = ', score_mutated,'Error rate = ', errors_rate_mutated, 'n_errors = ', n_errors_mutated)
+                print('programa = ', current_best_program)
+            elapsed_time = time.time() - start
+            print('Iteration -', i, '- Elapsed time: ', elapsed_time)
         script_best_player = self.tree.generate_player([current_best_program])
         return current_best_program, script_best_player
 
@@ -273,7 +276,7 @@ if __name__ == "__main__":
     player_2 = Vanilla_UCT(c = 1, n_simulations = 50)
     beta = 0.5
     n_games = 200
-    iterations = 10
-    k = 500
+    iterations = 100
+    k = 1000
     MH = MetropolisHastings(beta, player_1, player_2, n_games, iterations, k)
     MH.multiple_runs()

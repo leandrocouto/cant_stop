@@ -56,7 +56,6 @@ class DSLTree:
             node.children.append(Node('OP', 'OP'))
         if node.state == 'BOOL':
             node.possible_values.append('B_0')
-            node.possible_values.append('B_1')
             node.children.append(Node('terminal_num', '',  True, 'SMALL'))
             node.children.append(Node('terminal_small', '', True, 'SMALL_NUM'))
         if node.state == 'OP':
@@ -94,7 +93,7 @@ class DSLTree:
                 elif node.state == 'BOOL':
                     # Force to finish BOOL
                     node.state = random.choice(self.dsl._grammar[node.state])
-                    # Force to finish ['B_0', 'B_1']
+                    # Force to finish ['B_0']
                     node.state = random.choice(self.dsl._grammar[node.state])
                     # Force to finish possibles ['NUMBER', 'SMALL_NUM']
                     symbols = node.state.split()

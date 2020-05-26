@@ -10,29 +10,30 @@ class DSL:
         
         self._grammar = {}
         self._grammar[self.start] = ['if BOOL OP S', '']
-        self._grammar['BOOL'] = ['B_0', 'B_1']
+        self._grammar['BOOL'] = ['B_0']
         self._grammar['OP'] = ['and BOOL OP', 'or BOOL OP', '']
         self._grammar['B_0'] = ['DSL.is_doubled_action(a)', 
                                 'DSL.action_wins_at_least_one_column(state,a)', 
                                 'DSL.has_won_column_current_round(state,a)', 
                                 'DSL.is_stop_action(a)',
-                                'DSL.is_action_a_column_border(a)'
-                                ]
-        self._grammar['B_1'] = [
+                                'DSL.is_action_a_column_border(a)',
                                 'DSL.is_column_in_action(a, COLS )',
-                                'DSL.number_cells_advanced_this_round(state, COLS ) > SMALL_NUM',
+                                'DSL.number_cells_advanced_this_round_for_col(state, COLS ) > SMALL_NUM',
                                 'DSL.number_positions_conquered(state, COLS ) > SMALL_NUM',
-                                'DSL.columns_won_by_opponent(state) > SMALL_NUM',
-                                'DSL.columns_won_by_player(state) > SMALL_NUM'
+                                'DSL.columns_won_by_opponent(state) == SMALL_NUM',
+                                'DSL.columns_won_by_player(state) == SMALL_NUM',
+                                'DSL.number_of_neutral_markers_remaining(state) == SMALL_NUM',
+                                'DSL.number_cells_advanced_this_round(state) > COLS'
                                 ]
         #self._grammar['COLS'] = ['2', '3', '4', '5', '6']
         self._grammar['COLS'] = ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
-        self._grammar['SMALL_NUM'] = ['0', '1', '2']
-        
-        self._reservedWords = ['if']
+        self._grammar['SMALL_NUM'] = ['0', '1', '2', '3']
 
-        self.rules = []
-
+    @staticmethod
+    def number_of_neutral_markers_remaining(state):
+        """ Return how many neutral markers the player has in their disposal."""
+        return 3 - state.n_neutral_markers
+    
     @staticmethod
     def is_action_a_column_border(action):
         """ 
@@ -83,24 +84,46 @@ class DSL:
         return len(state.player_won_column)
     
     @staticmethod
-    def number_cells_advanced_this_round(state, column):
+    def number_cells_advanced_this_round_for_col(state, column):
         """
         Return the number of positions advanced in this round for a given
         column by the player.
         """
         counter = 0
         previously_conquered = -1
+        neutral_position = -1
         list_of_cells = state.board_game.board[column]
-        
+
         for i in range(len(list_of_cells)):
             if state.player_turn in list_of_cells[i].markers:
                 previously_conquered = i
             if 0 in list_of_cells[i].markers:
-                counter = i - previously_conquered
-                
-        partial_completed_rows = [item[0] for item in state.player_won_column]
-        if column in partial_completed_rows:
-            counter += 1
+                neutral_position = i
+        if previously_conquered == -1 and neutral_position != -1:
+            counter += neutral_position + 1
+            for won_column in state.player_won_column:
+                if won_column[0] == column:
+                    counter += 1
+        elif previously_conquered != -1 and neutral_position != -1:
+            counter += neutral_position - previously_conquered
+            for won_column in state.player_won_column:
+                if won_column[0] == column:
+                    counter += 1
+        elif previously_conquered != -1 and neutral_position == -1:
+            for won_column in state.player_won_column:
+                if won_column[0] == column:
+                    counter += len(list_of_cells) - previously_conquered
+        return counter
+
+    @staticmethod
+    def number_cells_advanced_this_round(state):
+        """
+        Return the number of positions advanced in this round for current
+        player for all columns.
+        """
+        counter = 0
+        for column in range(state.column_range[0], state.column_range[1]+1):
+            counter += DSL.number_cells_advanced_this_round_for_col(state, column)
         return counter
     
     @staticmethod
@@ -120,6 +143,7 @@ class DSL:
 
     @staticmethod
     def has_won_column_current_round(state, action):
+        """ Check if player has won any column in the current round. """
         return len(state.player_won_column) > 0
 
     @staticmethod
