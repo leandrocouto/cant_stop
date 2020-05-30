@@ -6,10 +6,10 @@ class DSL:
     domain.
     """
     def __init__(self):
-        self.start = 'S'
+        self.start = 'ROOT'
         
         self._grammar = {}
-        self._grammar[self.start] = ['if BOOL OP S', '']
+        self._grammar[self.start] = ['if BOOL OP ROOT', '']
         self._grammar['BOOL'] = ['B_0']
         self._grammar['OP'] = ['and BOOL OP', 'or BOOL OP', '']
         self._grammar['B_0'] = ['DSL.is_doubled_action(a)', 
@@ -28,6 +28,10 @@ class DSL:
         #self._grammar['COLS'] = ['2', '3', '4', '5', '6']
         self._grammar['COLS'] = ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
         self._grammar['SMALL_NUM'] = ['0', '1', '2', '3']
+
+        self._reserved_words = ['if']
+        
+        self.rules = [] 
 
     @staticmethod
     def number_of_neutral_markers_remaining(state):

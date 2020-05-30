@@ -20,6 +20,7 @@ class Node:
         self.type_terminal = type_terminal
         self.parent = parent
         self.node_id = 0
+        self.is_children_expanded = False
 
 class DSLTree:
     """ Tree representing all transitions made based on the DSL provided. """
@@ -34,36 +35,79 @@ class DSLTree:
         self.max_nodes = 20
 
     def build_tree(self):
-        self._build_tree(self.root)
+        while self.node_id <= self.max_nodes:
+            self._build_tree(self.root)
+        self.print_tree(self.root, '  ')
+        exit()
         self._assign_nodes(self.root)
         
 
     def _build_tree(self, node):
-        node.node_id = self.node_id
-        self.node_id += 1
-        if self.node_id > self.max_nodes:
-            return
-        self._expand_children(node)
-        for child in node.children:
-            self._build_tree(child)
+        print('node escolhido = ', node.state)
+        if node.is_children_expanded:
+            if len(node.children) != 0:
+                child_to_expand = random.choice(node.children)
+                self._build_tree(child_to_expand)
+        else:
+            self._expand_children(node)
+            node.is_children_expanded = True
+            if len(node.children) != 0:
+    	        child_to_expand = random.choice(node.children)
+    	        self._build_tree(child_to_expand)
 
     def _expand_children(self, node):
-        if node.state == 'S':
-            node.children.append(Node('if_root', 'S'))
-        if node.state == 'if_root':
+        if node.state == 'ROOT':
+            node_root = Node('if_root', 'ROOT')
+            self.node_id += 1
+            node_root.node_id = self.node_id
+            node.children.append(node_root)
+
+        if node.state == 'if_root' or node.state == 'new_rule':
             node.possible_values.append('if BOOL OP')
-            node.children.append(Node('BOOL', 'BOOL'))
-            node.children.append(Node('OP', 'OP'))
+            node.possible_values.append('ROOT')
+
+            node_bool = Node('BOOL', 'BOOL')
+            self.node_id += 1
+            node_bool.node_id = self.node_id
+            node.children.append(node_bool)
+
+            node_op = Node('OP', 'OP')
+            self.node_id += 1
+            node_op.node_id = self.node_id
+            node.children.append(node_op)
+
+            node_newrule = Node('new_rule', 'if_root')
+            self.node_id += 1
+            node_newrule.node_id = self.node_id
+            node.children.append(node_newrule)
+
         if node.state == 'BOOL':
             node.possible_values.append('B_0')
-            node.children.append(Node('terminal_num', '',  True, 'SMALL'))
-            node.children.append(Node('terminal_small', '', True, 'SMALL_NUM'))
+
+            node_terminalnum = Node('terminal_num', '',  True, 'SMALL')
+            self.node_id += 1
+            node_terminalnum.node_id = self.node_id
+            node.children.append(node_terminalnum)
+
+            node_terminalsmall = Node('terminal_small', '', True, 'SMALL_NUM')
+            self.node_id += 1
+            node_terminalsmall.node_id = self.node_id
+            node.children.append(node_terminalsmall)
+
         if node.state == 'OP':
             node.possible_values.append('and BOOL OP')
             node.possible_values.append('or BOOL OP')
             node.possible_values.append('')
-            node.children.append(Node('BOOL', 'BOOL'))
-            node.children.append(Node('OP', 'OP'))
+
+            node_bool = Node('BOOL', 'BOOL')
+            self.node_id += 1
+            node_bool.node_id = self.node_id
+            node.children.append(node_bool)
+
+            node_op = Node('OP', 'OP')
+            self.node_id += 1
+            node_op.node_id = self.node_id
+            node.children.append(node_op)
 
     def _assign_nodes(self, node):
         """Assign to 'node' a value related to its type. """
@@ -179,4 +223,9 @@ class DSLTree:
         else:
             print(indentation, node.state, ', parent = ', node.parent, ', id = ', node.node_id)
         for child in node.children:
-            self.print_tree(child, 2*indentation)
+            self.print_tree(child, indentation + '    ')
+
+tree = DSLTree(Node('ROOT', ''), DSL())
+tree.build_tree()
+tree.print_tree(tree.root, '    ')
+print(tree.generate_random_program())
