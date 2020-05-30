@@ -32,14 +32,17 @@ class DSLTree:
         self.root = node
         self.dsl = dsl
         self.node_id = 0
-        self.max_nodes = 20
+        self.max_nodes = 30
 
     def build_tree(self):
         while self.node_id <= self.max_nodes:
             self._build_tree(self.root)
         self.print_tree(self.root, '  ')
-        exit()
+        #exit()
+        print()
         self._assign_nodes(self.root)
+        self.print_tree(self.root, '  ')
+        #exit()
         
 
     def _build_tree(self, node):
@@ -57,14 +60,8 @@ class DSLTree:
 
     def _expand_children(self, node):
         if node.state == 'ROOT':
-            node_root = Node('if_root', 'ROOT')
-            self.node_id += 1
-            node_root.node_id = self.node_id
-            node.children.append(node_root)
-
-        if node.state == 'if_root' or node.state == 'new_rule':
-            node.possible_values.append('if BOOL OP')
-            node.possible_values.append('ROOT')
+            node.possible_values.append('if BOOL OP ROOT')
+            node.possible_values.append('')
 
             node_bool = Node('BOOL', 'BOOL')
             self.node_id += 1
@@ -76,7 +73,7 @@ class DSLTree:
             node_op.node_id = self.node_id
             node.children.append(node_op)
 
-            node_newrule = Node('new_rule', 'if_root')
+            node_newrule = Node('ROOT', 'ROOT')
             self.node_id += 1
             node_newrule.node_id = self.node_id
             node.children.append(node_newrule)
@@ -111,6 +108,7 @@ class DSLTree:
 
     def _assign_nodes(self, node):
         """Assign to 'node' a value related to its type. """
+
         if node.is_terminal:
             if node.state == 'terminal_num':
                 node.state = random.choice(self.dsl._grammar['COLS'])
@@ -119,7 +117,10 @@ class DSLTree:
                 node.state = random.choice(self.dsl._grammar['SMALL_NUM'])
                 node.parent = 'SMALL_NUM'
         else:
-            if  len(node.possible_values) != 0:
+            # Force the program to have at least one rule
+            if node.node_id == 0:
+                node.state = 'if BOOL OP ROOT'
+            elif len(node.possible_values) != 0:
                 node.state = random.choice(node.possible_values)
                 if node.state in self.dsl._grammar:
                     node.state = random.choice(self.dsl._grammar[node.state])
@@ -148,18 +149,24 @@ class DSLTree:
                                     random.choice(self.dsl._grammar[symbol]), 
                                     1
                                     )
+                elif node.state == 'ROOT':
+                    node.state = ''
             for child in node.children:
                 self._assign_nodes(child)
 
     def generate_random_program(self):
         list_of_nodes = []
         self._get_traversal_list_of_nodes(self.root, list_of_nodes)
-        program = list_of_nodes[0][0].state
+        program = self.root.state
         for i in range(len(list_of_nodes) -1):
             program = program.replace(
                 list_of_nodes[i+1][0].parent, list_of_nodes[i+1][0].state, 1
                                     )
-        return program
+        rules = program.split('if')
+        if rules[0] == '':
+            del rules[0]
+        rules = ['if'+ rule for rule in rules]
+        return rules
 
     def _get_traversal_list_of_nodes(self, node, list_of_nodes):
         # In case node should have children nodes but does not.
@@ -227,5 +234,4 @@ class DSLTree:
 
 tree = DSLTree(Node('ROOT', ''), DSL())
 tree.build_tree()
-tree.print_tree(tree.root, '    ')
 print(tree.generate_random_program())
