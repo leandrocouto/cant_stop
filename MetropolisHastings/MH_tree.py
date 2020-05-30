@@ -37,16 +37,10 @@ class DSLTree:
     def build_tree(self):
         while self.node_id <= self.max_nodes:
             self._build_tree(self.root)
-        self.print_tree(self.root, '  ')
-        #exit()
-        print()
         self._assign_nodes(self.root)
-        self.print_tree(self.root, '  ')
-        #exit()
         
 
     def _build_tree(self, node):
-        print('node escolhido = ', node.state)
         if node.is_children_expanded:
             if len(node.children) != 0:
                 child_to_expand = random.choice(node.children)
@@ -158,6 +152,7 @@ class DSLTree:
         list_of_nodes = []
         self._get_traversal_list_of_nodes(self.root, list_of_nodes)
         program = self.root.state
+        #print('program gen = ', program)
         for i in range(len(list_of_nodes) -1):
             program = program.replace(
                 list_of_nodes[i+1][0].parent, list_of_nodes[i+1][0].state, 1
@@ -187,22 +182,50 @@ class DSLTree:
         tree_size = self.get_tree_size(self.root)
         valid_mutation = False
         while not valid_mutation:
-            index_node = random.randint(2, tree_size - 2)
+            index_node = random.randint(1, tree_size - 1)
             self._mutate_node(self.root, index_node)
             mutated_program = self.generate_random_program()
-            if mutated_program != program:
+            if len(mutated_program) != len(program):
                 valid_mutation = True
+            else:
+                for i in range(len(mutated_program)):
+                    if mutated_program[i] != program[i]:
+                        valid_mutation = True
+                        break
         return mutated_program
 
     def _mutate_node(self, node, index):
+        #print('node inicio mutacao = ', node.state)
+        #print('node parent = ', node.parent)
         if node.node_id == index:
+            #print('node to be mutated = ', node.state, 'parent = ', node.parent)
             new_value = random.choice(self.dsl._grammar[node.parent])
-            
+            #print('new value antes = ', new_value)
 
-            if new_value in self.dsl._grammar:
-                new_value = random.choice(self.dsl._grammar[new_value])
+            is_incomplete = False
+            symbols = new_value.split()
+            for symbol in symbols:
+                if symbol in self.dsl._grammar:
+                    is_incomplete = True
 
+            while is_incomplete:
+                symbols = new_value.split()
+                for symbol in symbols:
+                    if symbol in self.dsl._grammar:
+                        #print('symbol = ', symbol)
+                        new_value = new_value.replace(
+                                        symbol, 
+                                        random.choice(self.dsl._grammar[symbol]), 
+                                        1
+                                        )
+                is_incomplete = False
+                symbols = new_value.split()
+                for symbol in symbols:
+                    if symbol in self.dsl._grammar:
+                        is_incomplete = True
+            #print('new value dps = ', new_value)
             node.state = new_value
+            #print('node already mutated = ', node.state, 'parent = ', node.parent)
             return
         for child in node.children:
             self._mutate_node(child, index)
@@ -232,6 +255,23 @@ class DSLTree:
         for child in node.children:
             self.print_tree(child, indentation + '    ')
 
+'''
 tree = DSLTree(Node('ROOT', ''), DSL())
 tree.build_tree()
-print(tree.generate_random_program())
+
+tree.print_tree(tree.root, '  ')
+print()
+program = tree.generate_random_program()
+mutated_program = tree.generate_mutated_program(program)
+print('len program = ', len(program))
+print('len mutated = ', len(mutated_program))
+print('program = ', program)
+print('mutated = ', mutated_program)
+print()
+tree.print_tree(tree.root, '  ')
+
+import os
+dir_path = os.path.dirname(os.path.realpath(__file__))
+script = Script(mutated_program, 0)
+script.saveFile(dir_path + '/')
+'''

@@ -26,7 +26,7 @@ class MetropolisHastings:
         - n_iterations is the number of iteration in the main MH loop.
         - k is the number of samples from dataset to be evaluated.
         """
-        self.tree = DSLTree(Node('S', ''), DSL())
+        self.tree = DSLTree(Node('ROOT', ''), DSL())
         self.beta = beta
         self.data = []
         self.player_1 = player_1
@@ -52,8 +52,10 @@ class MetropolisHastings:
         self.dice_number = 4
         self.dice_value = 6 
         self.max_game_length = 500
-    
-    def multiple_runs(self):
+
+    def run(self):
+        """ Main routine of the MH algorithm. """
+
         # Check if there's already data available. If not, generate it.
         if not os.path.isfile('dataset'):
             self.generate_oracle_data()
@@ -64,50 +66,9 @@ class MetropolisHastings:
                     self.data.append(pickle.load(f))
                 except EOFError:
                     break
-
+        # Sample k data instances to be used in the evaluation
         initial_data = self.sample_from_data(self.k)
-        rules = []
-        for i in range(5):
-            print('Iteração i = ', i)
-            print('len initial data = ', len(initial_data))
-            program, script = self.single_run(initial_data)
-            print('best program = ', program)
-            # Set of indexes to be deleted
-            correct_guesses = set()
-            # Check which inputs the generated program got it right
-            for j in range(len(initial_data)):
-                chosen_play = script.get_action(initial_data[j][0])
-                if chosen_play == initial_data[j][1]:
-                    correct_guesses.add(j)
-            # Now delete them and repeat the process in order to find a new
-            # program that "solves" the remaining instances
-            initial_data = [
-                            v 
-                            for i, v in enumerate(initial_data) 
-                            if i not in correct_guesses
-                            ] 
-            rules.append(program)
 
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-        script = Script(rules, 0)
-        script.saveFile(dir_path + '/')
-        my_player = self.tree.generate_player(rules)
-        print('my player = ', my_player)
-        for i in range(10):
-            game = Game(self.n_players, self.dice_number, self.dice_value, 
-                        self.column_range, self.offset, self.initial_height
-                        )
-            _, who_won = self.simplified_play_single_game(
-                                                        my_player, 
-                                                        self.player_2, 
-                                                        game, 
-                                                        self.max_game_length
-                                                        )
-            print('game ', i, 'who won = ', who_won)
-            print(my_player.get_counter_calls())
-
-    def single_run(self, initial_data):
-        """ Main routine of the MH algorithm. """
         self.tree.build_tree()
         current_best_program = self.tree.generate_random_program()
 
@@ -121,9 +82,12 @@ class MetropolisHastings:
                                                         current_best_program
                                                         )
             
-            script_best_player = self.tree.generate_player([current_best_program])
-            script_mutated_player = new_tree.generate_player([mutated_program])
+            script_best_player = self.tree.generate_player(current_best_program)
+            script_mutated_player = new_tree.generate_player(mutated_program)
 
+            #print('current_best_program = ', current_best_program)
+            #print('mutated_program = ', mutated_program)
+            #print()
             score_best, n_errors_best, errors_rate_best, default = \
                         self.calculate_score_function(
                                                         script_best_player, 
@@ -142,7 +106,11 @@ class MetropolisHastings:
                 print('programa = ', current_best_program)
             elapsed_time = time.time() - start
             print('Iteration -', i, '- Elapsed time: ', elapsed_time)
-        script_best_player = self.tree.generate_player([current_best_program])
+        script_best_player = self.tree.generate_player(current_best_program)
+
+        dir_path = os.path.dirname(os.path.realpath(__file__))
+        script = Script(current_best_program, 0)
+        script.saveFile(dir_path + '/')
         return current_best_program, script_best_player
 
     def generate_oracle_data(self):
@@ -279,4 +247,4 @@ if __name__ == "__main__":
     iterations = 100
     k = 1000
     MH = MetropolisHastings(beta, player_1, player_2, n_games, iterations, k)
-    MH.multiple_runs()
+    MH.run()
