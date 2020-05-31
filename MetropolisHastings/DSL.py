@@ -11,7 +11,7 @@ class DSL:
         self._grammar = {}
         self._grammar[self.start] = ['if BOOL OP ROOT', '']
         self._grammar['BOOL'] = ['B_0']
-        self._grammar['OP'] = ['and BOOL OP', 'or BOOL OP', '']
+        self._grammar['OP'] = ['and BOOL OP', '']#'or BOOL OP', '']
         self._grammar['B_0'] = ['DSL.is_doubled_action(a)', 
                                 'DSL.action_wins_at_least_one_column(state,a)', 
                                 'DSL.has_won_column_current_round(state,a)', 
@@ -23,15 +23,86 @@ class DSL:
                                 'DSL.columns_won_by_opponent(state) == SMALL_NUM',
                                 'DSL.columns_won_by_player(state) == SMALL_NUM',
                                 'DSL.number_of_neutral_markers_remaining(state) == SMALL_NUM',
-                                'DSL.number_cells_advanced_this_round(state) > COLS'
+                                'DSL.number_cells_advanced_this_round(state) > COLS',
+                                'DSL.get_player_score(state) > SCORE',
+                                'DSL.get_opponent_score(state) > SCORE'
                                 ]
         #self._grammar['COLS'] = ['2', '3', '4', '5', '6']
+        self._grammar['SCORE'] = ['5', '10', '15', '20', '30', '40', '50', '60', '70']
         self._grammar['COLS'] = ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
         self._grammar['SMALL_NUM'] = ['0', '1', '2', '3']
 
         self._reserved_words = ['if']
         
         self.rules = [] 
+
+    @staticmethod
+    def get_player_score(state):
+        """ A score is the number of cells advanced in all columns. """
+
+        counter = 0
+        player = state.player_turn
+        won = []
+        # First look for columns already won and sum it accordingly
+        for won_column in state.finished_columns:
+            won.append(won_column[0])
+            if won_column[1] == player:
+                counter += len(state.board_game.board[won_column[0]]) + 1
+        # Now sum for the remaining columns
+        for column in range(state.column_range[0], state.column_range[1]+1):
+            # Ignore columns alread won, they are already counted above
+            if column in won:
+                continue
+            previously_conquered = -1
+            neutral_position = -1
+            list_of_cells = state.board_game.board[column]
+
+            for i in range(len(list_of_cells)):
+                if player in list_of_cells[i].markers:
+                    previously_conquered = i
+                if 0 in list_of_cells[i].markers:
+                    neutral_position = i
+            if neutral_position != -1:
+                counter += neutral_position + 1
+                for won_column in state.player_won_column:
+                    if won_column[0] == column:
+                        counter += 1
+            elif previously_conquered != -1 and neutral_position == -1:
+                counter += previously_conquered + 1
+                for won_column in state.player_won_column:
+                    if won_column[0] == column:
+                        counter += len(list_of_cells) - previously_conquered
+        return counter
+
+    @staticmethod
+    def get_opponent_score(state):
+        """ A score is the number of cells advanced in all columns. """
+
+        counter = 0
+        if state.player_turn == 1:
+            player = 2
+        else:
+            player = 1
+        won = []
+        # First look for columns already won and sum it accordingly
+        for won_column in state.finished_columns:
+            won.append(won_column[0])
+            if won_column[1] == player:
+                counter += len(state.board_game.board[won_column[0]]) + 1
+        # Now sum for the remaining columns
+        for column in range(state.column_range[0], state.column_range[1]+1):
+            # Ignore columns alread won, they are already counted above
+            if column in won:
+                continue
+            previously_conquered = -1
+            list_of_cells = state.board_game.board[column]
+
+            for i in range(len(list_of_cells)):
+                if player in list_of_cells[i].markers:
+                    previously_conquered = i
+            if previously_conquered != -1:
+                counter += previously_conquered + 1
+        return counter
 
     @staticmethod
     def number_of_neutral_markers_remaining(state):

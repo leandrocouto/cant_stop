@@ -85,6 +85,11 @@ class DSLTree:
             node_terminalsmall.node_id = self.node_id
             node.children.append(node_terminalsmall)
 
+            node_terminalscore = Node('terminal_score', '', True, 'SCORE')
+            self.node_id += 1
+            node_terminalscore.node_id = self.node_id
+            node.children.append(node_terminalscore)
+
         if node.state == 'OP':
             node.possible_values.append('and BOOL OP')
             node.possible_values.append('or BOOL OP')
@@ -110,6 +115,9 @@ class DSLTree:
             elif node.state == 'terminal_small':
                 node.state = random.choice(self.dsl._grammar['SMALL_NUM'])
                 node.parent = 'SMALL_NUM'
+            elif node.state == 'terminal_score':
+                node.state = random.choice(self.dsl._grammar['SCORE'])
+                node.parent = 'SCORE'
         else:
             # Force the program to have at least one rule
             if node.node_id == 0:
@@ -134,7 +142,7 @@ class DSLTree:
                     node.state = random.choice(self.dsl._grammar[node.state])
                     # Force to finish ['B_0']
                     node.state = random.choice(self.dsl._grammar[node.state])
-                    # Force to finish possibles ['NUMBER', 'SMALL_NUM']
+                    # Force to finish possibles ['NUMBER', 'SMALL_NUM', 'SCORE']
                     symbols = node.state.split()
                     for symbol in symbols:
                         if symbol in self.dsl._grammar:
@@ -223,9 +231,7 @@ class DSLTree:
                 for symbol in symbols:
                     if symbol in self.dsl._grammar:
                         is_incomplete = True
-            #print('new value dps = ', new_value)
             node.state = new_value
-            #print('node already mutated = ', node.state, 'parent = ', node.parent)
             return
         for child in node.children:
             self._mutate_node(child, index)
