@@ -1,23 +1,37 @@
-import copy
-
 class DSL:
     """
     Implementation of a Domain Specific Language (DSL) for the Can't Stop
     domain.
     """
-    def __init__(self):
-        self.start = 'ROOT'
+    def __init__(self, start):
+        self.start = start
         
         self._grammar = {}
-        self._grammar[self.start] = ['if BOOL OP ROOT', '']
-        self._grammar['BOOL'] = ['B_0']
-        self._grammar['OP'] = ['and BOOL OP', '']#'or BOOL OP', '']
-        self._grammar['B_0'] = ['DSL.is_doubled_action(a)', 
-                                'DSL.action_wins_at_least_one_column(state,a)', 
-                                'DSL.has_won_column_current_round(state,a)', 
+        self._grammar[self.start] = [r"for a in actions : \n \t if a in ['y','n'] : \n \t \t forced_condition_if \n \t else : \n \t \t forced_condition_else"]
+        self._grammar['forced_condition_if']   = [r"if BOOL_0 : \n \t \t \t return a \n \t \t condition_string"]
+        self._grammar['forced_condition_else'] = [r"if BOOL_1 : \n \t \t \t return a \n \t \t condition_numeric"]
+        self._grammar['condition_string'] = [r"if BOOL_0 : \n \t \t \t return a \n \t \t condition_string", ""]
+        self._grammar['condition_numeric'] = [r"if BOOL_1 : \n \t \t \t return a \n \t \t condition_numeric", ""]
+        self._grammar['BOOL_0'] = ["B_0", "B_0 and BOOL_0", "B_0 or BOOL_0"]
+        self._grammar['BOOL_1'] = ["B_1", "B_1 and BOOL_1", "B_1 or BOOL_1"]
+        self._grammar['B_0'] = [# Strictly "string" actions
                                 'DSL.is_stop_action(a)',
-                                'DSL.is_action_a_column_border(a)',
+                                # All types of actions
+                                'DSL.get_player_score(state) > SCORE',
+                                'DSL.get_opponent_score(state) > SCORE',
+                                'DSL.number_of_neutral_markers_remaining(state) == SMALL_NUM',
+                                'DSL.number_cells_advanced_this_round(state) > COLS',
+                                'DSL.columns_won_by_opponent(state) == SMALL_NUM',
+                                'DSL.columns_won_by_player(state) == SMALL_NUM',
+                                'DSL.has_won_column_current_round(state)'
+                                ]
+        self._grammar['B_1'] = [# Strictly "numeric" actions
+                                'DSL.is_doubled_action(a)', 
+                                'DSL.is_action_a_column_border(a)', 
+                                'DSL.has_won_column_current_round(state)', 
                                 'DSL.is_column_in_action(a, COLS )',
+                                'DSL.action_wins_at_least_one_column(state,a)',
+                                # All types of actions
                                 'DSL.number_cells_advanced_this_round_for_col(state, COLS ) > SMALL_NUM',
                                 'DSL.number_positions_conquered(state, COLS ) > SMALL_NUM',
                                 'DSL.columns_won_by_opponent(state) == SMALL_NUM',
@@ -27,14 +41,9 @@ class DSL:
                                 'DSL.get_player_score(state) > SCORE',
                                 'DSL.get_opponent_score(state) > SCORE'
                                 ]
-        #self._grammar['COLS'] = ['2', '3', '4', '5', '6']
         self._grammar['SCORE'] = ['5', '10', '15', '20', '30', '40', '50', '60', '70']
         self._grammar['COLS'] = ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
         self._grammar['SMALL_NUM'] = ['0', '1', '2', '3']
-
-        self._reserved_words = ['if']
-        
-        self.rules = [] 
 
     @staticmethod
     def get_player_score(state):
@@ -217,7 +226,7 @@ class DSL:
         return previously_conquered
 
     @staticmethod
-    def has_won_column_current_round(state, action):
+    def has_won_column_current_round(state):
         """ Check if player has won any column in the current round. """
         return len(state.player_won_column) > 0
 
