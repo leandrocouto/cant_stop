@@ -5,6 +5,8 @@
 
 #sys.path.insert(0,'..')
 import random
+import codecs
+
 class DSL:
     """
     Implementation of a Domain Specific Language (DSL) for the Can't Stop
@@ -14,13 +16,13 @@ class DSL:
         self.start = start
         
         self._grammar = {}
-        self._grammar[self.start] = [r"for a in actions : \n \t if a in ['y','n'] : \n \t \t forced_condition_0 \n \t else : \n \t \t forced_condition_1"]
-        self._grammar['forced_condition_0'] = [r"if BOOL_0 : \n \t \t \t return a \n \t \t condition_0"]
-        self._grammar['forced_condition_1'] = [r"if BOOL_1 : \n \t \t \t return a \n \t \t condition_1"]
-        self._grammar['condition_0'] = [r"if BOOL_0 : \n \t \t \t return a \n \t \t condition_0", ""]
-        self._grammar['condition_1'] = [r"if BOOL_1 : \n \t \t \t return a \n \t \t condition_1", ""]
-        self._grammar['BOOL_0'] = ["B_0", "B_0 AND BOOL_0", "B_0 OR BOOL_0"]
-        self._grammar['BOOL_1'] = ["B_1", "B_1 AND BOOL_1", "B_1 OR BOOL_1"]
+        self._grammar[self.start] = [r"for a in actions : \n \t if a in ['y','n'] : \n \t \t forced_condition_if \n \t else : \n \t \t forced_condition_else"]
+        self._grammar['forced_condition_if']   = [r"if BOOL_0 : \n \t \t \t return a \n \t \t condition_string"]
+        self._grammar['forced_condition_else'] = [r"if BOOL_1 : \n \t \t \t return a \n \t \t condition_numeric"]
+        self._grammar['condition_string'] = [r"if BOOL_0 : \n \t \t \t return a \n \t \t condition_string", ""]
+        self._grammar['condition_numeric'] = [r"if BOOL_1 : \n \t \t \t return a \n \t \t condition_numeric", ""]
+        self._grammar['BOOL_0'] = ["B_0", "B_0 and BOOL_0", "B_0 or BOOL_0"]
+        self._grammar['BOOL_1'] = ["B_1", "B_1 and BOOL_1", "B_1 or BOOL_1"]
         self._grammar['B_0'] = [# Strictly "string" actions
                                 'DSL.is_stop_action(a)',
                                 # All types of actions
@@ -86,6 +88,22 @@ class ParseTree:
             child_node = Node(node_id = node_id, value = child, is_terminal = is_terminal, parent = parent_node.value)
             parent_node.children.append(child_node)
 
+    def _finish_tree(self, start_node):
+        tokens = self._tokenize_dsl_entry(start_node.value)
+        is_node_finished = True
+        for token in tokens:
+            #if token in ['BOOL_0', 'BOOL_1', 'forced_condition_else'] and len(start_node.children) == 0:
+            if token in ['B_0', 'B_1', 'SCORE', 'COLS', 'SMALL_NUM','BOOL_0', 'BOOL_1', 'forced_condition_else'] and len(start_node.children) == 0:
+            #if token not in ['condition_string', 'condition_numeric'] and len(start_node.children) == 0:
+                is_node_finished = False
+                break
+        if not is_node_finished:
+            print('este nó não foi finalizado')
+            print('node value = ', start_node.value, 'id = ', start_node.node_id, 'parent = ', start_node.parent)
+            self._expand_children(start_node, self.dsl._grammar[start_node.value])
+        for child_node in start_node.children:
+            self._finish_tree(child_node)
+        #pass
     def _is_terminal(self, dsl_entry):
         tokens = self._tokenize_dsl_entry(dsl_entry)
         for token in tokens:
@@ -96,39 +114,13 @@ class ParseTree:
     def generate_program(self):
         list_of_nodes = []
         self._get_traversal_list_of_nodes(self.root, list_of_nodes)
-        print('list of nodes\n')
-        for node in list_of_nodes:
-            print(node[0].value, node[1])
         whole_program = ''
         for node in list_of_nodes:
             whole_program += ' ' + node[0].value
-        print('whole program')
-        print(whole_program)
-
-        print('teste')
-        import codecs
         whole_program = codecs.decode(whole_program, 'unicode_escape')
-        print(whole_program)
-        exit()
-        program = self.dsl.start
-        for i in range(len(list_of_nodes) -1):
-            program = program.replace(
-                list_of_nodes[i+1][0].parent, list_of_nodes[i+1][0].value, 1
-                                    )
-        print('program')
-        print(program)
+        return whole_program
 
     def _get_traversal_list_of_nodes(self, node, list_of_nodes):
-        # In case node should have children nodes but does not.
-        if len(node.children) == 0 and not node.is_terminal:
-            symbols = node.value.split()
-            for symbol in symbols:
-                if symbol in self.dsl._grammar:
-                    node.value = node.value.replace(
-                                    symbol, 
-                                    random.choice(self.dsl._grammar[symbol]), 
-                                    1
-                                    )
         for child in node.children:
             # Only the values from terminal nodes are relevant for the program
             # synthesis (using a parse tree)
@@ -138,9 +130,9 @@ class ParseTree:
 
     def print_tree(self, node, indentation):
         if indentation == '  ':
-            print(node.value, ', id = ', node.node_id, 'node parent = ', node.parent)
+            print(node.value, ', id = ', node.node_id, ', node parent = ', node.parent)
         else:
-            print(indentation, node.value, ', id = ', node.node_id, 'node parent = ', node.parent)
+            print(indentation, node.value, ', id = ', node.node_id, ', node parent = ', node.parent)
         for child in node.children:
             self.print_tree(child, indentation + '    ')
 
@@ -152,4 +144,16 @@ tree = ParseTree(dsl, 100)
 tree.build_tree(tree.root)
 tree.print_tree(tree.root, '  ')
 print()
-tree.generate_program()
+program = tree.generate_program()
+print('program\n')
+print(program)
+
+
+tree._finish_tree(tree.root)
+
+print('programa depois de finalizar a arvore')
+print()
+tree.print_tree(tree.root, '  ')
+print()
+program = tree.generate_program()
+print(program)
