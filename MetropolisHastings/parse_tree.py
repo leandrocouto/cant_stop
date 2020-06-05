@@ -7,6 +7,9 @@
 import random
 import codecs
 
+
+
+
 class DSL:
     """
     Implementation of a Domain Specific Language (DSL) for the Can't Stop
@@ -71,12 +74,19 @@ class ParseTree:
 
     def build_tree(self, start_node):
         if self.current_id > self.max_nodes:
+            self._finish_tree(self.root)
             return
         else:
             self._expand_children(start_node, self.dsl._grammar[start_node.value])
             for child_node in start_node.children:
                 if not child_node.is_terminal:
                     self.build_tree(child_node)
+
+    def _update_nodes_ids(self, node):
+        node.node_id = self.current_id
+        self.current_id += 1
+        for child_node in node.children:
+            self._update_nodes_ids(child_node)
 
     def _expand_children(self, parent_node, dsl_entry):
         dsl_children_chosen = random.choice(dsl_entry)
@@ -91,19 +101,20 @@ class ParseTree:
     def _finish_tree(self, start_node):
         tokens = self._tokenize_dsl_entry(start_node.value)
         is_node_finished = True
+        finishable_nodes = [
+                            'B_0', 'B_1', 'SCORE', 'COLS', 'SMALL_NUM',
+                            'BOOL_0', 'BOOL_1', 'forced_condition_if', 
+                            'forced_condition_else'
+                            ]
         for token in tokens:
-            #if token in ['BOOL_0', 'BOOL_1', 'forced_condition_else'] and len(start_node.children) == 0:
-            if token in ['B_0', 'B_1', 'SCORE', 'COLS', 'SMALL_NUM','BOOL_0', 'BOOL_1', 'forced_condition_else'] and len(start_node.children) == 0:
-            #if token not in ['condition_string', 'condition_numeric'] and len(start_node.children) == 0:
+            if token in finishable_nodes and len(start_node.children) == 0:
                 is_node_finished = False
                 break
         if not is_node_finished:
-            print('este nó não foi finalizado')
-            print('node value = ', start_node.value, 'id = ', start_node.node_id, 'parent = ', start_node.parent)
             self._expand_children(start_node, self.dsl._grammar[start_node.value])
         for child_node in start_node.children:
             self._finish_tree(child_node)
-        #pass
+
     def _is_terminal(self, dsl_entry):
         tokens = self._tokenize_dsl_entry(dsl_entry)
         for token in tokens:
@@ -117,6 +128,7 @@ class ParseTree:
         whole_program = ''
         for node in list_of_nodes:
             whole_program += ' ' + node[0].value
+        # Transform '\n' and '\t' into actual new lines and tabs
         whole_program = codecs.decode(whole_program, 'unicode_escape')
         return whole_program
 
@@ -139,21 +151,58 @@ class ParseTree:
     def _tokenize_dsl_entry(self, dsl_entry):
         return dsl_entry.split()
 
+    def mutate_tree(self):
+        while True:
+            index_node = random.randint(1, self.current_id - 1)
+            print('index = ', index_node)
+            node_to_mutate = self.find_and_mutate(self.root, index_node)
+            if node_to_mutate == None:
+                self.print_tree(self.root, '  ')
+                raise Exception('Node randomly selected does not exist.' + \
+                            ' Index sampled = ', index_node + \
+                            ' Tree is printed above.'
+                            )
+            if not node_to_mutate.is_terminal:
+                break
+        # delete its children and mutate it with new values
+        node_to_mutate.children = []
+        self.build_tree(node_to_mutate)
+        self._finish_tree(self.root)
+        self.current_id = 0
+        self._update_nodes_ids(self.root)
+
+    def find_and_mutate(self, node, index):
+        if node.node_id == index:
+            return node
+        else:
+            for child_node in node.children:
+                found_node = self.find_and_mutate(child_node, index)
+                if found_node:
+                    return found_node
+        return None
+
+'''
 dsl = DSL('S')
 tree = ParseTree(dsl, 100)
 tree.build_tree(tree.root)
-tree.print_tree(tree.root, '  ')
-print()
-program = tree.generate_program()
-print('program\n')
-print(program)
-
-
-tree._finish_tree(tree.root)
-
-print('programa depois de finalizar a arvore')
 print()
 tree.print_tree(tree.root, '  ')
 print()
 program = tree.generate_program()
+print('program inicial\n')
 print(program)
+tree.print_tree(tree.root, '  ')
+program = tree.generate_program()
+print(program)
+tree.mutate_tree()
+print()
+print('arvore dps de mutar')
+print()
+tree.print_tree(tree.root, '  ')
+print()
+program = tree.generate_program()
+print('program dps de  mutar\n')
+print(program)
+#program = tree.generate_program()
+#print(program)
+'''
