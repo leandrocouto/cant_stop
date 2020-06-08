@@ -17,12 +17,14 @@ class Node:
 
 class ParseTree:
     """ Parse Tree implementation given the self.dsl given. """
+    
     def __init__(self, dsl, max_nodes):
         """
         - dsl is the domain specific language used to create this parse tree.
         - max_nodes is a relaxed max number of nodes this tree can hold.
         - current_id is an auxiliary field used for id'ing the nodes. 
         """
+
         self.dsl = dsl
         self.root = Node(
                         node_id = 0, 
@@ -35,6 +37,7 @@ class ParseTree:
 
     def build_tree(self, start_node):
         """ Build the parse tree according to the self.dsl rules. """
+
         if self.current_id > self.max_nodes:
             self._finish_tree(self.root)
             return
@@ -53,6 +56,7 @@ class ParseTree:
         this implementation we choose randomly which child is chosen for a 
         given node.
         """
+
         dsl_children_chosen = random.choice(dsl_entry)
         children = self._tokenize_dsl_entry(dsl_children_chosen)
         for child in children:
@@ -72,6 +76,7 @@ class ParseTree:
         Finish expanding nodes that possibly didn't finish fully expanding.
         This can happen if the max number of tree nodes is reached.
         """
+
         tokens = self._tokenize_dsl_entry(start_node.value)
         is_node_finished = True
         finishable_nodes = [
@@ -96,6 +101,7 @@ class ParseTree:
         Check if the DSL entry is a terminal one. That is, check if the entry
         has no way of expanding.
         """
+
         tokens = self._tokenize_dsl_entry(dsl_entry)
         for token in tokens:
             if token in self.dsl._grammar:
@@ -104,10 +110,12 @@ class ParseTree:
 
     def _tokenize_dsl_entry(self, dsl_entry):
         """ Return the DSL value by spaces to generate the children. """
+
         return dsl_entry.split()
 
     def generate_program(self):
         """ Return a program given by the tree in a string format. """
+
         list_of_nodes = []
         self._get_traversal_list_of_nodes(self.root, list_of_nodes)
         whole_program = ''
@@ -115,6 +123,11 @@ class ParseTree:
             whole_program += ' ' + node[0].value
         # Transform '\n' and '\t' into actual new lines and tabs
         whole_program = codecs.decode(whole_program, 'unicode_escape')
+        # Remove whitespaces before the "for" to not cause indentation error
+        whole_program = ''.join(whole_program.split(' ', 1))
+        whole_program = ''.join(whole_program.split(' ', 1))
+        whole_program = ''.join(whole_program.split(' ', 1))
+
         return whole_program
 
     def _get_traversal_list_of_nodes(self, node, list_of_nodes):
@@ -122,6 +135,7 @@ class ParseTree:
         Add to list_of_nodes the program given by the tree when traversing
         the tree in a preorder manner.
         """
+
         for child in node.children:
             # Only the values from terminal nodes are relevant for the program
             # synthesis (using a parse tree)
@@ -131,9 +145,9 @@ class ParseTree:
 
     def mutate_tree(self):
         """ Mutate a single node of the tree. """
+
         while True:
             index_node = random.randint(1, self.current_id - 1)
-            print('index = ', index_node)
             node_to_mutate = self.find_node(self.root, index_node)
             if node_to_mutate == None:
                 self.print_tree(self.root, '  ')
@@ -161,6 +175,7 @@ class ParseTree:
 
     def find_node(self, node, index):
         """ Return the tree node with the corresponding id. """
+
         if node.node_id == index:
             return node
         else:
@@ -172,18 +187,21 @@ class ParseTree:
 
     def _update_nodes_ids(self, node):
         """ Update all tree nodes' ids. Used after a tree mutation. """
+
         node.node_id = self.current_id
         self.current_id += 1
         for child_node in node.children:
             self._update_nodes_ids(child_node)
 
-    def generate_player(self, program):
+    def generate_player(self, program, k, n_iterations):
         """ Generate a Player object given the program string. """
-        script = Script(program, 0)
+
+        script = Script(program, k, n_iterations)
         return self._string_to_object(script._generateTextScript())
 
     def _string_to_object(self, str_class, *args, **kwargs):
         """ Transform a program written inside str_class to an object. """
+
         exec(str_class)
         class_name = re.search("class (.*):", str_class).group(1).partition("(")[0]
         return locals()[class_name](*args, **kwargs)

@@ -7,16 +7,19 @@ from play_game_template import play_single_game
 from players.vanilla_uct_player import Vanilla_UCT
 from players.uct_player import UCTPlayer
 from players.random_player import RandomPlayer
-from MetropolisHastings.MH_tree import DSL, DSLTree, Node
+from MetropolisHastings.parse_tree import ParseTree, Node
+from MetropolisHastings.DSL import DSL
 from Script import Script
 import time
 import pickle
 import os.path
 from random import sample
 import numpy as np
+import matplotlib.pyplot as plt
 
 class MetropolisHastings:
-    def __init__(self, beta, player_1, player_2, n_games, n_iterations, k):
+    def __init__(self, beta, player_1, player_2, n_games, n_iterations, k,
+    	tree_max_nodes):
         """
         - beta is a constant used in the MH score function.
         - data is a list of game state and action gotten from the oracle.
@@ -25,8 +28,8 @@ class MetropolisHastings:
         - n_games is the number of games to be generated between the players.
         - n_iterations is the number of iteration in the main MH loop.
         - k is the number of samples from dataset to be evaluated.
+        - tree is a parse tree implementation.
         """
-        self.tree = DSLTree(Node('ROOT', ''), DSL())
         self.beta = beta
         self.data = []
         self.player_1 = player_1
@@ -34,6 +37,10 @@ class MetropolisHastings:
         self.n_games = n_games
         self.n_iterations = n_iterations
         self.k = k
+        self.tree_max_nodes = tree_max_nodes
+        self.tree = ParseTree(DSL('S'), self.tree_max_nodes)
+        self.all_results = []
+        self.passed_results = []
         '''
         # Toy version
         self.column_range = [2,6]
@@ -66,11 +73,14 @@ class MetropolisHastings:
                     self.data.append(pickle.load(f))
                 except EOFError:
                     break
+        full_run = time.time()
         # Sample k data instances to be used in the evaluation
+        if k == -1:
+            self.k = len(self.data)
         initial_data = self.sample_from_data(self.k)
 
-        self.tree.build_tree()
-        current_best_program = self.tree.generate_random_program()
+        self.tree.build_tree(self.tree.root)
+        #current_best_program = self.tree.generate_random_program()
 
         # Main loop
         for i in range(self.n_iterations):
@@ -78,40 +88,49 @@ class MetropolisHastings:
             # Make a copy of the tree for future mutation
             new_tree = pickle.loads(pickle.dumps(self.tree, -1))
 
-            mutated_program = new_tree.generate_mutated_program(
-                                                        current_best_program
-                                                        )
-            
-            script_best_player = self.tree.generate_player(current_best_program)
-            script_mutated_player = new_tree.generate_player(mutated_program)
+            new_tree.mutate_tree()
 
-            #print('current_best_program = ', current_best_program)
-            #print('mutated_program = ', mutated_program)
-            #print()
-            score_best, n_errors_best, errors_rate_best, default = \
+            current_program = self.tree.generate_program()
+            mutated_program = new_tree.generate_program()
+
+            script_best_player = self.tree.generate_player(current_program, self.k, self.n_iterations)
+            script_mutated_player = new_tree.generate_player(mutated_program, self.k, self.n_iterations)
+
+            score_best, n_errors_best, errors_rate_best = \
                         self.calculate_score_function(
                                                         script_best_player, 
                                                         initial_data
                                                     )
-            score_mutated, n_errors_mutated, errors_rate_mutated, default2 = \
+            score_mutated, n_errors_mutated, errors_rate_mutated = \
                         self.calculate_score_function(
                                                         script_mutated_player, 
                                                         initial_data
                                                     )
             accept = min(1, score_mutated/score_best)
+            self.all_results.append((errors_rate_mutated, n_errors_mutated))
             if accept == 1:
-                current_best_program = mutated_program
                 self.tree = new_tree
+                self.passed_results.append((errors_rate_mutated, n_errors_mutated))
                 print('Iteration -', i, 'New program accepted - Score = ', score_mutated,'Error rate = ', errors_rate_mutated, 'n_errors = ', n_errors_mutated)
-                print('programa = ', current_best_program)
+                #print('programa = ', current_best_program)
             elapsed_time = time.time() - start
             print('Iteration -', i, '- Elapsed time: ', elapsed_time)
-        script_best_player = self.tree.generate_player(current_best_program)
+            
+        best_program = self.tree.generate_program()
+        script_best_player = self.tree.generate_player(best_program, self.k, self.n_iterations)
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        script = Script(current_best_program, 0)
-        script.saveFile(dir_path + '/')
-        return current_best_program, script_best_player
+        path = dir_path + '/result' + '_' + str(self.k) + '_' + str(self.n_iterations) + '/'
+        if not os.path.exists(path):
+            os.makedirs(path)
+        script = Script(best_program, self.k, self.n_iterations)
+        script.saveFile(path)
+        self.generate_graphs(path)
+
+        full_run_elapsed_time = time.time() - full_run
+        print('Full program elapsed time = ', full_run_elapsed_time)
+
+        return best_program, script_best_player
 
     def generate_oracle_data(self):
         """ Generate data by playing games between player_1 and player_2. """
@@ -136,12 +155,9 @@ class MetropolisHastings:
         "imitates" the actions taken by the oracle in the saved dataset.
         Return this program's score.
         """
-        n_errors, errors_rate, default = self.calculate_errors(
-                                                                program, 
-                                                                new_data
-                                                            )
+        n_errors, errors_rate = self.calculate_errors(program, new_data)
         score = math.exp(-self.beta * errors_rate)
-        return score, n_errors, errors_rate, default
+        return score, n_errors, errors_rate
 
     def calculate_errors(self, program, new_data):
         """ 
@@ -151,24 +167,60 @@ class MetropolisHastings:
             - n_errors is the number of errors that the program chose when 
               compared to the actions chosen by the oracle.
             - errors_rate is the error rate
-            - default is the number of times the if clause was not satisfied
-              and the default action was chosen.
         """
         n_errors = 0
-        default = 0
         for i in range(len(new_data)):
             chosen_play = program.get_action(new_data[i][0])
             if chosen_play != new_data[i][1]:
                 n_errors += 1
         errors_rate = n_errors / len(new_data)
-        return n_errors, errors_rate, default
+        return n_errors, errors_rate
 
     def sample_from_data(self, k):
         """ Sample k instances from oracle data for evaluation. """
+
         index_list = sample(range(len(self.data)), len(self.data) - k)
         new_data = np.delete(self.data, index_list, 0)
 
         return new_data
+
+    def generate_graphs(self, path):
+        
+        x_axis = [i for i in range(len(self.all_results))]
+        y_axis = [self.all_results[i][0] for i in range(len(self.all_results))]
+        plt.plot(x_axis, y_axis)
+        plt.xlabel("Metropolis Hastings iterations")
+        plt.ylabel("Error rate (%)")
+        plt.suptitle("Error percentage for all MH iterations - " + str(self.k) + " data")
+        plt.savefig(path + "all_results_percentage_" + str(self.k) + "_" + str(self.n_iterations))
+        plt.close()
+
+        x_axis = [i for i in range(len(self.all_results))]
+        y_axis = [self.all_results[i][1] for i in range(len(self.all_results))]
+        plt.plot(x_axis, y_axis)
+        plt.xlabel("Metropolis Hastings iterations")
+        plt.ylabel("Number of errors")
+        plt.suptitle("Number of errors for all MH iterations - " + str(self.k) + " data")
+        plt.savefig(path + "all_results_n_errors_" + str(self.k) + "_" +  str(self.n_iterations))
+        plt.close()
+
+        x_axis = [i for i in range(len(self.passed_results))]
+        y_axis = [self.passed_results[i][0] for i in range(len(self.passed_results))]
+        plt.plot(x_axis, y_axis)
+        plt.xlabel("Metropolis Hastings iterations")
+        plt.ylabel("Error rate (%)")
+        plt.suptitle("Error percentage for only successful MH iterations - " + str(self.k) + " data")
+        plt.savefig(path + "passed_results_percentage_" + str(self.k) + "_" +  str(self.n_iterations))
+        plt.close()
+
+        x_axis = [i for i in range(len(self.passed_results))]
+        y_axis = [self.passed_results[i][1] for i in range(len(self.passed_results))]
+        plt.plot(x_axis, y_axis)
+        plt.xlabel("Metropolis Hastings iterations")
+        plt.ylabel("Number of errors")
+        plt.suptitle("Number of errors for only successful MH iterations - " + str(self.k) + " data")
+        plt.savefig(path + "passed_results_n_errors_" + str(self.k) + "_" +  str(self.n_iterations))
+        plt.close()
 
 
     def simplified_play_single_game(self, player_1, player_2, game, 
@@ -242,9 +294,29 @@ class MetropolisHastings:
 if __name__ == "__main__":
     player_1 = Vanilla_UCT(c = 1, n_simulations = 50)
     player_2 = Vanilla_UCT(c = 1, n_simulations = 50)
+    random_player = RandomPlayer()
     beta = 0.5
     n_games = 200
-    iterations = 100
-    k = 1000
-    MH = MetropolisHastings(beta, player_1, player_2, n_games, iterations, k)
+    iterations = 10
+    k = -1
+    tree_max_nodes = 300
+    MH = MetropolisHastings(beta, player_1, player_2, n_games, iterations, k, tree_max_nodes)
     MH.run()
+
+    '''
+    # Check if there's already data available. If not, generate it.
+    data = []
+    with open('dataset', "rb") as f:
+        while True:
+            try:
+                data.append(pickle.load(f))
+            except EOFError:
+                break
+    # Sample k data instances to be used in the evaluation
+    index_list = sample(range(len(data)), len(data) - k)
+    new_data = np.delete(data, index_list, 0)
+    print('antes dos errors')
+    n_errors, errors_rate, default = MH.calculate_errors(random_player, new_data)
+    print('n errors = ', n_errors)
+    print('errors_rate = ', errors_rate)
+    '''

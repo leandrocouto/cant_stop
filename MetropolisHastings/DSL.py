@@ -7,11 +7,11 @@ class DSL:
         self.start = start
         
         self._grammar = {}
-        self._grammar[self.start] = [r"for a in actions : \n \t if a in ['y','n'] : \n \t \t forced_condition_if \n \t else : \n \t \t forced_condition_else"]
-        self._grammar['forced_condition_if']   = [r"if BOOL_0 : \n \t \t \t return a \n \t \t condition_string"]
-        self._grammar['forced_condition_else'] = [r"if BOOL_1 : \n \t \t \t return a \n \t \t condition_numeric"]
-        self._grammar['condition_string'] = [r"if BOOL_0 : \n \t \t \t return a \n \t \t condition_string", ""]
-        self._grammar['condition_numeric'] = [r"if BOOL_1 : \n \t \t \t return a \n \t \t condition_numeric", ""]
+        self._grammar[self.start] = [r"\t \t for a in actions : \n \t \t \t if a in ['y','n'] : \n \t \t \t \t forced_condition_if \n \t \t \t else : \n \t \t \t \t forced_condition_else"]
+        self._grammar['forced_condition_if']   = [r"if BOOL_0 : \n \t \t \t \t \t return a \n \t \t \t \t condition_string"]
+        self._grammar['forced_condition_else'] = [r"if BOOL_1 : \n \t \t \t \t \t return a \n \t \t \t \t condition_numeric"]
+        self._grammar['condition_string'] = [r"if BOOL_0 : \n \t \t \t \t \t return a \n \t \t \t \t condition_string", ""]
+        self._grammar['condition_numeric'] = [r"if BOOL_1 : \n \t \t \t \t \t return a \n \t \t \t \t condition_numeric", ""]
         self._grammar['BOOL_0'] = ["B_0", "B_0 and BOOL_0", "B_0 or BOOL_0"]
         self._grammar['BOOL_1'] = ["B_1", "B_1 and BOOL_1", "B_1 or BOOL_1"]
         self._grammar['B_0'] = [# Strictly "string" actions
