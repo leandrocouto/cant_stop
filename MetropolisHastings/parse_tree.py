@@ -120,13 +120,19 @@ class ParseTree:
         self._get_traversal_list_of_nodes(self.root, list_of_nodes)
         whole_program = ''
         for node in list_of_nodes:
-            whole_program += ' ' + node[0].value
+            # Since what is read from the tree is a string and not a character,
+            # We have to convert the newline and tab special characters into 
+            # strings.
+            # This piece of code is needed for indentation purposes.
+            newline = '\\' + 'n'
+            tab = '\\' + 't'
+            if node[0].value in [newline, tab]:
+                whole_program += node[0].value
+            else:
+                whole_program += node[0].value + ' '
+                    
         # Transform '\n' and '\t' into actual new lines and tabs
         whole_program = codecs.decode(whole_program, 'unicode_escape')
-        # Remove whitespaces before the "for" to not cause indentation error
-        whole_program = ''.join(whole_program.split(' ', 1))
-        whole_program = ''.join(whole_program.split(' ', 1))
-        whole_program = ''.join(whole_program.split(' ', 1))
 
         return whole_program
 
@@ -201,7 +207,6 @@ class ParseTree:
 
     def _string_to_object(self, str_class, *args, **kwargs):
         """ Transform a program written inside str_class to an object. """
-
         exec(str_class)
         class_name = re.search("class (.*):", str_class).group(1).partition("(")[0]
         return locals()[class_name](*args, **kwargs)
