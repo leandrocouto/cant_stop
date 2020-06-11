@@ -41,16 +41,7 @@ class MetropolisHastings:
         self.tree = ParseTree(DSL('S'), self.tree_max_nodes)
         self.all_results = []
         self.passed_results = []
-        '''
-        # Toy version
-        self.column_range = [2,6]
-        self.offset = 2
-        self.initial_height = 1
-        self.n_players = 2
-        self.dice_number = 4
-        self.dice_value = 3
-        self.max_game_length = 50
-        '''
+
         # Original version
         self.column_range = [2,12]
         self.offset = 2
@@ -80,7 +71,6 @@ class MetropolisHastings:
         initial_data = self.sample_from_data(self.k)
 
         self.tree.build_tree(self.tree.root)
-        #current_best_program = self.tree.generate_random_program()
 
         # Main loop
         for i in range(self.n_iterations):
@@ -93,45 +83,87 @@ class MetropolisHastings:
             current_program = self.tree.generate_program()
             mutated_program = new_tree.generate_program()
 
-            script_best_player = self.tree.generate_player(current_program, self.k, self.n_iterations)
-            script_mutated_player = new_tree.generate_player(mutated_program, self.k, self.n_iterations)
+            script_best_player = self.tree.generate_player(
+                                                        current_program, 
+                                                        self.k, 
+                                                        self.n_iterations, 
+                                                        self.tree_max_nodes
+                                                        )
+            script_mutated_player = new_tree.generate_player(
+                                                        mutated_program, 
+                                                        self.k, 
+                                                        self.n_iterations, 
+                                                        self.tree_max_nodes
+                                                        )
 
-            score_best, n_errors_best, errors_rate_best, _ = \
-                        self.calculate_score_function(
+            score_best, _, _, _ = self.calculate_score_function(
                                                         script_best_player, 
                                                         initial_data
-                                                    )
-            score_mutated, n_errors_mutated, errors_rate_mutated, \
+                                                        )
+            score_mutated, errors_mutated, errors_rate_mutated, \
             chosen_default_action_mutated = self.calculate_score_function(
                                                         script_mutated_player, 
                                                         initial_data
                                                         )
+            n_errors = errors_mutated[0]
+            n_errors_string_action = errors_mutated[1]
+            n_errors_numeric_action = errors_mutated[2]
+            total_errors_rate = errors_rate_mutated[0]
+            total_string_errors_rate = errors_rate_mutated[1]
+            total_numeric_errors_rate = errors_rate_mutated[2]
+
             accept = min(1, score_mutated/score_best)
             self.all_results.append(
-                                        (errors_rate_mutated, 
-                                        n_errors_mutated, 
-                                        chosen_default_action_mutated)
+                                        (
+                                            n_errors,
+                                            n_errors_string_action,
+                                            n_errors_numeric_action,
+                                            total_errors_rate,
+                                            total_string_errors_rate,
+                                            total_numeric_errors_rate, 
+                                            chosen_default_action_mutated
+                                        )
                                     )
             if accept == 1:
                 self.tree = new_tree
                 self.passed_results.append(
-                                            (errors_rate_mutated, 
-                                            n_errors_mutated, 
-                                            chosen_default_action_mutated)
+                                            (
+                                                n_errors,
+                                                n_errors_string_action,
+                                                n_errors_numeric_action,
+                                                total_errors_rate,
+                                                total_string_errors_rate,
+                                                total_numeric_errors_rate, 
+                                                chosen_default_action_mutated
+                                            )
                                         )
-                print('Iteration -', i, 'New program accepted - Score = ', score_mutated,'Error rate = ', errors_rate_mutated, 'n_errors = ', n_errors_mutated, 'Default action = ', chosen_default_action_mutated)
-                #print('programa = ', current_best_program)
+                print('Iteration -', i, 'New program accepted - Score = ', 
+                        score_mutated,'Error rate = ', errors_rate_mutated, 
+                        'n_errors = ', n_errors, 'Default action = ', 
+                        chosen_default_action_mutated)
+
             elapsed_time = time.time() - start
             print('Iteration -', i, '- Elapsed time: ', elapsed_time)
             
         best_program = self.tree.generate_program()
-        script_best_player = self.tree.generate_player(best_program, self.k, self.n_iterations)
+        script_best_player = self.tree.generate_player(
+                                                        best_program, 
+                                                        self.k, 
+                                                        self.n_iterations, 
+                                                        self.tree_max_nodes
+                                                        )
 
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        path = dir_path + '/result' + '_' + str(self.k) + '_' + str(self.n_iterations) + '/'
+        path = dir_path + '/result' + '_' + str(self.k) + 'd_' \
+               + str(self.n_iterations) + 'i_' + str(self.tree_max_nodes) + 'n/'
         if not os.path.exists(path):
             os.makedirs(path)
-        script = Script(best_program, self.k, self.n_iterations)
+        script = Script(
+                            best_program, 
+                            self.k, 
+                            self.n_iterations, 
+                            self.tree_max_nodes
+                        )
         script.saveFile(path)
         self.generate_graphs(path)
 
@@ -163,12 +195,12 @@ class MetropolisHastings:
         "imitates" the actions taken by the oracle in the saved dataset.
         Return this program's score.
         """
-        n_errors, errors_rate, chosen_default_action = self.calculate_errors(
+        errors, errors_rate, chosen_default_action = self.calculate_errors(
                                                                     program, 
                                                                     new_data
                                                                     )
-        score = math.exp(-self.beta * errors_rate)
-        return score, n_errors, errors_rate, chosen_default_action
+        score = math.exp(-self.beta * errors_rate[0])
+        return score, errors, errors_rate, chosen_default_action
 
     def calculate_errors(self, program, new_data):
         """ 
@@ -177,18 +209,48 @@ class MetropolisHastings:
         Return:
             - n_errors is the number of errors that the program chose when 
               compared to the actions chosen by the oracle.
+            - n_errors_string_action is the number of errors that the program 
+              chose when compared to the "string" actions chosen by the oracle.
+            - n_errors_numeric_action is the number of errors that the program 
+              chose when compared to the "numeric" actions chosen by the oracle.
             - chosen_default_action is the number of times the program chose
               the default action (this means it returned false for every if
               condition). Given in percentage related to the dataset.
         """
         n_errors = 0
+        n_errors_string_action = 0
+        n_errors_numeric_action = 0
         for i in range(len(new_data)):
+            default_action_before = program.default_counter
             chosen_play = program.get_action(new_data[i][0])
+            default_action_after = program.default_counter
             if chosen_play != new_data[i][1]:
                 n_errors += 1
-        errors_rate = n_errors / len(new_data)
+
+                if chosen_play in ['y', 'n']:
+                    n_errors_string_action += 1
+                else:
+                    n_errors_numeric_action += 1
+            # If the program chose the default action, flag it as a miss to
+            # force the program to synthesize better if-conditions
+            elif default_action_before != default_action_after:
+                n_errors += 1
+
+                if chosen_play in ['y', 'n']:
+                    n_errors_string_action += 1
+                else:
+                    n_errors_numeric_action += 1
+        total_errors_rate = n_errors / len(new_data)
+        total_string_errors_rate = n_errors_string_action / len(new_data)
+        total_numeric_errors_rate = n_errors_numeric_action / len(new_data)
         chosen_default_action = program.default_counter / len(new_data)
-        return n_errors, errors_rate, chosen_default_action
+        errors = (n_errors, n_errors_string_action, n_errors_numeric_action)
+        errors_rate = (
+                        total_errors_rate, 
+                        total_string_errors_rate,
+                        total_numeric_errors_rate
+                        )
+        return errors, errors_rate, chosen_default_action
 
     def sample_from_data(self, k):
         """ Sample k instances from oracle data for evaluation. """
@@ -199,47 +261,94 @@ class MetropolisHastings:
         return new_data
 
     def generate_graphs(self, path):
-        
+        """ Generate graphs related to the current MH iteration. """
+
+        suffix = str(self.k) + "d_" + str(self.n_iterations) + "i_" \
+                + str(self.tree_max_nodes) + "n"
+                
+        # Number of errors -- all results
+        x = [i for i in range(len(self.all_results))]
+        y = [self.all_results[i][0] for i in range(len(self.all_results))]
+        a = [i for i in range(len(self.all_results))]
+        b = [self.all_results[i][1] for i in range(len(self.all_results))]
+        m = [i for i in range(len(self.all_results))]
+        n = [self.all_results[i][2] for i in range(len(self.all_results))]
+        plt.plot(x, y, 'r', label="Total errors")
+        plt.plot(a, b, 'g', label="String errors")
+        plt.plot(m, n, 'b', label="Numeric errors")
+        plt.legend(loc="best")
+        plt.xlabel("Metropolis Hastings iterations")
+        plt.ylabel("Number of errors")
+        plt.suptitle("Number of errors for all MH iterations - " + str(self.k) + " data")
+        plt.savefig(path + "all_number_errors_" + suffix)
+        plt.close()
         # Error rate -- all results
-        x_axis = [i for i in range(len(self.all_results))]
-        y_axis = [self.all_results[i][0] for i in range(len(self.all_results))]
-        plt.plot(x_axis, y_axis)
+        x = [i for i in range(len(self.all_results))]
+        y = [self.all_results[i][3] for i in range(len(self.all_results))]
+        a = [i for i in range(len(self.all_results))]
+        b = [self.all_results[i][4] for i in range(len(self.all_results))]
+        m = [i for i in range(len(self.all_results))]
+        n = [self.all_results[i][5] for i in range(len(self.all_results))]
+        plt.plot(x, y, 'r', label="Total errors")
+        plt.plot(a, b, 'g', label="String errors")
+        plt.plot(m, n, 'b', label="Numeric errors")
+        plt.legend(loc="best")
         plt.xlabel("Metropolis Hastings iterations")
         plt.ylabel("Error rate (%)")
         plt.suptitle("Error percentage for all MH iterations - " + str(self.k) + " data")
-        plt.savefig(path + "all_results_percentage_" + str(self.k) + "_" + str(self.n_iterations))
+        plt.savefig(path + "all_errors_rate_" + suffix)
+        plt.close()
+        # Chosen default action - all results
+        x_axis = [i for i in range(len(self.all_results))]
+        y_axis = [self.all_results[i][6] for i in range(len(self.all_results))]
+        plt.plot(x_axis, y_axis)
+        plt.xlabel("Metropolis Hastings iterations")
+        plt.ylabel("Rate on choosing the default action")
+        plt.suptitle("Rate of how many times the program chose the default action - " + str(self.k) + " data")
+        plt.savefig(path + "all_results_default_" + suffix)
         plt.close()
 
-        # Error rate - passed results
-        x_axis = [i for i in range(len(self.passed_results))]
-        y_axis = [self.passed_results[i][0] for i in range(len(self.passed_results))]
-        plt.plot(x_axis, y_axis)
+        # Number of errors -- passed results
+        x = [i for i in range(len(self.passed_results))]
+        y = [self.passed_results[i][0] for i in range(len(self.passed_results))]
+        a = [i for i in range(len(self.passed_results))]
+        b = [self.passed_results[i][1] for i in range(len(self.passed_results))]
+        m = [i for i in range(len(self.passed_results))]
+        n = [self.passed_results[i][2] for i in range(len(self.passed_results))]
+        plt.plot(x, y, 'r', label="Total errors")
+        plt.plot(a, b, 'g', label="String errors")
+        plt.plot(m, n, 'b', label="Numeric errors")
+        plt.legend(loc="best")
+        plt.xlabel("Metropolis Hastings iterations")
+        plt.ylabel("Number of errors")
+        plt.suptitle("Number of errors for only successful MH iterations - " + str(self.k) + " data")
+        plt.savefig(path + "passed_number_errors_" + suffix)
+        plt.close()
+        # Error rate -- passed results
+        x = [i for i in range(len(self.passed_results))]
+        y = [self.passed_results[i][3] for i in range(len(self.passed_results))]
+        a = [i for i in range(len(self.passed_results))]
+        b = [self.passed_results[i][4] for i in range(len(self.passed_results))]
+        m = [i for i in range(len(self.passed_results))]
+        n = [self.passed_results[i][5] for i in range(len(self.passed_results))]
+        plt.plot(x, y, 'r', label="Total errors")
+        plt.plot(a, b, 'g', label="String errors")
+        plt.plot(m, n, 'b', label="Numeric errors")
+        plt.legend(loc="best")
         plt.xlabel("Metropolis Hastings iterations")
         plt.ylabel("Error rate (%)")
         plt.suptitle("Error percentage for only successful MH iterations - " + str(self.k) + " data")
-        plt.savefig(path + "passed_results_percentage_" + str(self.k) + "_" +  str(self.n_iterations))
+        plt.savefig(path + "passed_errors_rate_" + suffix)
         plt.close()
-
-        # Chosen default action - all results
-        x_axis = [i for i in range(len(self.all_results))]
-        y_axis = [self.all_results[i][2] for i in range(len(self.all_results))]
-        plt.plot(x_axis, y_axis)
-        plt.xlabel("Metropolis Hastings iterations")
-        plt.ylabel("Rate on choosing the default action")
-        plt.suptitle("Rate of how many times the program chose the default action - " + str(self.k) + " data")
-        plt.savefig(path + "all_results_default_" + str(self.k) + "_" +  str(self.n_iterations))
-        plt.close()
-
         # Chosen default action - passed results
         x_axis = [i for i in range(len(self.passed_results))]
-        y_axis = [self.passed_results[i][2] for i in range(len(self.passed_results))]
+        y_axis = [self.passed_results[i][6] for i in range(len(self.passed_results))]
         plt.plot(x_axis, y_axis)
         plt.xlabel("Metropolis Hastings iterations")
         plt.ylabel("Rate on choosing the default action")
         plt.suptitle("Rate of how many times the program chose the default action - " + str(self.k) + " data")
-        plt.savefig(path + "passed_results_default_" + str(self.k) + "_" +  str(self.n_iterations))
+        plt.savefig(path + "passed_results_default_" + suffix)
         plt.close()
-
 
     def simplified_play_single_game(self, player_1, player_2, game, 
         max_game_length):
@@ -315,8 +424,16 @@ if __name__ == "__main__":
     random_player = RandomPlayer()
     beta = 0.5
     n_games = 200
-    iterations = 1000
-    k = -1
-    tree_max_nodes = 300
-    MH = MetropolisHastings(beta, player_1, player_2, n_games, iterations, k, tree_max_nodes)
+    iterations = 100
+    k = 100
+    tree_max_nodes = 500
+    MH = MetropolisHastings(
+                                beta, 
+                                player_1, 
+                                player_2, 
+                                n_games, 
+                                iterations, 
+                                k, 
+                                tree_max_nodes
+                            )
     best_program, script_best_player = MH.run()

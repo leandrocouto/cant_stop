@@ -2,22 +2,26 @@ import random
 import codecs
 
 class Script:
-    def __init__(self, program, k, iterations):
+    def __init__(self, program, k, iterations, tree_max_nodes):
         self.program = program
         self.k = k
         self.iterations = iterations
-        self.prefix = str(self.k) + "_" + str(self.iterations)
+        self.tree_max_nodes = tree_max_nodes
+        self.prefix = str(self.k) + "d_" + str(self.iterations) + "i_" \
+                        + str(self.tree_max_nodes) + "n"
         self._py = r'''
 from players.player import Player
 import random
 
 class Script_{0}(Player):
+\tdef __init__(self):
+\t\tself.default_counter = 0
 \tdef get_action(self, state):
 \t\tactions = state.available_moves()
 '''
         
         self.program_string = r'''{0}'''
-        self._end_script = r'''\n\t\treturn actions[0]'''        
+        self._end_script = r'''\n\t\tself.default_counter += 1\n\t\treturn actions[0]'''        
     
     def _generateTextScript(self):
         py = self._py.format(self.prefix)

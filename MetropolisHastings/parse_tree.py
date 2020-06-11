@@ -199,10 +199,10 @@ class ParseTree:
         for child_node in node.children:
             self._update_nodes_ids(child_node)
 
-    def generate_player(self, program, k, n_iterations):
+    def generate_player(self, program, k, n_iterations, tree_max_nodes):
         """ Generate a Player object given the program string. """
 
-        script = Script(program, k, n_iterations)
+        script = Script(program, k, n_iterations, tree_max_nodes)
         return self._string_to_object(script._generateTextScript())
 
     def _string_to_object(self, str_class, *args, **kwargs):
