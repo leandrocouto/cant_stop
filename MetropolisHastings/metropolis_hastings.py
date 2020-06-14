@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 
 class MetropolisHastings:
     def __init__(self, beta, player_1, player_2, n_games, n_iterations, k,
-    	tree_max_nodes):
+    	tree_max_nodes, temperature, temperature_dec):
         """
         - beta is a constant used in the MH score function.
         - data is a list of game state and action gotten from the oracle.
@@ -29,6 +29,11 @@ class MetropolisHastings:
         - n_iterations is the number of iteration in the main MH loop.
         - k is the number of samples from dataset to be evaluated.
         - tree is a parse tree implementation.
+        - temperature is the temperature parameter for a simulated annealing 
+          approach. This allows the search algorithm to explore more the 
+          search space.
+        - temperature_dec is the scalar that shows how much the current
+          temperature will be decreased
         """
         self.beta = beta
         self.data = []
@@ -38,6 +43,8 @@ class MetropolisHastings:
         self.n_iterations = n_iterations
         self.k = k
         self.tree_max_nodes = tree_max_nodes
+        self.temperature = temperature
+        self.temperature_dec = temperature_dec
         self.tree = ParseTree(DSL('S'), self.tree_max_nodes)
         self.all_results = []
         self.passed_results = []
@@ -112,7 +119,16 @@ class MetropolisHastings:
             total_string_errors_rate = errors_rate_mutated[1]
             total_numeric_errors_rate = errors_rate_mutated[2]
 
-            accept = min(1, score_mutated/score_best)
+            # Update score given the SA parameters
+            new_score_mutated = score_mutated**(1 / self.temperature)
+            new_score_best = score_best**(1 / self.temperature)
+
+            # Accept program only if new score is higher.
+            accept = min(1, new_score_mutated/new_score_best)
+
+            # Adjust the temperature accordingly.
+            self.temperature = self.temperature_adjustment(self.temperature)
+
             self.all_results.append(
                                         (
                                             n_errors,
@@ -124,6 +140,7 @@ class MetropolisHastings:
                                             chosen_default_action_mutated
                                         )
                                     )
+            # If the new synthesized program is better
             if accept == 1:
                 self.tree = new_tree
                 self.passed_results.append(
@@ -172,6 +189,15 @@ class MetropolisHastings:
 
         return best_program, script_best_player
 
+    def temperature_adjustment(self, current_temperature):
+        """ 
+        Calculate the next temperature based on the current one. It uses the
+        formula T_(k+1) = alpha * T_k. 
+        More temperature schedules can be tested in the future.
+        """
+
+        return temperature_dec * current_temperature
+
     def generate_oracle_data(self):
         """ Generate data by playing games between player_1 and player_2. """
         for i in range(self.n_games):
@@ -184,6 +210,7 @@ class MetropolisHastings:
                                                         game, 
                                                         self.max_game_length
                                                         )
+            print('terminou jogo', i)
             # Append game data to file
             with open('dataset', 'ab') as f:
                 for data in single_game_data:
@@ -265,7 +292,7 @@ class MetropolisHastings:
 
         suffix = str(self.k) + "d_" + str(self.n_iterations) + "i_" \
                 + str(self.tree_max_nodes) + "n"
-                
+
         # Number of errors -- all results
         x = [i for i in range(len(self.all_results))]
         y = [self.all_results[i][0] for i in range(len(self.all_results))]
@@ -423,10 +450,15 @@ if __name__ == "__main__":
     player_2 = Vanilla_UCT(c = 1, n_simulations = 50)
     random_player = RandomPlayer()
     beta = 0.5
-    n_games = 200
-    iterations = 100
-    k = 100
-    tree_max_nodes = 500
+    n_games = 1000
+    iterations = 302 
+    k = -1
+    tree_max_nodes = 304
+    # Simulated annealing parameters
+    # If no SA is to be used, set both parameters to 1.
+    temperature = 1
+    temperature_dec = 0.98
+
     MH = MetropolisHastings(
                                 beta, 
                                 player_1, 
@@ -434,6 +466,8 @@ if __name__ == "__main__":
                                 n_games, 
                                 iterations, 
                                 k, 
-                                tree_max_nodes
+                                tree_max_nodes,
+                                temperature,
+                                temperature_dec
                             )
     best_program, script_best_player = MH.run()
