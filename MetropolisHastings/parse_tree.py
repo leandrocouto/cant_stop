@@ -80,9 +80,7 @@ class ParseTree:
         tokens = self._tokenize_dsl_entry(start_node.value)
         is_node_finished = True
         finishable_nodes = [
-                            'B_0', 'B_1', 'SCORE', 'COLS', 'SMALL_NUM',
-                            'BOOL_0', 'BOOL_1', 'forced_condition_if', 
-                            'forced_condition_else'
+                            'COLS', 'BOOL_0', 'BOOL_1', 'score_str', 'score_num'
                             ]
         for token in tokens:
             if token in finishable_nodes and len(start_node.children) == 0:
@@ -230,3 +228,16 @@ class ParseTree:
                 )
         for child in node.children:
             self.print_tree(child, indentation + '    ')
+'''
+dsl = DSL('S')
+tree = ParseTree(dsl, 200)
+tree.build_tree(tree.root)
+tree.print_tree(tree.root, '  ')
+print()
+program = tree.generate_program() 
+print(program)
+print()
+script = Script(program, 1,2,3)
+#print(script)
+script.saveFile('')
+'''

@@ -11,18 +11,19 @@ class Script:
                         + str(self.tree_max_nodes) + "n"
         self._py = r'''
 from players.player import Player
-import random
+
 
 class Script_{0}(Player):
 \tdef __init__(self):
 \t\tself.default_counter = 0
 \tdef get_action(self, state):
+\t\timport numpy as np
 \t\tactions = state.available_moves()
+\t\tscore = np.zeros(len(actions))
 '''
         
         self.program_string = r'''{0}'''
-        self._end_script = r'''\n\t\tself.default_counter += 1\n\t\treturn actions[0]'''        
-    
+        self._end_script = r'''\n\t\treturn actions[np.argmax(score)]'''
     def _generateTextScript(self):
         py = self._py.format(self.prefix)
         py += self.program_string.format(self.program)  

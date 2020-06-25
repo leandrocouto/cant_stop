@@ -7,44 +7,105 @@ class DSL:
         self.start = start
         
         self._grammar = {}
-        self._grammar[self.start] = [r"\t \t for a in actions : \n \t \t \t if a in ['y','n'] : \n \t \t \t \t forced_condition_if \n \t \t \t else : \n \t \t \t \t forced_condition_else"]
-        self._grammar['forced_condition_if']   = [r"if BOOL_0 : \n \t \t \t \t \t return a \n \t \t \t \t condition_string"]
-        self._grammar['forced_condition_else'] = [r"if BOOL_1 : \n \t \t \t \t \t return a \n \t \t \t \t condition_numeric"]
-        self._grammar['condition_string'] = [r"if BOOL_0 : \n \t \t \t \t \t return a \n \t \t \t \t condition_string", ""]
-        self._grammar['condition_numeric'] = [r"if BOOL_1 : \n \t \t \t \t \t return a \n \t \t \t \t condition_numeric", ""]
-        self._grammar['BOOL_0'] = ["B_0", "B_0 and BOOL_0", "B_0 or BOOL_0"]
-        self._grammar['BOOL_1'] = ["B_1", "B_1 and BOOL_1", "B_1 or BOOL_1"]
-        self._grammar['B_0'] = [# Strictly "string" actions
-                                'DSL.is_stop_action(a)',
+        self._grammar[self.start] = [r"\t \t for i in range(len(score)) : \n \t \t \t if actions[i] in ['y','n'] : \n \t \t \t \t score[i] = score_str \n \t \t \t else : \n \t \t \t \t score[i] = score_num"]
+        self._grammar['score_str']   = ["BOOL_0", "BOOL_0 + ( score_str )", "BOOL_0 - ( score_str )", "BOOL_0 * ( score_str )"]
+        self._grammar['score_num'] = ["BOOL_1", "BOOL_1 + ( score_num )", "BOOL_1 - ( score_num )", "BOOL_1 * ( score_num )"]
+        self._grammar['BOOL_0'] = [# Strictly "string" actions
+                                'DSL.is_stop_action(actions[i])',
+                                #'DSL.rule_of_28(state)',
                                 # All types of actions
-                                'DSL.get_player_score(state) > SCORE',
-                                'DSL.get_opponent_score(state) > SCORE',
-                                'DSL.number_of_neutral_markers_remaining(state) == SMALL_NUM',
-                                'DSL.number_cells_advanced_this_round(state) > COLS',
-                                'DSL.columns_won_by_opponent(state) == SMALL_NUM',
-                                'DSL.columns_won_by_player(state) == SMALL_NUM',
-                                'DSL.has_won_column_current_round(state)'
+                                #'DSL.get_player_score(state) > SCORE',
+                                #'DSL.get_opponent_score(state) > SCORE',
+                                'DSL.number_cells_advanced_this_round_for_col(state, COLS )',
+                                'DSL.number_positions_conquered(state, COLS )',
+                                'DSL.number_of_neutral_markers_remaining(state)',
+                                'DSL.number_cells_advanced_this_round(state)',
+                                #'DSL.columns_won_by_opponent(state)',
+                                #'DSL.columns_won_by_player(state)',
+                                #'DSL.has_won_column_current_round(state)'
                                 ]
-        self._grammar['B_1'] = [# Strictly "numeric" actions
-                                'DSL.is_doubled_action(a)', 
-                                'DSL.is_action_a_column_border(a)', 
-                                'DSL.has_won_column_current_round(state)', 
-                                'DSL.is_column_in_action(a, COLS )',
-                                'DSL.action_wins_at_least_one_column(state,a)',
+        self._grammar['BOOL_1'] = [# Strictly "numeric" actions
+                                #'DSL.is_doubled_action(actions[i])', 
+                                #'DSL.is_action_a_column_border(actions[i])', 
+                                #'DSL.has_won_column_current_round(state)', 
+                                #'DSL.is_column_in_action(actions[i], COLS )',
+                                'DSL.action_wins_at_least_one_column(state,actions[i])',
+                                'DSL.advance_in_action_col(actions[i])',
+                                'DSL.number_of_neutrals_used(actions[i], state)',
                                 # All types of actions
-                                'DSL.number_cells_advanced_this_round_for_col(state, COLS ) > SMALL_NUM',
-                                'DSL.number_positions_conquered(state, COLS ) > SMALL_NUM',
-                                'DSL.columns_won_by_opponent(state) == SMALL_NUM',
-                                'DSL.columns_won_by_player(state) == SMALL_NUM',
-                                'DSL.number_of_neutral_markers_remaining(state) == SMALL_NUM',
-                                'DSL.number_cells_advanced_this_round(state) > COLS',
-                                'DSL.get_player_score(state) > SCORE',
-                                'DSL.get_opponent_score(state) > SCORE'
+                                'DSL.number_cells_advanced_this_round_for_col(state, COLS )',
+                                'DSL.number_positions_conquered(state, COLS )',
+                                #'DSL.columns_won_by_opponent(state)',
+                                #'DSL.columns_won_by_player(state)',
+                                #'DSL.number_of_neutral_markers_remaining(state)',
+                                #'DSL.number_cells_advanced_this_round(state)',
+                                #'DSL.get_player_score(state) > SCORE',
+                                #'DSL.get_opponent_score(state) > SCORE'
                                 ]
         self._grammar['SCORE'] = ['5', '10', '15', '20', '30', '40', '50', '60', '70']
         self._grammar['COLS'] = ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
         self._grammar['SMALL_NUM'] = ['0', '1', '2', '3']
 
+    @staticmethod
+    def advance_in_action_col(action):
+        """ Calculate how many cells will be advanced for the action. """
+
+        return len(action)
+
+    @staticmethod
+    def number_of_neutrals_used(action, state):
+        """ Calculate the number of neutral markers this action will use. """
+
+        neutral_positions = state.neutral_positions
+        markers = 0
+        # Special case: double action (e.g.: (6,6))
+        if len(action) == 2 and action[0] == action[1]:
+            is_new_neutral = True
+            for neutral in neutral_positions:
+                if neutral[0] == action:
+                    is_new_neutral = False
+            if is_new_neutral:
+                markers += 1
+        else:
+            for a in action:
+                is_new_neutral = True
+                for neutral in neutral_positions:
+                    if neutral[0] == action:
+                        is_new_neutral = False
+                if is_new_neutral:
+                    markers += 1
+
+        return markers
+
+    @staticmethod
+    def rule_of_28(state):
+        """ 
+        Heuristic proposed by the article 'A Generalized Heuristic for 
+        Can’t Stop'.
+        """
+        score = 0
+        neutral = state.neutral_positions
+        neutral = [n[0] for n in neutral]
+
+        for column in range(state.column_range[0], state.column_range[1]+1):
+            if column not in neutral:
+                continue
+            else:
+                advance = DSL.number_cells_advanced_this_round_for_col(state, column)
+                score += (advance + 1) * (abs(7 - column) + 1)
+
+        if len(neutral) == 3:
+            # If all neutral markers are in even columns
+            if all([x % 2 == 0 for x in neutral]):
+                score -= 2
+            # If all neutral markers are in odd columns
+            elif all([x % 2 != 0 for x in neutral]):
+                score += 2
+
+        if score >= 28:
+            return True
+        else:
+            return False
     @staticmethod
     def get_player_score(state):
         """ A score is the number of cells advanced in all columns. """

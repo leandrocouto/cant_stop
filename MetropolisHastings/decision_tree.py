@@ -22,6 +22,7 @@ def get_features(data):
     features['dice_3'] = []
     features['opponent_score'] = []
     features['player_score'] = []
+    #features['rule_of_28'] = []
     for i in range(2, 13):
         features[f'neutral_marker_position_{i}'] = []
         features[f'player_1_marker_position_{i}'] = []
@@ -74,6 +75,7 @@ def get_features(data):
         
         features['opponent_score'].append(DSL.get_opponent_score(state))
         features['player_score'].append(DSL.get_player_score(state))
+        #features['rule_of_28'].append(DSL.rule_of_28(state))
 
         features['target'].append(action_chosen)
 
