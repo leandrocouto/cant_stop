@@ -55,15 +55,17 @@ class UCTPlayer(Player):
         - dist_probability stores the distribution probability over all actions
           regarding the probability of choosing a certain action given the game
           passed as parameter in the get_action method.
+        - q_a_root is the Q-value of the previous root (because at the end of
+          one run the root changes automatically) over all possible actions.
         - c is the constant the balance exploration and exploitation.
         - n_simulations is the number of simulations made in the UCT algorithm.
         """
         self.root = None
         self.action = None
         self.dist_probability = None
+        self.q_a_root = None
         self.c = c
         self.n_simulations = n_simulations
-
 
     @abstractmethod
     def expand_children(self, parent):
@@ -116,9 +118,10 @@ class UCTPlayer(Player):
 
     def get_action(self, game, actions_taken):
         """ Return the action given by the UCT algorithm. """
-        action, dist_probability = self.run_UCT(game, actions_taken)
+        action, dist_probability, q_a_root = self.run_UCT(game, actions_taken)
         self.action = action
         self.dist_probability = dist_probability
+        self.q_a_root = q_a_root
         return action
 
     def get_dist_probability(self):
@@ -131,7 +134,7 @@ class UCTPlayer(Player):
 
     def run_UCT(self, game, actions_taken):
         """Main routine of the UCT algoritm."""
-
+        
         # If current tree is null, create one using game
         if self.root == None:
             self.root = Node(game.clone())
@@ -204,14 +207,17 @@ class UCTPlayer(Player):
                     node = new_node
                     rollout_value = self.rollout(node)
                     self.backpropagate(search_path, rollout_value)
-
+        
         dist_probability = self.distribution_probability(game)
         action = self.select_action(game, self.root, dist_probability)
+        q_a_root = self.root.q_a
         self.root = self.root.children[action]
+        # Remove the statistics of the chosen action from the chosen child
         if self.root.n_a:
             self.root.n_a.pop(action)
-
-        return action, dist_probability 
+        if self.root.q_a:
+            self.root.q_a.pop(action)
+        return action, dist_probability, q_a_root
 
     def get_tree_size(self, node):
         """
@@ -229,7 +235,7 @@ class UCTPlayer(Player):
 
     def backpropagate(self, search_path, value):
         """Propagate the game value all the way up the tree to the root."""
-        
+
         for node in search_path:
             node.n_visits += 1
             node.n_a[node.action_taken] += 1 
