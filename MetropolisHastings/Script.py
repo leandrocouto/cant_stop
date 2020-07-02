@@ -14,12 +14,11 @@ from players.player import Player
 
 
 class Script_{0}(Player):
-\tdef __init__(self):
-\t\tself.default_counter = 0
 \tdef get_action(self, state):
 \t\timport numpy as np
 \t\tactions = state.available_moves()
 \t\tscore = np.zeros(len(actions))
+\t\tfor i in range(len(score)):\n\t\t\t 
 '''
         
         self.program_string = r'''{0}'''
