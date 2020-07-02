@@ -79,9 +79,7 @@ class ParseTree:
 
         tokens = self._tokenize_dsl_entry(start_node.value)
         is_node_finished = True
-        finishable_nodes = [
-                            'COLS', 'BOOL_0', 'BOOL_1', 'score_str', 'score_num'
-                            ]
+        finishable_nodes = self.dsl.finishable_nodes
         for token in tokens:
             if token in finishable_nodes and len(start_node.children) == 0:
                 is_node_finished = False
