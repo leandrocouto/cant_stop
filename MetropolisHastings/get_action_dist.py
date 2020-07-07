@@ -7,7 +7,7 @@ from play_game_template import play_single_game
 from players.vanilla_uct_player import Vanilla_UCT
 from players.uct_player import UCTPlayer
 from players.random_player import RandomPlayer
-from players.rule_of_28 import Rule_of_28_Player
+from players.rule_of_28_player import Rule_of_28_Player
 from MetropolisHastings.parse_tree import ParseTree, Node
 from MetropolisHastings.DSL import DSL
 from MetropolisHastings.metropolis_hastings import MetropolisHastings
