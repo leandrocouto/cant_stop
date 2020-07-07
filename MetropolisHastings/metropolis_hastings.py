@@ -22,15 +22,20 @@ from concurrent.futures import ProcessPoolExecutor
 
 class MetropolisHastings:
     def __init__(self, beta, player_1, player_2, n_games, n_iterations, k,
-    	tree_max_nodes, temperature, temperature_dec, dataset_name, n_cores):
+    	threshold, tree_max_nodes, temperature, temperature_dec, dataset_name, 
+        n_cores):
         """
         - beta is a constant used in the MH score function.
-        - data is a list of game state and action gotten from the oracle.
+        - data is a 5-tuple of the game state consisting of: (Game object,
+          chosen_play, Q-value distribution, importance, state round, total
+          number of rounds)
         - player_1 and player_2 are objects derived from Player used to 
           generate the dataset used as the oracle.
         - n_games is the number of games to be generated between the players.
         - n_iterations is the number of iteration in the main MH loop.
         - k is the number of samples from dataset to be evaluated.
+        - threshold will sample data only if the state importance is higher
+          than this threshold.
         - tree is a parse tree implementation.
         - temperature is the temperature parameter for a simulated annealing 
           approach. This allows the search algorithm to explore more the 
@@ -48,6 +53,7 @@ class MetropolisHastings:
         self.n_games = n_games
         self.n_iterations = n_iterations
         self.k = k
+        self.threshold = threshold
         self.tree_max_nodes = tree_max_nodes
         self.temperature = temperature
         self.temperature_dec = temperature_dec
@@ -56,6 +62,7 @@ class MetropolisHastings:
         self.tree = ParseTree(DSL('S'), self.tree_max_nodes)
         self.all_results = []
         self.passed_results = []
+        self.data_distribution = None
 
         # Original version
         self.column_range = [2,12]
@@ -78,9 +85,10 @@ class MetropolisHastings:
                     break
         full_run = time.time()
         # Sample k data instances to be used in the evaluation
-        if k == -1:
+        if self.k == -1:
             self.k = len(self.data)
-        initial_data = self.sample_from_data(self.k)
+        #initial_data = self.sample_from_data()
+        initial_data = self.sample_data_from_importance_threshold()
 
         self.tree.build_tree(self.tree.root)
 
@@ -95,9 +103,6 @@ class MetropolisHastings:
             current_program = self.tree.generate_program()
             mutated_program = new_tree.generate_program()
 
-            #print('current = ', current_program)
-            print('mutated = ', mutated_program)
-
             script_best_player = self.tree.generate_player(
                                                         current_program, 
                                                         self.k, 
@@ -111,20 +116,24 @@ class MetropolisHastings:
                                                         self.tree_max_nodes
                                                         )
 
-            score_best, _, _ = self.calculate_score_function(
+            score_best, _, _, _ = self.calculate_score_function(
                                                         script_best_player, 
                                                         initial_data
                                                         )
-            score_mutated, errors_mutated, errors_rate_mutated = self.calculate_score_function(
+            score_mutated, errors_mutated, errors_rate_mutated, data_distribution = self.calculate_score_function(
                                                         script_mutated_player, 
                                                         initial_data
                                                         )
             n_errors = errors_mutated[0]
-            n_errors_string_action = errors_mutated[1]
-            n_errors_numeric_action = errors_mutated[2]
+            n_errors_yes_action = errors_mutated[1]
+            n_errors_no_action = errors_mutated[2]
+            n_errors_numeric_action = errors_mutated[3]
             total_errors_rate = errors_rate_mutated[0]
-            total_string_errors_rate = errors_rate_mutated[1]
-            total_numeric_errors_rate = errors_rate_mutated[2]
+            total_yes_errors_rate = errors_rate_mutated[1]
+            total_no_errors_rate = errors_rate_mutated[2]
+            total_numeric_errors_rate = errors_rate_mutated[3]
+
+            self.data_distribution = data_distribution
 
             # Update score given the SA parameters
             new_score_mutated = score_mutated**(1 / self.temperature)
@@ -139,10 +148,12 @@ class MetropolisHastings:
             self.all_results.append(
                                         (
                                             n_errors,
-                                            n_errors_string_action,
+                                            n_errors_yes_action,
+                                            n_errors_no_action,
                                             n_errors_numeric_action,
                                             total_errors_rate,
-                                            total_string_errors_rate,
+                                            total_yes_errors_rate,
+                                            total_no_errors_rate,
                                             total_numeric_errors_rate
                                         )
                                     )
@@ -152,10 +163,12 @@ class MetropolisHastings:
                 self.passed_results.append(
                                             (
                                                 n_errors,
-                                                n_errors_string_action,
+                                                n_errors_yes_action,
+                                                n_errors_no_action,
                                                 n_errors_numeric_action,
                                                 total_errors_rate,
-                                                total_string_errors_rate,
+                                                total_yes_errors_rate,
+                                                total_no_errors_rate,
                                                 total_numeric_errors_rate
                                             )
                                         )
@@ -174,24 +187,22 @@ class MetropolisHastings:
                                                         self.tree_max_nodes
                                                         )
 
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-        path = dir_path + '/result' + '_' + str(self.k) + 'd_' \
-               + str(self.n_iterations) + 'i_' + str(self.tree_max_nodes) + 'n/'
+        full_run_elapsed_time = time.time() - full_run
+        print('Full program elapsed time = ', full_run_elapsed_time)
+
+        return best_program, script_best_player
+
+    def save_script_to_file(self, program, path):
+        """ Save the script generated by one MH iteration to file. """
         if not os.path.exists(path):
             os.makedirs(path)
         script = Script(
-                            best_program, 
+                            program, 
                             self.k, 
                             self.n_iterations, 
                             self.tree_max_nodes
                         )
         script.saveFile(path)
-        self.generate_graphs(path)
-
-        full_run_elapsed_time = time.time() - full_run
-        print('Full program elapsed time = ', full_run_elapsed_time)
-
-        return best_program, script_best_player
 
     def temperature_adjustment(self, current_temperature):
         """ 
@@ -200,7 +211,7 @@ class MetropolisHastings:
         More temperature schedules can be tested in the future.
         """
 
-        return temperature_dec * current_temperature
+        return self.temperature_dec * current_temperature
 
     def generate_oracle_data_parallel(self):
         """ 
@@ -246,9 +257,9 @@ class MetropolisHastings:
         "imitates" the actions taken by the oracle in the saved dataset.
         Return this program's score.
         """
-        errors, errors_rate = self.calculate_errors(program, new_data)
+        errors, errors_rate, data_distribution = self.calculate_errors(program, new_data)
         score = math.exp(-self.beta * errors_rate[0])
-        return score, errors, errors_rate
+        return score, errors, errors_rate, data_distribution
 
     def calculate_errors(self, program, new_data):
         """ 
@@ -257,8 +268,10 @@ class MetropolisHastings:
         Return:
             - n_errors is the number of errors that the program chose when 
               compared to the actions chosen by the oracle.
-            - n_errors_string_action is the number of errors that the program 
-              chose when compared to the "string" actions chosen by the oracle.
+            - n_errors_yes_action is the number of errors that the program 
+              chose for the "yes" action.
+            - n_errors_no_action is the number of errors that the program 
+              chose for the "no" action.
             - n_errors_numeric_action is the number of errors that the program 
               chose when compared to the "numeric" actions chosen by the oracle.
             - chosen_default_action is the number of times the program chose
@@ -266,32 +279,61 @@ class MetropolisHastings:
               condition). Given in percentage related to the dataset.
         """
         n_errors = 0
-        n_errors_string_action = 0
+        n_errors_yes_action = 0
+        n_errors_no_action = 0
         n_errors_numeric_action = 0
+
+        n_data_yes_action = 0
+        n_data_no_action = 0
+        n_data_numeric_action = 0
+
         for i in range(len(new_data)):
             chosen_play = program.get_action(new_data[i][0])
-            if chosen_play != new_data[i][1]:
+            oracle_play = new_data[i][1]
+            # Compare the action chosen by the synthesized script and the oracle
+            if chosen_play != oracle_play:
                 n_errors += 1
 
-                if chosen_play in ['y', 'n']:
-                    n_errors_string_action += 1
+                if oracle_play == 'y':
+                    n_errors_yes_action += 1
+                elif oracle_play == 'n':
+                    n_errors_no_action += 1
                 else:
                     n_errors_numeric_action += 1
+
+            #For report purposes
+            if oracle_play == 'y':
+                n_data_yes_action += 1
+            elif oracle_play == 'n':
+                n_data_no_action += 1
+            else:
+                n_data_numeric_action += 1
+
         total_errors_rate = n_errors / len(new_data)
-        total_string_errors_rate = n_errors_string_action / len(new_data)
-        total_numeric_errors_rate = n_errors_numeric_action / len(new_data)
-        errors = (n_errors, n_errors_string_action, n_errors_numeric_action)
+        total_yes_errors_rate = n_errors_yes_action / n_data_yes_action
+        total_no_errors_rate = n_errors_no_action / n_data_no_action
+        total_numeric_errors_rate = n_errors_numeric_action / n_data_numeric_action
+        errors = (
+                    n_errors, n_errors_yes_action, 
+                    n_errors_no_action, n_errors_numeric_action
+                )
         errors_rate = (
                         total_errors_rate, 
-                        total_string_errors_rate,
+                        total_yes_errors_rate,
+                        total_no_errors_rate,
                         total_numeric_errors_rate
+                    )
+        data_distribution = (
+                            n_data_yes_action,
+                            n_data_no_action,
+                            n_data_numeric_action  
                         )
-        return errors, errors_rate
+        return errors, errors_rate, data_distribution
 
-    def sample_from_data(self, k):
-        """ Sample k instances from oracle data for evaluation. """
+    def sample_from_data(self):
+        """ Sample k random instances from oracle data for evaluation. """
 
-        index_list = sample(range(len(self.data)), len(self.data) - k)
+        index_list = sample(range(len(self.data)), len(self.data) - self.k)
         new_data = np.delete(self.data, index_list, 0)
         
         action_y = 0
@@ -307,8 +349,13 @@ class MetropolisHastings:
         print('action_y = ', action_y)
         print('action_n = ', action_n)
         print('action_num = ', action_num)
-        exit()
         
+        return new_data
+
+    def sample_data_from_importance_threshold(self):
+        """ Sample states that have importance higher than self.threshold. """
+
+        new_data = [d for d in self.data if d[3] >= self.threshold]
         return new_data
 
     def generate_graphs(self, path):
@@ -431,7 +478,7 @@ class MetropolisHastings:
 
             ax1.set_xlabel('States')
             ax1.set_ylabel('Importance')
-            ylabel = 'Average game length percentage of ' + str(interval) +
+            ylabel = 'Average game length percentage of ' + str(interval) + \
                     ' states'
             ax2.set_ylabel(ylabel)
 
@@ -528,7 +575,7 @@ class MetropolisHastings:
                 is_over = True
             else:
                 _, is_over = game.is_finished()
-
+        # Add the total number of rounds to the single game data
         for data in single_game_data:
             data.append(rounds)
         # Append game data to file
@@ -545,13 +592,14 @@ if __name__ == "__main__":
     beta = 0.5
     n_games = 750
     iterations = 300
-    k = 10000
-    tree_max_nodes = 200
+    k = -1
+    threshold = 1.75
+    tree_max_nodes = 300
     n_cores = multiprocessing.cpu_count()
     # Simulated annealing parameters
     # If no SA is to be used, set both parameters to 1.
     temperature = 1
-    temperature_dec = 1#0.98
+    temperature_dec = 0.98
 
     MH = MetropolisHastings(
                                 beta, 
@@ -559,15 +607,21 @@ if __name__ == "__main__":
                                 player_2, 
                                 n_games, 
                                 iterations, 
-                                k, 
+                                k,
+                                threshold,
                                 tree_max_nodes,
                                 temperature,
                                 temperature_dec,
-                                'dataset_test_parallel',
+                                'fulldata_sorted',
                                 n_cores
                             )
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    MH.importance_graph(dir_path)
+    #MH.importance_graph(dir_path)
     #MH.generate_oracle_data_parallel()
-    #best_program, script_best_player = MH.run()
+    best_program, script_best_player = MH.run()
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    path = dir_path + '/result' + '_' + str(MH.k) + 'd_' \
+           + str(MH.n_iterations) + 'i_' + str(MH.tree_max_nodes) + 'n/'
+    MH.save_script_to_file(best_program, path)
+    MH.generate_graphs(path)
