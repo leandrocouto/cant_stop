@@ -149,7 +149,7 @@ class ParseTree:
         """ Mutate a single node of the tree. """
 
         while True:
-            index_node = random.randint(1, self.current_id - 1)
+            index_node = random.randint(0, self.current_id - 1)
             node_to_mutate = self.find_node(self.root, index_node)
             if node_to_mutate == None:
                 self.print_tree(self.root, '  ')
@@ -159,6 +159,7 @@ class ParseTree:
                             )
             if not node_to_mutate.is_terminal:
                 break
+
         # delete its children and mutate it with new values
         node_to_mutate.children = []
         # Build the tree again from this node (randomly as if it was creating
@@ -167,6 +168,7 @@ class ParseTree:
         # Finish the tree with possible unfinished nodes (given the max_nodes
         # field)
         self._finish_tree(self.root)
+
         # Update the nodes ids. This is needed because when mutating a single 
         # node it is possible to create many other nodes (and not just one).
         # So a single id swap is not possible. This also prevents id "holes"
