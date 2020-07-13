@@ -310,9 +310,18 @@ class MetropolisHastings:
                 n_data_numeric_action += 1
 
         total_errors_rate = n_errors / len(new_data)
-        total_yes_errors_rate = n_errors_yes_action / n_data_yes_action
-        total_no_errors_rate = n_errors_no_action / n_data_no_action
-        total_numeric_errors_rate = n_errors_numeric_action / n_data_numeric_action
+        if n_data_yes_action == 0:
+            total_yes_errors_rate = 0
+        else:
+            total_yes_errors_rate = n_errors_yes_action / n_data_yes_action
+        if n_data_no_action == 0:
+            total_no_errors_rate = 0
+        else:
+            total_no_errors_rate = n_errors_no_action / n_data_no_action
+        if n_data_numeric_action == 0:
+            total_numeric_errors_rate = 0
+        else:
+            total_numeric_errors_rate = n_errors_numeric_action / n_data_numeric_action
         errors = (
                     n_errors, n_errors_yes_action, 
                     n_errors_no_action, n_errors_numeric_action
@@ -335,20 +344,6 @@ class MetropolisHastings:
 
         index_list = sample(range(len(self.data)), len(self.data) - self.k)
         new_data = np.delete(self.data, index_list, 0)
-        
-        action_y = 0
-        action_n = 0
-        action_num = 0
-        for d in new_data:
-            if d[1]  == 'y':
-                action_y += 1
-            elif d[1] == 'n':
-                action_n += 1
-            else:
-                action_num += 1
-        print('action_y = ', action_y)
-        print('action_n = ', action_n)
-        print('action_num = ', action_num)
         
         return new_data
 
