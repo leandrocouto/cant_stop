@@ -18,7 +18,8 @@ class Script_{0}(Player):
 \t\timport numpy as np
 \t\tactions = state.available_moves()
 \t\tscore = np.zeros(len(actions))
-\t\tfor i in range(len(score)):\n\t\t\t 
+\t\tfor i in range(len(score)):
+\t\t\tfor j in range(1, 13):
 '''
         
         self.program_string = r'''{0}'''

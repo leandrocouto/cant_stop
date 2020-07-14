@@ -7,7 +7,7 @@ class DSL:
         self.start = start
         
         self._grammar = {}
-        self._grammar[self.start] = [r"\t \t \t if actions[i] in ['y','n'] : \n \t \t \t \t score[i] = score_str \n \t \t \t else : \n \t \t \t \t score[i] = score_num"]
+        self._grammar[self.start] = [r"\t \t \t \t if actions[i] in ['y','n'] : \n \t \t \t \t \t score[i] += score_str \n \t \t \t \t else : \n \t \t \t \t \t score[i] += score_num"]
         self._grammar['score_str']   = [
                                         "COLS", "function_str", 
                                         "function_str + COLS", "function_str + score_str", 
@@ -24,7 +24,7 @@ class DSL:
                                 #'DSL.is_stop_action(actions[i])',
                                 #'DSL.rule_of_28(state)',
                                 # All types of actions
-                                'DSL.number_cells_advanced_this_round_for_col(state, COLS )',
+                                'DSL.number_cells_advanced_this_round_for_col(state, j )',
                                 #'DSL.number_positions_conquered(state, COLS )',
                                 #'DSL.number_of_neutral_markers_remaining(state)',
                                 #'DSL.number_cells_advanced_this_round(state)',
