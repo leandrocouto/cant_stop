@@ -33,7 +33,7 @@ class ThresholdExperiment:
     def __init__(self):
         self.beta = 0.5
         self.n_games = 750
-        self.iterations = 50
+        self.iterations = 5
         self.batch_iterations = 3
         self.k = -1
         self.thresholds = [0, 0.25, 0.50, 0.75, 1, 1.25, 1.50, 1.75]
@@ -337,7 +337,7 @@ class ThresholdExperiment:
 
         # Total error passed results
         with doc.create(Section('Total error rate - Passed results')):
-            #self.info_header_latex(doc)
+            self.info_header_latex(doc)
             x = []
             y = []
             for threshold in self.thresholds:
@@ -364,7 +364,7 @@ class ThresholdExperiment:
 
         # Yes errors passed results
         with doc.create(Section(" 'Yes' action error rate - Passed results")):
-            #self.info_header_latex(doc)
+            self.info_header_latex(doc)
             x = []
             y = []
             for threshold in self.thresholds:
@@ -391,7 +391,7 @@ class ThresholdExperiment:
 
         # No errors passed results
         with doc.create(Section(" 'No' action error rate - Passed results")):
-            #self.info_header_latex(doc)
+            self.info_header_latex(doc)
             x = []
             y = []
             for threshold in self.thresholds:
@@ -418,7 +418,7 @@ class ThresholdExperiment:
 
         # Numeric errors passed results
         with doc.create(Section("Numeric action error rate - Passed results")):
-            #self.info_header_latex(doc)
+            self.info_header_latex(doc)
             x = []
             y = []
             for threshold in self.thresholds:
@@ -445,7 +445,7 @@ class ThresholdExperiment:
 
         # Total error all results
         with doc.create(Section('Total error rate - All results')):
-            #self.info_header_latex(doc)
+            self.info_header_latex(doc)
             x = []
             y = []
             for threshold in self.thresholds:
@@ -472,7 +472,7 @@ class ThresholdExperiment:
 
         # Yes errors all results
         with doc.create(Section(" 'Yes' action error rate - All results")):
-            #self.info_header_latex(doc)
+            self.info_header_latex(doc)
             x = []
             y = []
             for threshold in self.thresholds:
@@ -499,7 +499,7 @@ class ThresholdExperiment:
 
         # No errors all results
         with doc.create(Section(" 'No' action error rate - All results")):
-            #self.info_header_latex(doc)
+            self.info_header_latex(doc)
             x = []
             y = []
             for threshold in self.thresholds:
@@ -526,7 +526,7 @@ class ThresholdExperiment:
 
         # Numeric errors all results
         with doc.create(Section("Numeric action error rate - All results")):
-            #self.info_header_latex(doc)
+            self.info_header_latex(doc)
             x = []
             y = []
             for threshold in self.thresholds:
@@ -765,6 +765,9 @@ class ThresholdExperiment:
                 full_results_no_errors_all_results.append(one_iteration_no_errors_all_results)
                 full_results_numeric_errors_all_results.append(one_iteration_numeric_errors_all_results)
 
+                #print('data_distribution = ', MH.data_distribution)
+
+            self.data_distribution.append(MH.data_distribution)
             # For "passed" results", some lists will be bigger than others because
             # every MH iteration will be different from others
 
@@ -796,6 +799,9 @@ class ThresholdExperiment:
             self.std_no_errors_all_results[self.thresholds[i]] = list(map(std, zip_longest(*full_results_no_errors_all_results)))
             self.std_numeric_errors_all_results[self.thresholds[i]] = list(map(std, zip_longest(*full_results_numeric_errors_all_results)))
 
+        print('data_distribution')
+        print(self.data_distribution)
+        #exit()
         self.generate_batch_report()
 
 if __name__ == "__main__":
