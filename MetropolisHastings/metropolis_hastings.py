@@ -103,6 +103,10 @@ class MetropolisHastings:
             current_program = self.tree.generate_program()
             mutated_program = new_tree.generate_program()
 
+            #print('current')
+            #print(current_program)
+            #print()#exit()
+
             script_best_player = self.tree.generate_player(
                                                         current_program, 
                                                         self.k, 
@@ -218,7 +222,7 @@ class MetropolisHastings:
         Generate data in parallel by playing games between player_1 and 
         player_2. 
         """
-        
+        '''
         # ProcessPoolExecutor() will take care of joining() and closing()
         # the processes after they are finished.
         with ProcessPoolExecutor(max_workers=self.n_cores) as executor:
@@ -250,6 +254,25 @@ class MetropolisHastings:
         with open('data/' + self.dataset_name + '_fulldata', 'ab') as f:
             for data in full_data:
                 pickle.dump(data, f)
+        '''
+        teste = []
+        with open('data/fulldata_sorted_fulldata', 'rb') as f:
+            while True:
+                try:
+                    teste.append(pickle.load(f))
+                except EOFError:
+                    break
+        b = 0
+        for i in range(len(teste)):
+            game = teste[i][0]
+            ac = [(1,1,1,1), (1,1,1,2), (1,1,2,1), (1,2,1,1), (2,1,1,1), (6,6,6,6), (5,6,6,6), (6,5,6,6), (6,6,5,6), (6,6,6,5)]
+            for a in ac:
+                if a == game.current_roll:
+                    b+=1#print('oi')
+            oracle_play = teste[i][1]
+            if oracle_play == (2,2) or oracle_play == (2,3) or oracle_play == (12,12) or oracle_play == (11,12):
+                print('encontrou ', oracle_play)
+        print(b)
 
     def calculate_score_function(self, program, new_data):
         """ 
@@ -309,7 +332,46 @@ class MetropolisHastings:
             else:
                 n_data_numeric_action += 1
 
+        '''
         total_errors_rate = n_errors / len(new_data)
+        if n_data_yes_action == 0:
+            total_yes_errors_rate = 0
+        else:
+            total_yes_errors_rate = n_errors_yes_action / n_data_yes_action
+        if n_data_no_action == 0:
+            total_no_errors_rate = 0
+        else:
+            total_no_errors_rate = n_errors_no_action / n_data_no_action
+        if n_data_numeric_action == 0:
+            total_numeric_errors_rate = 0
+        else:
+            total_numeric_errors_rate = n_errors_numeric_action / n_data_numeric_action
+        errors = (
+                    n_errors, n_errors_yes_action, 
+                    n_errors_no_action, n_errors_numeric_action
+                )
+        errors_rate = (
+                        total_errors_rate, 
+                        total_yes_errors_rate,
+                        total_no_errors_rate,
+                        total_numeric_errors_rate
+                    )
+        data_distribution = (
+                            n_data_yes_action,
+                            n_data_no_action,
+                            n_data_numeric_action  
+                        )
+        '''
+        # Proportion yes / no actions
+        if n_data_no_action == 0:
+            weight = 1
+        else:
+            weight = n_data_yes_action / n_data_no_action
+        n_errors_no_action = n_errors_no_action * weight
+        n_data_no_action = n_data_no_action * weight
+        total_errors_rate = (n_errors_no_action + n_errors_yes_action + n_errors_numeric_action) / (n_data_yes_action + n_data_no_action + n_data_numeric_action)
+
+
         if n_data_yes_action == 0:
             total_yes_errors_rate = 0
         else:
@@ -585,16 +647,16 @@ if __name__ == "__main__":
     player_2 = Vanilla_UCT(c = 1, n_simulations = 500)
     random_player = RandomPlayer()
     beta = 0.5
-    n_games = 750
-    iterations = 300
+    n_games = 1000
+    iterations = 100
     k = -1
-    threshold = 1.75
+    threshold = 0
     tree_max_nodes = 300
     n_cores = multiprocessing.cpu_count()
     # Simulated annealing parameters
     # If no SA is to be used, set both parameters to 1.
     temperature = 1
-    temperature_dec = 0.98
+    temperature_dec = 1
 
     MH = MetropolisHastings(
                                 beta, 
@@ -619,4 +681,4 @@ if __name__ == "__main__":
     path = dir_path + '/result' + '_' + str(MH.k) + 'd_' \
            + str(MH.n_iterations) + 'i_' + str(MH.tree_max_nodes) + 'n/'
     MH.save_script_to_file(best_program, path)
-    MH.generate_graphs(path)
+    #MH.generate_graphs(path)

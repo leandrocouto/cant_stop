@@ -7,60 +7,43 @@ class DSL:
         self.start = start
         
         self._grammar = {}
-        self._grammar[self.start] = [r"\t \t \t \t if actions[i] in ['y','n'] : \n \t \t \t \t \t score[i] += score_str \n \t \t \t \t else : \n \t \t \t \t \t score[i] += score_num"]
+        #self._grammar[self.start] = [r"\t \t \t \t if actions[i] in ['y','n'] : \n \t \t \t \t \t score[i] += score_str \n \t \t \t \t else : \n \t \t \t \t \t score[i] += score_num"]
+        self._grammar[self.start] = [r"\t \t for i in range(12): \n \t \t \t weights[i] = WEIGHTS \n \t \t for i in range(len(score)): \n \t \t \t if actions[i] in ['y','n'] : \n \t \t \t \t score[i] += score_str \n \t \t \t else : \n \t \t \t \t score[i] += score_num"]
         self._grammar['score_str']   = [
-                                        "COLS", "function_str", 
-                                        "function_str + COLS", "function_str + score_str", 
-                                        "abs( function_str - COLS )", "abs( function_str - score_str )", 
-                                        "COLS * function_str", "function_str * ( score_str )"
+                                        "score_str OP score_str",
+                                        "abs( score_str OP score_str )",
+                                        "function_str_score",
+                                        "SCORE"
                                         ]
         self._grammar['score_num'] = [
-                                    "COLS", "function_num", 
-                                    "function_num + COLS", "function_num + score_num", 
-                                    "abs( function_num - COLS )", "abs( function_num - score_num )", 
-                                    "COLS * function_num", "function_num * ( score_num )"
-                                    ]
-        self._grammar['function_str'] = [# Strictly "string" actions
-                                #'DSL.is_stop_action(actions[i])',
-                                #'DSL.rule_of_28(state)',
-                                # All types of actions
-                                'DSL.number_cells_advanced_this_round_for_col(state, j )',
-                                #'DSL.number_positions_conquered(state, COLS )',
-                                #'DSL.number_of_neutral_markers_remaining(state)',
-                                #'DSL.number_cells_advanced_this_round(state)',
-                                #'DSL.columns_won_by_opponent(state)',
-                                #'DSL.columns_won_by_player(state)',
-                                #'DSL.has_won_column_current_round(state)'
+                                        "score_num OP score_num",
+                                        "abs( score_num OP score_num )",
+                                        "function_num_score",
+                                        "SCORE"
+                                        ]
+        self._grammar['function_str_score'] = [# Strictly "string" actions
+                                'DSL.get_player_score(state)',
+                                'DSL.get_opponent_score(state)',
+                                'DSL.number_cells_advanced_this_round(state)'
                                 ]
-        self._grammar['function_num'] = [# Strictly "numeric" actions
-                                #'DSL.is_doubled_action(actions[i])', 
-                                #'DSL.is_action_a_column_border(actions[i])', 
-                                #'DSL.has_won_column_current_round(state)', 
-                                #'DSL.action_wins_at_least_one_column(state,actions[i])',
+        self._grammar['function_num_score'] = [# Strictly "numeric" actions
                                 'DSL.advance_in_action_col(actions[i])',
-                                #'DSL.number_of_neutrals_used(actions[i], state)',
-                                'DSL.does_action_place_new_neutral(actions[i], state)'
-                                # All types of actions
-                                #'DSL.number_cells_advanced_this_round_for_col(state, COLS )',
-                                #'DSL.number_positions_conquered(state, COLS )',
-                                #'DSL.number_cells_advanced_this_round_for_action(actions[i], state)'
-                                #'DSL.columns_won_by_opponent(state)',
-                                #'DSL.columns_won_by_player(state)',
-                                #'DSL.number_of_neutral_markers_remaining(state)',
-                                #'DSL.number_cells_advanced_this_round(state)',
+                                'DSL.does_action_place_new_neutral(actions[i], state)',
+                                #'weights[actions[i]]'
                                 ]
-        #self._grammar['SCORE'] = ['5', '10', '15', '20', '30', '40', '50', '60', '70']
-        self._grammar['COLS'] = ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12']
-        #self._grammar['SMALL_NUM'] = ['0', '1', '2', '3']
+        self._grammar['OP'] = ['+', '-', '*']
+        self._grammar['SCORE'] = [str(i) for i in range(1, 40)]
+        self._grammar['COLS'] = [str(i) for i in range(2, 13)]
+        self._grammar['WEIGHTS'] = [str(i) for i in range(1, 20)]
 
         # Used in the parse tree to finish expanding hanging nodes
-        self.finishable_nodes = ['COLS', 'function_str', 'function_num', 'score_str', 'score_num']
+        self.finishable_nodes = ['SCORE', 'COLS', 'WEIGHTS', 'OP', 'function_str_score', 'function_num_score', 'score_str', 'score_num']
 
     @staticmethod
     def does_action_place_new_neutral(action, state):
         """ 
         Return 1 if this action will use at least one neutral marker and
-        0 otherwiise. 
+        0 otherwise. 
         """
         neutral_positions = [n[0] for n in state.neutral_positions]
         for a in action:
@@ -128,6 +111,7 @@ class DSL:
             return True
         else:
             return False
+
     @staticmethod
     def get_player_score(state):
         """ A score is the number of cells advanced in all columns. """
@@ -164,6 +148,7 @@ class DSL:
                 for won_column in state.player_won_column:
                     if won_column[0] == column:
                         counter += len(list_of_cells) - previously_conquered
+        
         return counter
 
     @staticmethod
