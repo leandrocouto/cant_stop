@@ -8,18 +8,18 @@ class DSL:
         
         self._grammar = {}
         #self._grammar[self.start] = [r"\t \t \t \t if actions[i] in ['y','n'] : \n \t \t \t \t \t score[i] += score_str \n \t \t \t \t else : \n \t \t \t \t \t score[i] += score_num"]
-        self._grammar[self.start] = [r"\t \t for i in range(12): \n \t \t \t weights[i] = WEIGHTS \n \t \t for i in range(len(score)): \n \t \t \t if actions[i] in ['y','n'] : \n \t \t \t \t score[i] += score_str \n \t \t \t else : \n \t \t \t \t score[i] += score_num"]
+        self._grammar[self.start] = [r"\t \t weights = [ WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS ] \n \t \t for i in range(len(actions)): \n \t \t \t if actions[i] in ['y','n'] : \n \t \t \t \t score_yes_no = score_str \n \t \t \t else : \n \t \t \t \t score_columns[i] = score_num \n \t \t if actions[0] in ['y', 'n']: \n \t \t \t if score_yes_no < THRESHOLD : \n \t \t \t \t return 'y' \n \t \t \t else: \n \t \t \t \t return 'n' \n \t \t else: \n \t \t \t return actions[np.argmax(score_columns)]"]
         self._grammar['score_str']   = [
                                         "score_str OP score_str",
                                         "abs( score_str OP score_str )",
                                         "function_str_score",
-                                        "SCORE"
+                                        "THRESHOLD"
                                         ]
         self._grammar['score_num'] = [
                                         "score_num OP score_num",
                                         "abs( score_num OP score_num )",
                                         "function_num_score",
-                                        "SCORE"
+                                        "THRESHOLD"
                                         ]
         self._grammar['function_str_score'] = [# Strictly "string" actions
                                 'DSL.get_player_score(state)',
@@ -32,12 +32,25 @@ class DSL:
                                 #'weights[actions[i]]'
                                 ]
         self._grammar['OP'] = ['+', '-', '*']
-        self._grammar['SCORE'] = [str(i) for i in range(1, 40)]
+        self._grammar['THRESHOLD'] = [str(i) for i in range(1, 40)]
         self._grammar['COLS'] = [str(i) for i in range(2, 13)]
         self._grammar['WEIGHTS'] = [str(i) for i in range(1, 20)]
 
         # Used in the parse tree to finish expanding hanging nodes
-        self.finishable_nodes = ['SCORE', 'COLS', 'WEIGHTS', 'OP', 'function_str_score', 'function_num_score', 'score_str', 'score_num']
+        self.finishable_nodes = ['THRESHOLD', 'COLS', 'WEIGHTS', 'OP', 'function_str_score', 'function_num_score', 'score_str', 'score_num']
+
+        # Dictionary to "quickly" finish the tree.
+        # Needed for the tree to not surpass the max node limit.
+        self.quickly_finish = {
+                                'score_str' :['function_str_score', 'THRESHOLD'],
+                                'score_num' :['function_num_score', 'THRESHOLD'],
+                                'function_str_score' :self._grammar['function_str_score'],
+                                'function_num_score' :self._grammar['function_num_score'],
+                                'OP' :self._grammar['OP'],
+                                'THRESHOLD' :self._grammar['THRESHOLD'],
+                                'COLS' :self._grammar['COLS'],
+                                'WEIGHTS' :self._grammar['WEIGHTS']
+                            }
 
     @staticmethod
     def does_action_place_new_neutral(action, state):

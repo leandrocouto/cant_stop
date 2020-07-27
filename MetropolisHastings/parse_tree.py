@@ -71,6 +71,30 @@ class ParseTree:
                             )
             parent_node.children.append(child_node)
 
+    def _expand_children_finish_tree(self, parent_node):
+        """
+        "Quickly" expands the children of 'parent_node'. Avoids expanding nodes
+        that are recursive. i.e.: A -> A + B 
+        """
+        #print("self.dsl.quickly_finish = ", self.dsl.quickly_finish)
+        #print("dsl_entry = ", dsl_entry)
+        #print('parent_node.value = ', parent_node.value)
+        #print("self.dsl.quickly_finish[dsl_entry] = ", self.dsl.quickly_finish[dsl_entry])
+
+        dsl_children_chosen = random.choice(self.dsl.quickly_finish[parent_node.value])
+        children = self._tokenize_dsl_entry(dsl_children_chosen)
+        for child in children:
+            is_terminal = self._is_terminal(child)
+            node_id = self.current_id + 1
+            self.current_id += 1
+            child_node = Node(
+                            node_id = node_id, 
+                            value = child, 
+                            is_terminal = is_terminal, 
+                            parent = parent_node.value
+                            )
+            parent_node.children.append(child_node)
+
     def _finish_tree(self, start_node):
         """ 
         Finish expanding nodes that possibly didn't finish fully expanding.
@@ -85,10 +109,7 @@ class ParseTree:
                 is_node_finished = False
                 break
         if not is_node_finished:
-            self._expand_children(
-                                start_node, 
-                                self.dsl._grammar[start_node.value]
-                                )
+            self._expand_children_finish_tree(start_node)
         for child_node in start_node.children:
             self._finish_tree(child_node)
 
