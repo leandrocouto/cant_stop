@@ -17,18 +17,14 @@ class Script_{0}(Player):
 \tdef get_action(self, state):
 \t\timport numpy as np
 \t\tactions = state.available_moves()
-\t\tscore = np.zeros(len(actions))
-\t\tweights = np.zeros(12)
+\t\tscore_yes_no = 0
+\t\tscore_columns = np.zeros(len(actions))
 '''
-        #\t\t\tfor j in range(1, 13):
         
         self.program_string = r'''{0}'''
-        #self._end_script = r'''\n\t\tprint('score=',score)\n\t\tprint('weights=', weights)\n\t\treturn actions[np.argmax(score)]'''
-        self._end_script = r'''\n\t\treturn actions[np.argmax(score)]'''
     def _generateTextScript(self):
         py = self._py.format(self.prefix)
-        py += self.program_string.format(self.program)  
-        py += self._end_script
+        py += self.program_string.format(self.program)
         py = codecs.decode(py, 'unicode_escape')
         return py
                         

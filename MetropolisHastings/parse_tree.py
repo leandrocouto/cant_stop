@@ -46,9 +46,15 @@ class ParseTree:
                                 start_node, 
                                 self.dsl._grammar[start_node.value]
                                 )
-            for child_node in start_node.children:
-                if not child_node.is_terminal:
-                    self.build_tree(child_node)
+
+            # It does not expand in order, so the tree is able to grow not only
+            # in the children's ordering
+            index_to_expand = [i for i in range(len(start_node.children))]
+            random.shuffle(index_to_expand)
+
+            for i in range(len(index_to_expand)):
+                if not start_node.children[i].is_terminal:
+                    self.build_tree(start_node.children[i])
 
     def _expand_children(self, parent_node, dsl_entry):
         """
@@ -76,10 +82,6 @@ class ParseTree:
         "Quickly" expands the children of 'parent_node'. Avoids expanding nodes
         that are recursive. i.e.: A -> A + B 
         """
-        #print("self.dsl.quickly_finish = ", self.dsl.quickly_finish)
-        #print("dsl_entry = ", dsl_entry)
-        #print('parent_node.value = ', parent_node.value)
-        #print("self.dsl.quickly_finish[dsl_entry] = ", self.dsl.quickly_finish[dsl_entry])
 
         dsl_children_chosen = random.choice(self.dsl.quickly_finish[parent_node.value])
         children = self._tokenize_dsl_entry(dsl_children_chosen)
