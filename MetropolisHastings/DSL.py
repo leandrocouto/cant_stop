@@ -8,7 +8,7 @@ class DSL:
         
         self._grammar = {}
         #self._grammar[self.start] = [r"\t \t \t \t if actions[i] in ['y','n'] : \n \t \t \t \t \t score[i] += score_str \n \t \t \t \t else : \n \t \t \t \t \t score[i] += score_num"]
-        self._grammar[self.start] = [r"\t \t weights = [ WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS ] \n \t \t for i in range(len(actions)): \n \t \t \t if actions[i] in ['y','n'] : \n \t \t \t \t score_yes_no = score_str \n \t \t \t else : \n \t \t \t \t score_columns[i] = score_num \n \t \t if actions[0] in ['y', 'n']: \n \t \t \t if score_yes_no < THRESHOLD : \n \t \t \t \t return 'y' \n \t \t \t else: \n \t \t \t \t return 'n' \n \t \t else: \n \t \t \t return actions[np.argmax(score_columns)]"]
+        self._grammar[self.start] = [r"\t \t weights = [ WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS ] \n \t \t for i in range(len(actions)): \n \t \t \t if actions[i] in ['y','n'] : \n \t \t \t \t score_yes_no = score_str \n \t \t \t else : \n \t \t \t \t score_columns[i] = score_num \n \t \t if actions[0] in ['y', 'n']: \n \t \t \t if score_yes_no < THRESHOLD : \n \t \t \t \t return 'y' \n \t \t \t else: \n \t \t \t \t return 'n' \n \t \t else: \n \t \t \t return actions[np.argmax(score_columns)]"]
         self._grammar['score_str']   = [
                                         "score_str OP score_str",
                                         "abs( score_str OP score_str )",
@@ -29,7 +29,7 @@ class DSL:
         self._grammar['function_num_score'] = [# Strictly "numeric" actions
                                 'DSL.advance_in_action_col(actions[i])',
                                 'DSL.does_action_place_new_neutral(actions[i], state)',
-                                #'weights[actions[i]]'
+                                'DSL.get_weight_for_action_columns(actions[i], weights)'
                                 ]
         self._grammar['OP'] = ['+', '-', '*']
         self._grammar['THRESHOLD'] = [str(i) for i in range(1, 40)]
@@ -51,6 +51,21 @@ class DSL:
                                 'COLS' :self._grammar['COLS'],
                                 'WEIGHTS' :self._grammar['WEIGHTS']
                             }
+
+    @staticmethod
+    def get_weight_for_action_columns(action, weights):
+        """ 
+        Given the synthesized weight vector for each column, return the weight 
+        for that column. If the action is a 2-tuple (two columns), return the 
+        sum of the weight values. 
+        """
+        column_weight = 0
+        for a in action:
+            # "-2" because the actions vary from column 2 to 12 (inclusive)
+            # while the array starts from 0.
+            column_weight += weights[a - 2]
+
+        return column_weight
 
     @staticmethod
     def does_action_place_new_neutral(action, state):

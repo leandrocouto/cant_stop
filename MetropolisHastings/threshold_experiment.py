@@ -11,6 +11,7 @@ from players.rule_of_28_player import Rule_of_28_Player
 from MetropolisHastings.parse_tree import ParseTree, Node
 from MetropolisHastings.DSL import DSL
 from MetropolisHastings.metropolis_hastings import MetropolisHastings
+from MetropolisHastings.simulated_annealing import SimulatedAnnealing
 from play_game_template import simplified_play_single_game, play_single_game
 from Script import Script
 import time
@@ -30,17 +31,36 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 
 class ThresholdExperiment:
-    def __init__(self):
-        self.beta = 0.5
-        self.n_games = 750
-        self.iterations = 300
-        self.batch_iterations = 1
-        self.k = -1
-        self.thresholds = [0]#[0, 0.25, 0.50, 0.75, 1, 1.25, 1.50, 1.75]
-        self.tree_max_nodes = 300
-        self.n_cores = multiprocessing.cpu_count()
-        self.temperature = 1
-        self.temperature_dec = 1
+    def __init__(self, beta, n_games, iterations, batch_iterations, k, 
+        thresholds, tree_max_nodes, n_cores, use_SA, d, init_temp, 
+        n_games_glenn, dataset_name):
+
+        self.beta = beta
+        self.n_games = n_games
+        self.iterations = iterations
+        self.batch_iterations = batch_iterations
+        self.k = k
+        self.thresholds = thresholds
+        self.tree_max_nodes = tree_max_nodes
+        self.n_cores = n_cores
+        self.use_SA = use_SA
+        self.d = d
+        self.init_temp = init_temp
+        self.n_games_glenn = n_games_glenn
+        self.dataset_name = dataset_name
+
+        dir_path = os.path.dirname(os.path.realpath(__file__)) + '/'
+        
+        if self.use_SA:    
+            self.folder = dir_path + 'result_' + str(self.iterations) + \
+                        'i_' +str(self.batch_iterations) +'b_' + \
+                        str(self.tree_max_nodes) + 'n_SA/'
+        else:
+            self.folder = dir_path + 'result_' + str(self.iterations) + \
+                        'i_' +str(self.batch_iterations) +'b_' + \
+                        str(self.tree_max_nodes) + 'n_MH/'
+        if not os.path.exists(self.folder):
+            os.makedirs(self.folder)
 
         # Single experiment
         self.total_errors_passed_results = []
@@ -69,31 +89,40 @@ class ThresholdExperiment:
         self.std_yes_errors_all_results = {}
         self.std_no_errors_all_results = {}
         self.std_numeric_errors_all_results = {}
+        # Games against Glenn's heuristic
+        self.victories = {}
+        self.draws = {}
+        self.losses = {}
+        self.std_victories = {}
+        self.std_draws = {}
+        self.std_losses = {}
 
         # Add threshold keys for the dicts
         for threshold in self.thresholds:
-        	self.mean_total_errors_passed_results[threshold] = []
-	        self.mean_yes_errors_passed_results[threshold] = []
-	        self.mean_no_errors_passed_results[threshold] = []
-	        self.mean_numeric_errors_passed_results[threshold] = []
-	        self.mean_total_errors_all_results[threshold] = []
-	        self.mean_yes_errors_all_results[threshold] = []
-	        self.mean_no_errors_all_results[threshold] = []
-	        self.mean_numeric_errors_all_results[threshold] = []
-	        self.std_total_errors_passed_results[threshold] = []
-	        self.std_yes_errors_passed_results[threshold] = []
-	        self.std_no_errors_passed_results[threshold] = []
-	        self.std_numeric_errors_passed_results[threshold] = []
-	        self.std_total_errors_all_results[threshold] = []
-	        self.std_yes_errors_all_results[threshold] = []
-	        self.std_no_errors_all_results[threshold] = []
-	        self.std_numeric_errors_all_results[threshold] = []
-
-        
+            self.mean_total_errors_passed_results[threshold] = []
+            self.mean_yes_errors_passed_results[threshold] = []
+            self.mean_no_errors_passed_results[threshold] = []
+            self.mean_numeric_errors_passed_results[threshold] = []
+            self.mean_total_errors_all_results[threshold] = []
+            self.mean_yes_errors_all_results[threshold] = []
+            self.mean_no_errors_all_results[threshold] = []
+            self.mean_numeric_errors_all_results[threshold] = []
+            self.std_total_errors_passed_results[threshold] = []
+            self.std_yes_errors_passed_results[threshold] = []
+            self.std_no_errors_passed_results[threshold] = []
+            self.std_numeric_errors_passed_results[threshold] = []
+            self.std_total_errors_all_results[threshold] = []
+            self.std_yes_errors_all_results[threshold] = []
+            self.std_no_errors_all_results[threshold] = []
+            self.std_numeric_errors_all_results[threshold] = []
+            self.victories[threshold] = 0
+            self.draws[threshold] = 0
+            self.losses[threshold] = 0
+            self.std_victories[threshold] = 0
+            self.std_draws[threshold] = 0
+            self.std_losses[threshold] = 0
+  
         self.data_distribution = []
-        self.victories_rule_of_28 = []
-        self.losses_rule_of_28 = []
-        self.draws_rule_of_28 = []
 
     def info_header_latex(self, doc):
         """Create a header used before each graph in the report."""
@@ -134,8 +163,21 @@ class ThresholdExperiment:
 
         geometry_options = {"right": "2cm", "left": "2cm"}
         
-        pdf_name = "testando"
+        if self.use_SA:
+            pdf_name = self.folder + 'result_' + str(self.iterations) + \
+                        'i_' +str(self.batch_iterations) +'b_' + \
+                        str(self.tree_max_nodes) + 'n_SA'
+        else:
+            pdf_name = self.folder + 'result_' + str(self.iterations) + \
+                        'i_' +str(self.batch_iterations) +'b_' + \
+                        str(self.tree_max_nodes) + 'n_MH'
+
         doc = Document(pdf_name, geometry_options=geometry_options)
+
+        if self.use_SA:
+            xlabel = 'SA Iterations'
+        else:
+            xlabel = 'MH Iterations'
 
         # Total error passed results
         with doc.create(Section('Total error rate - Passed results')):
@@ -155,7 +197,7 @@ class ThresholdExperiment:
                     errorevery=5
                     )
             ax.legend(loc="best")
-            ax.set(xlabel='MH Iterations', ylabel='Error rate', 
+            ax.set(xlabel=xlabel, ylabel='Error rate', 
             title='Total error rate - Passed results')
 
             with doc.create(Figure(position='htbp')) as plot:
@@ -182,7 +224,7 @@ class ThresholdExperiment:
                     errorevery=5
                     )
             ax.legend(loc="best")
-            ax.set(xlabel='MH Iterations', ylabel='Error rate', 
+            ax.set(xlabel=xlabel, ylabel='Error rate', 
             title=" 'Yes' action error rate - Passed results")
 
             with doc.create(Figure(position='htbp')) as plot:
@@ -209,7 +251,7 @@ class ThresholdExperiment:
                     errorevery=5
                     )
             ax.legend(loc="best")
-            ax.set(xlabel='MH Iterations', ylabel='Error rate', 
+            ax.set(xlabel=xlabel, ylabel='Error rate', 
             title=" 'No' action error rate - Passed results")
 
             with doc.create(Figure(position='htbp')) as plot:
@@ -236,7 +278,7 @@ class ThresholdExperiment:
                     errorevery=5
                     )
             ax.legend(loc="best")
-            ax.set(xlabel='MH Iterations', ylabel='Error rate', 
+            ax.set(xlabel=xlabel, ylabel='Error rate', 
             title="Numeric action error rate - Passed results")
 
             with doc.create(Figure(position='htbp')) as plot:
@@ -263,7 +305,7 @@ class ThresholdExperiment:
                     errorevery=5
                     )
             ax.legend(loc="best")
-            ax.set(xlabel='MH Iterations', ylabel='Error rate', 
+            ax.set(xlabel=xlabel, ylabel='Error rate', 
             title='Total error rate - All results')
 
             with doc.create(Figure(position='htbp')) as plot:
@@ -290,7 +332,7 @@ class ThresholdExperiment:
                     errorevery=5
                     )
             ax.legend(loc="best")
-            ax.set(xlabel='MH Iterations', ylabel='Error rate', 
+            ax.set(xlabel=xlabel, ylabel='Error rate', 
             title=" 'Yes' action error rate - All results")
 
             with doc.create(Figure(position='htbp')) as plot:
@@ -317,7 +359,7 @@ class ThresholdExperiment:
                     errorevery=5
                     )
             ax.legend(loc="best")
-            ax.set(xlabel='MH Iterations', ylabel='Error rate', 
+            ax.set(xlabel=xlabel, ylabel='Error rate', 
             title=" 'No' action error rate - All results")
 
             with doc.create(Figure(position='htbp')) as plot:
@@ -344,8 +386,42 @@ class ThresholdExperiment:
                     errorevery=5
                     )
             ax.legend(loc="best")
-            ax.set(xlabel='MH Iterations', ylabel='Error rate', 
+            ax.set(xlabel=xlabel, ylabel='Error rate', 
             title="Numeric action error rate - All results")
+
+            with doc.create(Figure(position='htbp')) as plot:
+                plot.add_plot(width=NoEscape(r'1\textwidth'), dpi=300)
+
+        plt.close()
+        doc.append(NoEscape(r'\newpage'))
+
+        # Games against Glenn's heuristic
+        with doc.create(Section("Games against Glenn's heuristic")):
+            self.info_header_latex(doc)
+            x_pos = np.arange(len(self.thresholds))
+            vic = []
+            draw = []
+            loss = []
+            error_vic = []
+            error_draw = []
+            error_loss = []
+            for threshold in self.thresholds:
+                vic.append(self.victories[threshold])
+                draw.append(self.draws[threshold])
+                loss.append(self.losses[threshold])
+                error_vic.append(self.std_victories[threshold])
+                error_draw.append(self.std_draws[threshold])
+                error_loss.append(self.std_losses[threshold])
+        
+            X = np.arange(len(self.thresholds))
+            plt.bar(X, vic, yerr=error_vic, color = 'g', width = 0.25, label='Victory')  
+            plt.bar(X + 0.25, draw, yerr=error_draw, color = 'gray', width = 0.25, label='Draw')
+            plt.bar(X + 0.5, loss, yerr=error_loss, color = 'r', width = 0.25, label='Loss')
+            plt.xticks(X + .25, self.thresholds)
+            plt.legend(labels=self.thresholds)
+            plt.legend(loc="best")
+            plt.ylabel('Number of games')
+            plt.title(str(self.n_games_glenn) + " games against Glenn's heuristic")
 
             with doc.create(Figure(position='htbp')) as plot:
                 plot.add_plot(width=NoEscape(r'1\textwidth'), dpi=300)
@@ -391,37 +467,59 @@ class ThresholdExperiment:
             full_results_no_errors_all_results = []
             full_results_numeric_errors_all_results = []
 
+            batch_victories = []
+            batch_draws = []
+            batch_losses = []
+
             for j in range(self.batch_iterations):
 
                 player_1 = Vanilla_UCT(c = 1, n_simulations = 500)
                 player_2 = Vanilla_UCT(c = 1, n_simulations = 500)
                 glenn = Rule_of_28_Player()
 
-                MH = MetropolisHastings(
-                                            self.beta, 
-                                            player_1, 
-                                            player_2, 
-                                            self.n_games, 
-                                            self.iterations, 
-                                            self.k,
-                                            self.thresholds[i],
-                                            self.tree_max_nodes,
-                                            self.temperature,
-                                            self.temperature_dec,
-                                            'fulldata_sorted',
-                                            self.n_cores
-                                        )
+                if self.use_SA:
+                    # optimization_algorithm = Metropolis-Hastings or 
+                    #                          Simulated Annealing
+                    opt_algo = SimulatedAnnealing(
+                                                self.beta, 
+                                                player_1, 
+                                                player_2, 
+                                                self.n_games, 
+                                                self.iterations, 
+                                                self.k,
+                                                self.thresholds[i],
+                                                self.tree_max_nodes,
+                                                self.dataset_name,
+                                                self.n_cores,
+                                                self.d,
+                                                self.init_temp
+                                            )
+                else:
+                    opt_algo = MetropolisHastings(
+                                                self.beta, 
+                                                player_1, 
+                                                player_2, 
+                                                self.n_games, 
+                                                self.iterations, 
+                                                self.k,
+                                                self.thresholds[i],
+                                                self.tree_max_nodes,
+                                                self.dataset_name,
+                                                self.n_cores
+                                            )
 
-                best_program, script_best_player = MH.run()
-
-                dir_path = os.path.dirname(os.path.realpath(__file__))
+                best_program, script_best_player = opt_algo.run()
+                
                 script = Script(
                                     best_program, 
                                     self.k, 
                                     self.iterations, 
                                     self.tree_max_nodes
                                 )
-                script.save_file_custom(dir_path, 'threshold_' + str(self.thresholds[i]) + '_batch_' + str(j))
+                sub_folder_batch = self.folder + '/batch_' + str(j) + '/'
+                if not os.path.exists(sub_folder_batch):
+                    os.makedirs(sub_folder_batch)
+                script.save_file_custom(sub_folder_batch, 'threshold_' + str(self.thresholds[i]) + 'batch_' + str(j))
 
                 one_iteration_total_errors_passed_results = []
                 one_iteration_yes_errors_passed_results = []
@@ -434,13 +532,13 @@ class ThresholdExperiment:
                 one_iteration_numeric_errors_all_results = []
 
                 # Error rate - Passed results
-                for passed_data in MH.passed_results:
+                for passed_data in opt_algo.passed_results:
                     one_iteration_total_errors_passed_results.append(passed_data[4])
                     one_iteration_yes_errors_passed_results.append(passed_data[5])
                     one_iteration_no_errors_passed_results.append(passed_data[6])
                     one_iteration_numeric_errors_passed_results.append(passed_data[7])
                 # Error rate - All results
-                for all_data in MH.all_results:
+                for all_data in opt_algo.all_results:
                     one_iteration_total_errors_all_results.append(all_data[4])
                     one_iteration_yes_errors_all_results.append(all_data[5])
                     one_iteration_no_errors_all_results.append(all_data[6])
@@ -456,10 +554,37 @@ class ThresholdExperiment:
                 full_results_no_errors_all_results.append(one_iteration_no_errors_all_results)
                 full_results_numeric_errors_all_results.append(one_iteration_numeric_errors_all_results)
 
+                # Play games against Glenn's heuristic for evaluation
+                victories = 0
+                losses = 0
+                draws = 0
+                for j in range(self.n_games_glenn):
+                    game = Game(2, 4, 6, [2,12], 2, 2)
+                    if j%2 == 0:
+                        who_won = simplified_play_single_game(script_best_player, glenn, game, 500)
+                        if who_won == 1:
+                            victories += 1
+                        elif who_won == 2:
+                            losses += 1
+                        else:
+                            draws += 1
+                    else:
+                        who_won = simplified_play_single_game(glenn, script_best_player, game, 500)
+                        if who_won == 2:
+                            victories += 1
+                        elif who_won == 1:
+                            losses += 1
+                        else:
+                            draws += 1
 
-            self.data_distribution.append(MH.data_distribution)
+                batch_victories.append(victories)
+                batch_draws.append(draws)
+                batch_losses.append(losses)
+
+
+            self.data_distribution.append(opt_algo.data_distribution)
             # For "passed" results", some lists will be bigger than others because
-            # every MH iteration will be different from others
+            # every opt_algo (MH or SA) iteration will be different from others
 
             # Find out the minimum length of all runs, and slices all the 
             # remaining lists
@@ -489,106 +614,37 @@ class ThresholdExperiment:
             self.std_no_errors_all_results[self.thresholds[i]] = list(map(std, zip_longest(*full_results_no_errors_all_results)))
             self.std_numeric_errors_all_results[self.thresholds[i]] = list(map(std, zip_longest(*full_results_numeric_errors_all_results)))
 
+            # Glenn's games
+            self.victories[self.thresholds[i]] = avg(batch_victories)
+            self.draws[self.thresholds[i]] = avg(batch_draws)
+            self.losses[self.thresholds[i]] = avg(batch_losses)
+            self.std_victories[self.thresholds[i]] = std(batch_victories)
+            self.std_draws[self.thresholds[i]] = std(batch_draws)
+            self.std_losses[self.thresholds[i]] = std(batch_losses)
+
         self.generate_batch_report()
 
 if __name__ == "__main__":
-    experiment = ThresholdExperiment()
-    #experiment.run()
+    beta = 0.5
+    n_games = 750
+    iterations = 2
+    batch_iterations = 2
+    k = -1
+    thresholds = [0, 0.25, 0.50, 0.75, 1, 1.25, 1.50, 1.75]
+    tree_max_nodes = 300
+    n_cores = multiprocessing.cpu_count()
+    use_SA = True
+    d = 1
+    init_temp = 1
+    n_games_glenn = 100
+    dataset_name = 'fulldata_sorted'
+
+    experiment = ThresholdExperiment(
+                                beta, n_games, iterations, batch_iterations, 
+                                k, thresholds, tree_max_nodes, n_cores, use_SA, 
+                                d, init_temp, n_games_glenn, dataset_name
+                                )
     experiment.batch_run()
-    '''
-    draw = 0
-    glenn_vic = 0
-    uct_vic = 0
-    n_games = 100
-    n_simulations = 500
-
-    glenn = Rule_of_28_Player()
-    uct = Vanilla_UCT(c = 1, n_simulations = n_simulations)
-
-    for i in range(n_games):
-        game = Game(2, 4, 6, [2,12], 2, 2)
-        if i%2 == 0:
-            who_won = play_single_game(uct, glenn, game, 500)
-            if who_won == 1:
-                uct_vic += 1
-                print(i, '- uct won')
-            elif who_won == 2:
-                glenn_vic += 1
-                print(i, '- glenn won')
-            else:
-                draw += 1
-                print(i, '- draw')
-        else:
-            who_won = play_single_game(glenn, uct, game, 500)
-            if who_won == 1:
-                print(i, '- glenn won')
-                glenn_vic += 1
-            elif who_won == 2:
-                uct_vic += 1
-                print(i, '- uct won')
-            else:
-                draw += 1
-                print(i, '- draw')
-
-    print('playouts = ', n_simulations)
-    print('draw = ', draw)
-    print('glenn_vic = ', glenn_vic)
-    print('uct_vic = ', uct_vic)
-    '''
-    '''
-    glenn = Rule_of_28_Player()
-    new_data = []
-
-    n_errors = 0
-    n_errors_yes_action = 0
-    n_errors_no_action = 0
-    n_errors_numeric_action = 0
-
-    n_data_yes_action = 0
-    n_data_no_action = 0
-    n_data_numeric_action = 0
-
-    # Read the dataset
-    with open('fulldata_sorted', "rb") as f:
-        while True:
-            try:
-                new_data.append(pickle.load(f))
-            except EOFError:
-                break
-
-    for i in range(len(new_data)):
-        chosen_play = glenn.get_action(new_data[i][0])
-        oracle_play = new_data[i][1]
-        # Compare the action chosen by the synthesized script and the oracle
-        if chosen_play != oracle_play:
-            n_errors += 1
-
-            if oracle_play == 'y':
-                n_errors_yes_action += 1
-            elif oracle_play == 'n':
-                n_errors_no_action += 1
-            else:
-                n_errors_numeric_action += 1
-
-        #For report purposes
-        if oracle_play == 'y':
-            n_data_yes_action += 1
-        elif oracle_play == 'n':
-            n_data_no_action += 1
-        else:
-            n_data_numeric_action += 1
-
-    print('n_errors = ', n_errors, '(', round((n_errors/(n_data_yes_action + n_data_no_action + n_data_numeric_action))*100, 2), '%)')
-    print('n_errors_yes_action = ', n_errors_yes_action, '(', round((n_errors_yes_action/n_data_yes_action)*100, 2), '%)')
-    print('n_errors_no_action = ', n_errors_no_action, '(', round((n_errors_no_action/n_data_no_action)*100, 2), '%)')
-    print('n_errors_numeric_action = ', n_errors_numeric_action, '(', round((n_errors_numeric_action/n_data_numeric_action)*100, 2), '%)')
-    print('n_data_yes_action = ', n_data_yes_action)
-    print('n_data_no_action = ', n_data_no_action)
-    print('n_data_numeric_action = ', n_data_numeric_action)
-    '''
-
-
-    
     
     
 
