@@ -3,7 +3,6 @@ sys.path.insert(0,'..')
 import math
 import copy
 from game import Game
-from play_game_template import play_single_game
 from players.vanilla_uct_player import Vanilla_UCT
 from players.uct_player import UCTPlayer
 from players.random_player import RandomPlayer
@@ -31,12 +30,11 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 
 class ThresholdExperiment:
-    def __init__(self, beta, n_games, iterations, batch_iterations, k, 
-        thresholds, tree_max_nodes, n_cores, use_SA, d, init_temp, 
-        n_games_glenn, dataset_name):
+    def __init__(self, beta, iterations, batch_iterations, k, thresholds, 
+        tree_max_nodes, n_cores, use_SA, d, init_temp, n_games_glenn, 
+        dataset_name):
 
         self.beta = beta
-        self.n_games = n_games
         self.iterations = iterations
         self.batch_iterations = batch_iterations
         self.k = k
@@ -473,39 +471,29 @@ class ThresholdExperiment:
 
             for j in range(self.batch_iterations):
 
-                player_1 = Vanilla_UCT(c = 1, n_simulations = 500)
-                player_2 = Vanilla_UCT(c = 1, n_simulations = 500)
                 glenn = Rule_of_28_Player()
 
                 if self.use_SA:
                     # optimization_algorithm = Metropolis-Hastings or 
                     #                          Simulated Annealing
                     opt_algo = SimulatedAnnealing(
-                                                self.beta, 
-                                                player_1, 
-                                                player_2, 
-                                                self.n_games, 
+                                                self.beta,
                                                 self.iterations, 
                                                 self.k,
                                                 self.thresholds[i],
                                                 self.tree_max_nodes,
                                                 self.dataset_name,
-                                                self.n_cores,
                                                 self.d,
                                                 self.init_temp
                                             )
                 else:
                     opt_algo = MetropolisHastings(
-                                                self.beta, 
-                                                player_1, 
-                                                player_2, 
-                                                self.n_games, 
+                                                self.beta,
                                                 self.iterations, 
                                                 self.k,
                                                 self.thresholds[i],
                                                 self.tree_max_nodes,
-                                                self.dataset_name,
-                                                self.n_cores
+                                                self.dataset_name
                                             )
 
                 best_program, script_best_player = opt_algo.run()
@@ -626,23 +614,22 @@ class ThresholdExperiment:
 
 if __name__ == "__main__":
     beta = 0.5
-    n_games = 750
     iterations = 2
     batch_iterations = 2
     k = -1
     thresholds = [0, 0.25, 0.50, 0.75, 1, 1.25, 1.50, 1.75]
     tree_max_nodes = 300
     n_cores = multiprocessing.cpu_count()
-    use_SA = True
+    use_SA = False
     d = 1
     init_temp = 1
     n_games_glenn = 100
     dataset_name = 'fulldata_sorted'
 
     experiment = ThresholdExperiment(
-                                beta, n_games, iterations, batch_iterations, 
-                                k, thresholds, tree_max_nodes, n_cores, use_SA, 
-                                d, init_temp, n_games_glenn, dataset_name
+                                beta, iterations, batch_iterations, k, thresholds, 
+                                tree_max_nodes, n_cores, use_SA, d, init_temp, 
+                                n_games_glenn, dataset_name
                                 )
     experiment.batch_run()
     

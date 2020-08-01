@@ -6,9 +6,8 @@ sys.path.insert(0,'..')
 from MetropolisHastings.metropolis_hastings import MetropolisHastings
 
 class SimulatedAnnealing(MetropolisHastings):
-    def __init__(self, beta, player_1, player_2, n_games, n_iterations, k,
-        threshold, tree_max_nodes, 
-        dataset_name, n_cores, d, init_temp):
+    def __init__(self, beta, n_iterations, k, threshold, tree_max_nodes, 
+        dataset_name, d, init_temp):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -17,8 +16,8 @@ class SimulatedAnnealing(MetropolisHastings):
           temperatures are calculated following self.temperature_schedule().
         """
 
-        super().__init__(beta, player_1, player_2, n_games, n_iterations, k,
-        threshold, tree_max_nodes, dataset_name, n_cores)
+        super().__init__(beta, n_iterations, k, threshold, tree_max_nodes, 
+            dataset_name)
         self.d = d
         self.temperature = init_temp
 
