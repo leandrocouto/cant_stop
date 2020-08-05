@@ -2,10 +2,6 @@ from Script import Script
 from DSL import DSL
 import random
 import codecs
-import re
-#import sys
-
-#sys.path.insert(0,'..')
 
 class Node:
     def __init__(self, node_id, value, is_terminal, parent):
@@ -220,18 +216,6 @@ class ParseTree:
         for child_node in node.children:
             self._update_nodes_ids(child_node)
 
-    def generate_player(self, program, k, n_iterations, tree_max_nodes):
-        """ Generate a Player object given the program string. """
-
-        script = Script(program, k, n_iterations, tree_max_nodes)
-        return self._string_to_object(script._generateTextScript())
-
-    def _string_to_object(self, str_class, *args, **kwargs):
-        """ Transform a program written inside str_class to an object. """
-        exec(str_class)
-        class_name = re.search("class (.*):", str_class).group(1).partition("(")[0]
-        return locals()[class_name](*args, **kwargs)
-
     def print_tree(self, node, indentation):
         """ Prints the tree in a simplistic manner. Used for debugging. """
 
@@ -251,16 +235,3 @@ class ParseTree:
                 )
         for child in node.children:
             self.print_tree(child, indentation + '    ')
-'''
-dsl = DSL('S')
-tree = ParseTree(dsl, 200)
-tree.build_tree(tree.root)
-tree.print_tree(tree.root, '  ')
-print()
-program = tree.generate_program() 
-print(program)
-print()
-script = Script(program, 1,2,3)
-#print(script)
-script.saveFile('')
-'''
