@@ -30,17 +30,14 @@ import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 
 class ThresholdExperiment:
-    def __init__(self, beta, iterations, batch_iterations, k, thresholds, 
-        tree_max_nodes, n_cores, use_SA, d, init_temp, n_games_glenn, 
-        dataset_name):
+    def __init__(self, beta, iterations, batch_iterations, thresholds, 
+        tree_max_nodes, use_SA, d, init_temp, n_games_glenn, dataset_name):
 
         self.beta = beta
         self.iterations = iterations
         self.batch_iterations = batch_iterations
-        self.k = k
         self.thresholds = thresholds
         self.tree_max_nodes = tree_max_nodes
-        self.n_cores = n_cores
         self.use_SA = use_SA
         self.d = d
         self.init_temp = init_temp
@@ -472,42 +469,45 @@ class ThresholdExperiment:
             for j in range(self.batch_iterations):
 
                 glenn = Rule_of_28_Player()
+                file_name = 'threshold_' + str(self.thresholds[i]).replace(".", "") + '_batch_' + str(j)
+                sub_folder_batch = self.folder + '/batch_' + str(j) + '/'
+                if not os.path.exists(sub_folder_batch):
+                    os.makedirs(sub_folder_batch)
 
                 if self.use_SA:
                     # optimization_algorithm = Metropolis-Hastings or 
                     #                          Simulated Annealing
                     opt_algo = SimulatedAnnealing(
                                                 self.beta,
-                                                self.iterations, 
-                                                self.k,
+                                                self.iterations,
                                                 self.thresholds[i],
                                                 self.tree_max_nodes,
                                                 self.dataset_name,
+                                                sub_folder_batch,
+                                                file_name,
                                                 self.d,
                                                 self.init_temp
                                             )
                 else:
                     opt_algo = MetropolisHastings(
                                                 self.beta,
-                                                self.iterations, 
-                                                self.k,
+                                                self.iterations,
                                                 self.thresholds[i],
                                                 self.tree_max_nodes,
-                                                self.dataset_name
+                                                self.dataset_name,
+                                                sub_folder_batch,
+                                                file_name
                                             )
 
-                best_program, script_best_player = opt_algo.run()
+                best_program, script_best_player, _ = opt_algo.run()
                 
                 script = Script(
-                                    best_program, 
-                                    self.k, 
+                                    best_program,
                                     self.iterations, 
                                     self.tree_max_nodes
                                 )
-                sub_folder_batch = self.folder + '/batch_' + str(j) + '/'
-                if not os.path.exists(sub_folder_batch):
-                    os.makedirs(sub_folder_batch)
-                script.save_file_custom(sub_folder_batch, 'threshold_' + str(self.thresholds[i]) + 'batch_' + str(j))
+                
+                script.save_file_custom(sub_folder_batch, file_name)
 
                 one_iteration_total_errors_passed_results = []
                 one_iteration_yes_errors_passed_results = []
@@ -542,6 +542,7 @@ class ThresholdExperiment:
                 full_results_no_errors_all_results.append(one_iteration_no_errors_all_results)
                 full_results_numeric_errors_all_results.append(one_iteration_numeric_errors_all_results)
 
+                print('antes glenn')
                 # Play games against Glenn's heuristic for evaluation
                 victories = 0
                 losses = 0
@@ -568,7 +569,6 @@ class ThresholdExperiment:
                 batch_victories.append(victories)
                 batch_draws.append(draws)
                 batch_losses.append(losses)
-
 
             self.data_distribution.append(opt_algo.data_distribution)
             # For "passed" results", some lists will be bigger than others because
@@ -614,24 +614,28 @@ class ThresholdExperiment:
 
 if __name__ == "__main__":
     beta = 0.5
-    iterations = 2
-    batch_iterations = 2
-    k = -1
+    iterations = 5000
+    batch_iterations = 1
     thresholds = [0, 0.25, 0.50, 0.75, 1, 1.25, 1.50, 1.75]
     tree_max_nodes = 300
-    n_cores = multiprocessing.cpu_count()
-    use_SA = False
     d = 1
     init_temp = 1
     n_games_glenn = 100
-    dataset_name = 'fulldata_sorted'
+    dataset_name = 'fulldata_sorted_column'
+
+    # Cluster configurations
+    if int(sys.argv[1]) == 0: use_SA = False
+    if int(sys.argv[1]) == 1: use_SA = True
 
     experiment = ThresholdExperiment(
-                                beta, iterations, batch_iterations, k, thresholds, 
-                                tree_max_nodes, n_cores, use_SA, d, init_temp, 
+                                beta, iterations, batch_iterations, thresholds, 
+                                tree_max_nodes, use_SA, d, init_temp, 
                                 n_games_glenn, dataset_name
                                 )
+    start = time.time()
     experiment.batch_run()
+    elapsed_time = time.time() - start
+    print('total time = ', elapsed_time)
     
     
 
