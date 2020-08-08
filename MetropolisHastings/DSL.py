@@ -3,12 +3,19 @@ class DSL:
     Implementation of a Domain Specific Language (DSL) for the Can't Stop
     domain.
     """
-    def __init__(self, start):
+    def __init__(self, start, string_action):
+        '''
+        - string_action is a boolean. True if it is a y/n action, False if it 
+          is a column action.
+        '''
         self.start = start
         
         self._grammar = {}
-        #self._grammar[self.start] = [r"\t \t \t \t if actions[i] in ['y','n'] : \n \t \t \t \t \t score[i] += score_str \n \t \t \t \t else : \n \t \t \t \t \t score[i] += score_num"]
-        self._grammar[self.start] = [r"\t \t weights = [ WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS ] \n \t \t for i in range(len(actions)): \n \t \t \t if actions[i] in ['y','n'] : \n \t \t \t \t score_yes_no = score_str \n \t \t \t else : \n \t \t \t \t score_columns[i] = score_num \n \t \t if actions[0] in ['y', 'n']: \n \t \t \t if score_yes_no < THRESHOLD : \n \t \t \t \t return 'y' \n \t \t \t else: \n \t \t \t \t return 'n' \n \t \t else: \n \t \t \t return actions[np.argmax(score_columns)]"]
+        if string_action:
+           self._grammar[self.start] = [r"\t \t if actions[0] in ['y','n'] : \n \t \t \t score_yes_no = score_str \n \t \t \t if score_yes_no < THRESHOLD : \n \t \t \t \t return 'y' \n \t \t \t else: \n \t \t \t \t return 'n'"]
+        else:
+            self._grammar[self.start] = [r"\t \t else: \n \t \t \t score_columns = np.zeros(len(actions)) \n \t \t \t  weights = [ WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS ] \n \t \t \t for i in range(len(actions)): \n \t \t \t \t score_columns[i] = score_num \n \t \t \t return actions[np.argmax(score_columns)]"]
+        
         self._grammar['score_str']   = [
                                         "score_str OP score_str",
                                         "abs( score_str OP score_str )",
@@ -42,6 +49,7 @@ class DSL:
         # Dictionary to "quickly" finish the tree.
         # Needed for the tree to not surpass the max node limit.
         self.quickly_finish = {
+                                self.start :self._grammar[self.start],
                                 'score_str' :['function_str_score', 'THRESHOLD'],
                                 'score_num' :['function_num_score', 'THRESHOLD'],
                                 'function_str_score' :self._grammar['function_str_score'],

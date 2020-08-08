@@ -2,8 +2,9 @@ import random
 import codecs
 
 class Script:
-    def __init__(self, program, iterations, tree_max_nodes):
-        self.program = program
+    def __init__(self, program_string, program_column, iterations, tree_max_nodes):
+        self.program_string = program_string
+        self.program_column = program_column
         self.iterations = iterations
         self.tree_max_nodes = tree_max_nodes
         self._py = r'''
@@ -18,10 +19,12 @@ class Script_{0}(Player):
 \t\tscore_columns = np.zeros(len(actions))
 '''
         
-        self.program_string = r'''{0}'''
+        self.program = r'''{0}'''
     def _generateTextScript(self, file_name):
         py = self._py.format(file_name)
-        py += self.program_string.format(self.program)
+        py += self.program.format(self.program_string)
+        py += self.program.format('\n')
+        py += self.program.format(self.program_column)
         py = codecs.decode(py, 'unicode_escape')
         return py
 

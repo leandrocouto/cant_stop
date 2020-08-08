@@ -31,7 +31,8 @@ import matplotlib.ticker as mticker
 
 class ThresholdExperiment:
     def __init__(self, beta, iterations, batch_iterations, thresholds, 
-        tree_max_nodes, use_SA, d, init_temp, n_games_glenn, dataset_name):
+        tree_max_nodes, use_SA, d, init_temp, n_games_glenn, string_dataset,
+        column_dataset):
 
         self.beta = beta
         self.iterations = iterations
@@ -42,7 +43,8 @@ class ThresholdExperiment:
         self.d = d
         self.init_temp = init_temp
         self.n_games_glenn = n_games_glenn
-        self.dataset_name = dataset_name
+        self.string_dataset = string_dataset
+        self.column_dataset = column_dataset
 
         dir_path = os.path.dirname(os.path.realpath(__file__)) + '/'
         
@@ -482,7 +484,8 @@ class ThresholdExperiment:
                                                 self.iterations,
                                                 self.thresholds[i],
                                                 self.tree_max_nodes,
-                                                self.dataset_name,
+                                                self.string_dataset,
+                                                self.column_dataset,
                                                 sub_folder_batch,
                                                 file_name,
                                                 self.d,
@@ -494,15 +497,17 @@ class ThresholdExperiment:
                                                 self.iterations,
                                                 self.thresholds[i],
                                                 self.tree_max_nodes,
-                                                self.dataset_name,
+                                                self.string_dataset,
+                                                self.column_dataset,
                                                 sub_folder_batch,
                                                 file_name
                                             )
 
-                best_program, script_best_player, _ = opt_algo.run()
+                best_program_string, best_program_column, script_best_player, _, _ = opt_algo.run()
                 
                 script = Script(
-                                    best_program,
+                                    best_program_string,
+                                    best_program_column,
                                     self.iterations, 
                                     self.tree_max_nodes
                                 )
@@ -542,7 +547,6 @@ class ThresholdExperiment:
                 full_results_no_errors_all_results.append(one_iteration_no_errors_all_results)
                 full_results_numeric_errors_all_results.append(one_iteration_numeric_errors_all_results)
 
-                print('antes glenn')
                 # Play games against Glenn's heuristic for evaluation
                 victories = 0
                 losses = 0
@@ -614,14 +618,15 @@ class ThresholdExperiment:
 
 if __name__ == "__main__":
     beta = 0.5
-    iterations = 5000
+    iterations = 300
     batch_iterations = 1
     thresholds = [0, 0.25, 0.50, 0.75, 1, 1.25, 1.50, 1.75]
     tree_max_nodes = 300
     d = 1
     init_temp = 1
     n_games_glenn = 100
-    dataset_name = 'fulldata_sorted_column'
+    string_dataset = 'fulldata_sorted_string'
+    column_dataset = 'fulldata_sorted_column'
 
     # Cluster configurations
     if int(sys.argv[1]) == 0: use_SA = False
@@ -630,7 +635,7 @@ if __name__ == "__main__":
     experiment = ThresholdExperiment(
                                 beta, iterations, batch_iterations, thresholds, 
                                 tree_max_nodes, use_SA, d, init_temp, 
-                                n_games_glenn, dataset_name
+                                n_games_glenn, string_dataset, column_dataset
                                 )
     start = time.time()
     experiment.batch_run()

@@ -9,54 +9,71 @@ from MetropolisHastings.simulated_annealing import SimulatedAnnealing
 from MetropolisHastings.parse_tree import ParseTree, Node
 from MetropolisHastings.DSL import DSL
 from game import Game
+from Script import Script
+import re
 
 import pickle
 
 class SelfplayExperiment:
-    def __init__(self, k, n_iterations, tree_max_nodes, selfplay_iterations, 
+    def __init__(self, n_iterations, tree_max_nodes, selfplay_iterations, 
         n_games, victories_needed, max_game_rounds):
-        self.k = k
         self.n_iterations = n_iterations
         self.tree_max_nodes = tree_max_nodes
         self.selfplay_iterations = selfplay_iterations
         self.n_games = n_games
         self.victories_needed = victories_needed
         self.max_game_rounds = max_game_rounds
+        self.file_name = 'seilaporra'
+
+    def generate_player(self, program_string, program_column):
+        """ Generate a Player object given the program string. """
+
+        script = Script(
+                        program_string, 
+                        program_column, 
+                        self.n_iterations, 
+                        self.tree_max_nodes
+                    )
+        return self._string_to_object(script._generateTextScript(self.file_name))
+
+    def _string_to_object(self, str_class, *args, **kwargs):
+        """ Transform a program written inside str_class to an object. """
+        exec(str_class)
+        class_name = re.search("class (.*):", str_class).group(1).partition("(")[0]
+        return locals()[class_name](*args, **kwargs)
 
     def run(self):
         
-        opt_algo = MetropolisHastings(
-                                    0.5,
-                                    100, 
-                                    self.k,
-                                    0,
-                                    self.tree_max_nodes,
-                                    'fulldata_sorted'
-                                )
+        tree_string_player1 = ParseTree(DSL('S', True), self.tree_max_nodes)
+        tree_column_player1 = ParseTree(DSL('S', False), self.tree_max_nodes)
+        tree_string_player1.build_tree(tree_string_player1.root)
+        tree_column_player1.build_tree(tree_column_player1.root)
 
-        _, _, player_1_tree = opt_algo.run()
-        #player_1_tree = ParseTree(DSL('S'), self.tree_max_nodes)
-        #player_1_tree.build_tree(player_1_tree.root)
-        player_2_tree = pickle.loads(pickle.dumps(player_1_tree, -1))
+        tree_string_player2 = pickle.loads(pickle.dumps(tree_string_player1, -1))
+        tree_column_player2 = pickle.loads(pickle.dumps(tree_column_player1, -1))
 
-        player_2_tree.mutate_tree()
+        tree_string_player2.mutate_tree()
+        tree_column_player2.mutate_tree()
 
+        better = 0
+        worse = 0
         for i in range(self.selfplay_iterations):
             print('Iteration - ', i)
-            current_program = player_1_tree.generate_program()
-            mutated_program = player_2_tree.generate_program()
-            script_best_player = player_1_tree.generate_player(
-                                                        current_program, 
-                                                        self.k, 
-                                                        self.n_iterations, 
-                                                        self.tree_max_nodes
-                                                        )
-            script_mutated_player = player_2_tree.generate_player(
-                                                        current_program, 
-                                                        self.k, 
-                                                        self.n_iterations, 
-                                                        self.tree_max_nodes
-                                                        )
+            
+            current_program_string = tree_string_player1.generate_program()
+            mutated_program_string = tree_string_player2.generate_program()
+
+            current_program_column = tree_column_player1.generate_program()
+            mutated_program_column = tree_column_player2.generate_program()
+
+            script_best_player = self.generate_player(
+                                                current_program_string, 
+                                                current_program_column
+                                                )
+            script_mutated_player = self.generate_player(
+                                                mutated_program_string,
+                                                mutated_program_column
+                                                )
             victories = 0
             losses = 0
             draws = 0
@@ -92,31 +109,38 @@ class SelfplayExperiment:
             if victories >= self.victories_needed:
                 # Mutated program was better.
                 # Copy the mutated tree as the best one
-                player_1_tree = pickle.loads(pickle.dumps(player_2_tree, -1))
-                print('mutated was better!')
+                tree_string_player1 = pickle.loads(pickle.dumps(tree_string_player2, -1))
+                tree_column_player1 = pickle.loads(pickle.dumps(tree_column_player2, -1))
+                print('Mutated was better!')
+                better += 1
             else:
                 # Mutated program was worse
                 # Copy back the first tree (best one) to the second tree
-                player_2_tree = pickle.loads(pickle.dumps(player_1_tree, -1))
-                print('mutated was worse!')
+                tree_string_player2 = pickle.loads(pickle.dumps(tree_string_player1, -1))
+                tree_column_player2 = pickle.loads(pickle.dumps(tree_column_player1, -1))
+                print('Mutated was worse!')
+                worse += 1
 
             # Mutate the second one for the next iteration
-            player_2_tree.mutate_tree()
-            t = (victories, losses, draws)
-            print('(win, lose, draw) = ', t)
-            print()
+            tree_string_player2.mutate_tree()
+            tree_column_player2.mutate_tree()
+
+            #t = (victories, losses, draws)
+            #print('(win, lose, draw) = ', t)
+            #print()
+        print('better = ', better)
+        print('worse = ', worse)
 
 if __name__ == "__main__":
-    k = 0
     n_iterations = 0
     tree_max_nodes = 300
-    selfplay_iterations = 100
-    n_games = 100
-    victories_needed = 55
+    selfplay_iterations = 100000
+    n_games = 2
+    victories_needed = 2
     max_game_rounds = 500
 
     experiment = SelfplayExperiment(
-                                    k, n_iterations, tree_max_nodes, 
+                                    n_iterations, tree_max_nodes, 
                                     selfplay_iterations, n_games, 
                                     victories_needed, max_game_rounds
                                 )
