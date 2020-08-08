@@ -3,12 +3,16 @@ import sys
 import pickle
 import time
 import re
+import os
+import matplotlib.pyplot as plt
+import numpy as np
 sys.path.insert(0,'..')
 from play_game_template import simplified_play_single_game
 from MetropolisHastings.parse_tree import ParseTree
 from MetropolisHastings.DSL import DSL
 from game import Game
 from Script import Script
+from players.rule_of_28_player import Rule_of_28_Player
 
 class SimulatedAnnealingSelfplay:
     """
@@ -19,7 +23,7 @@ class SimulatedAnnealingSelfplay:
     program playing against itself.
     """
     def __init__(self, beta, n_iterations, tree_max_nodes, d, init_temp, 
-        n_games, max_game_rounds):
+        n_games, n_games_glenn, validation_steps, max_game_rounds):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -27,6 +31,9 @@ class SimulatedAnnealingSelfplay:
         - init_temp is the temperature used for the first iteration. Following
           temperatures are calculated following self.temperature_schedule().
         - n_games is the number of games played in selfplay.
+        - n_games_glenn is the number of games played against Glenn's heuristic.
+        - validation_steps is an integer that shows after how many games we will
+          validate the current script agains't Glenn's heuristic.
         - max_game_rounds is the number of rounds necessary in a game to
         consider it a draw. This is necessary because Can't Stop games can
         theoretically last forever.
@@ -38,10 +45,21 @@ class SimulatedAnnealingSelfplay:
         self.d = d
         self.temperature = init_temp
         self.n_games = n_games
+        self.n_games_glenn = n_games_glenn
+        self.validation_steps = validation_steps
         self.max_game_rounds = max_game_rounds
+
+        self.filename = str(self.n_iterations) + 'ite_' + str(self.tree_max_nodes) + \
+        'tree_' + str(self.n_games) + 'selfplay_' + str(self.n_games_glenn) + \
+        'glenn_' + str(self.validation_steps) + 'step' 
 
         self.tree_string = ParseTree(DSL('S', True), self.tree_max_nodes)
         self.tree_column = ParseTree(DSL('S', False), self.tree_max_nodes)
+
+        # For analysis
+        self.victories = []
+        self.losses = []
+        self.draws = []
 
 
     def run(self):
@@ -103,10 +121,24 @@ class SimulatedAnnealingSelfplay:
             if accept == 1:
                 self.tree_string = new_tree_string
                 self.tree_column = new_tree_column
-                print('Iteration -', i, 'New program accepted - V/L/D = ', v_mut, l_mut, d_mut)
+                with open('log_' + self.filename + '.txt', 'a') as f:
+                    print('Iteration -', i, 'New program accepted - V/L/D = ', v_mut, l_mut, d_mut, file=f)
 
+            if i % self.validation_steps == 0:
+                best_program_string = self.tree_string.generate_program()
+                best_program_column = self.tree_column.generate_program()
+                script_best_player = self.generate_player(
+                                                        best_program_string,
+                                                        best_program_column,
+                                                        i
+                                                        )
+                vic, loss, draw = self.validate_against_glenn(script_best_player)
+                self.victories.append(vic)
+                self.losses.append(loss)
+                self.draws.append(draw)
             elapsed_time = time.time() - start
-            print('Iteration -', i, '- Elapsed time: ', elapsed_time)
+            with open('log_' + self.filename + '.txt', 'a') as f:
+                print('Iteration -', i, '- Elapsed time: ', elapsed_time, file=f)
         
         best_program_string = self.tree_string.generate_program()
         best_program_column = self.tree_column.generate_program()
@@ -117,7 +149,21 @@ class SimulatedAnnealingSelfplay:
                                                 )
 
         full_run_elapsed_time = time.time() - full_run
-        print('Full program elapsed time = ', full_run_elapsed_time)
+        with open('log_' + self.filename + '.txt', 'a') as f:
+            print('Full program elapsed time = ', full_run_elapsed_time, file=f)
+
+        dir_path = os.path.dirname(os.path.realpath(__file__)) + '/'
+
+        script = Script(
+                        best_program_string, 
+                        best_program_column, 
+                        self.n_iterations, 
+                        self.tree_max_nodes
+                    )
+        
+        self.generate_report(self.filename)
+
+        script.save_file_custom(dir_path, self.filename)
 
         return best_program_string, best_program_column, script_best_player, self.tree_string, self.tree_column
 
@@ -188,18 +234,77 @@ class SimulatedAnnealingSelfplay:
 
     def _string_to_object(self, str_class, *args, **kwargs):
         """ Transform a program written inside str_class to an object. """
-        
+
         exec(str_class)
         class_name = re.search("class (.*):", str_class).group(1).partition("(")[0]
         return locals()[class_name](*args, **kwargs)
 
+    def validate_against_glenn(self, current_script):
+        """ Validate current script against Glenn's heuristic player. """
+
+        glenn = Rule_of_28_Player()
+
+        victories = 0
+        losses = 0
+        draws = 0
+
+        for i in range(self.n_games_glenn):
+            game = game = Game(2, 4, 6, [2,12], 2, 2)
+            if i%2 == 0:
+                    who_won = simplified_play_single_game(
+                                                        current_script, 
+                                                        glenn, 
+                                                        game, 
+                                                        self.max_game_rounds
+                                                    )
+                    if who_won == 1:
+                        victories += 1
+                    elif who_won == 2:
+                        losses += 1
+                    else:
+                        draws += 1
+            else:
+                who_won = simplified_play_single_game(
+                                                    glenn, 
+                                                    current_script, 
+                                                    game, 
+                                                    self.max_game_rounds
+                                                )
+                if who_won == 2:
+                    victories += 1
+                elif who_won == 1:
+                    losses += 1
+                else:
+                    draws += 1
+
+        return victories, losses, draws
+
+
+    def generate_report(self, filename):
+        
+        x = [i for i in range(1 * self.validation_steps, (len(self.victories) + 1) * self.validation_steps, self.validation_steps)]
+
+        plt.plot(x, self.victories, color='green', label='Victories')
+        plt.plot(x, self.losses, color='red', label='Losses')
+        plt.plot(x, self.draws, color='gray', label='Draws')
+        plt.legend(loc="best")
+        plt.title("Selfplay generated script against Glenn's heuristic")
+        plt.xlabel('SA Iteration')
+        plt.ylabel('Number of games')
+        plt.savefig(self.filename + '.png')
+
+
+
+
 
 beta = 0.5
-n_iterations = 1000
-tree_max_nodes = 300
+n_iterations = 100000
+tree_max_nodes = 100
 d = 1
 init_temp = 1
-n_games = 5
+n_games = 100
+n_games_glenn = 100
+validation_steps = 100
 max_game_rounds = 500
 
 SA_selfplay = SimulatedAnnealingSelfplay(
@@ -209,6 +314,8 @@ SA_selfplay = SimulatedAnnealingSelfplay(
                                     d,
                                     init_temp,
                                     n_games,
+                                    n_games_glenn,
+                                    validation_steps,
                                     max_game_rounds
                                 )
 SA_selfplay.run()
