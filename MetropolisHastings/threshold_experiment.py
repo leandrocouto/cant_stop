@@ -483,19 +483,20 @@ class ThresholdExperiment:
                                                 self.beta,
                                                 self.iterations,
                                                 self.thresholds[i],
+                                                self.init_temp,
                                                 self.tree_max_nodes,
                                                 self.string_dataset,
                                                 self.column_dataset,
                                                 sub_folder_batch,
                                                 file_name,
-                                                self.d,
-                                                self.init_temp
+                                                self.d
                                             )
                 else:
                     opt_algo = MetropolisHastings(
                                                 self.beta,
                                                 self.iterations,
                                                 self.thresholds[i],
+                                                self.init_temp,
                                                 self.tree_max_nodes,
                                                 self.string_dataset,
                                                 self.column_dataset,
@@ -618,7 +619,7 @@ class ThresholdExperiment:
 
 if __name__ == "__main__":
     beta = 0.5
-    iterations = 300
+    iterations = 3
     batch_iterations = 1
     thresholds = [0, 0.25, 0.50, 0.75, 1, 1.25, 1.50, 1.75]
     tree_max_nodes = 300
