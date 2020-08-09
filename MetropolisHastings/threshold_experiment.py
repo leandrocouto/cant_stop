@@ -450,7 +450,10 @@ class ThresholdExperiment:
             array = [elem[:min_length] for elem in array]
             return array
 
-    
+        # Folder to store the data files for each threshold
+        data_folder = self.folder + '/datafiles' + '/'
+        if not os.path.exists(data_folder):
+            os.makedirs(data_folder)
 
         for i in range(len(self.thresholds)):
 
@@ -615,11 +618,44 @@ class ThresholdExperiment:
             self.std_draws[self.thresholds[i]] = std(batch_draws)
             self.std_losses[self.thresholds[i]] = std(batch_losses)
 
+            # Save the datafiles for each threshold
+            data_file_name = 'datafile_threshold_' + str(self.thresholds[i]).replace(".", "")
+            with open(data_folder + str(self.thresholds[i]).replace(".", "") , 'wb') as file:
+                data = (
+                    self.mean_total_errors_passed_results[self.thresholds[i]],
+                    self.mean_yes_errors_passed_results[self.thresholds[i]],
+                    self.mean_no_errors_passed_results[self.thresholds[i]],
+                    self.mean_numeric_errors_passed_results[self.thresholds[i]],
+
+                    self.std_total_errors_passed_results[self.thresholds[i]],
+                    self.std_yes_errors_passed_results[self.thresholds[i]],
+                    self.std_no_errors_passed_results[self.thresholds[i]],
+                    self.std_numeric_errors_passed_results[self.thresholds[i]],
+
+                    self.mean_total_errors_all_results[self.thresholds[i]],
+                    self.mean_yes_errors_all_results[self.thresholds[i]],
+                    self.mean_no_errors_all_results[self.thresholds[i]],
+                    self.mean_numeric_errors_all_results[self.thresholds[i]],
+
+                    self.std_total_errors_all_results[self.thresholds[i]],
+                    self.std_yes_errors_all_results[self.thresholds[i]],
+                    self.std_no_errors_all_results[self.thresholds[i]],
+                    self.std_numeric_errors_all_results[self.thresholds[i]],
+
+                    self.victories[self.thresholds[i]],
+                    self.draws[self.thresholds[i]],
+                    self.losses[self.thresholds[i]],
+                    self.std_victories[self.thresholds[i]],
+                    self.std_draws[self.thresholds[i]],
+                    self.std_losses[self.thresholds[i]]
+                    )
+                pickle.dump(data, file)
+
         self.generate_batch_report()
 
 if __name__ == "__main__":
     beta = 0.5
-    iterations = 3
+    iterations = 2
     batch_iterations = 1
     thresholds = [0, 0.25, 0.50, 0.75, 1, 1.25, 1.50, 1.75]
     tree_max_nodes = 300
