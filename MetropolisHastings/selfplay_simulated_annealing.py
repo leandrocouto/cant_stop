@@ -23,7 +23,7 @@ class SimulatedAnnealingSelfplay:
     program playing against itself.
     """
     def __init__(self, beta, n_iterations, tree_max_nodes, d, init_temp, 
-        n_games, n_games_glenn, validation_steps, max_game_rounds):
+        n_games, n_games_glenn, max_game_rounds):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -32,8 +32,6 @@ class SimulatedAnnealingSelfplay:
           temperatures are calculated following self.temperature_schedule().
         - n_games is the number of games played in selfplay.
         - n_games_glenn is the number of games played against Glenn's heuristic.
-        - validation_steps is an integer that shows after how many games we will
-          validate the current script agains't Glenn's heuristic.
         - max_game_rounds is the number of rounds necessary in a game to
         consider it a draw. This is necessary because Can't Stop games can
         theoretically last forever.
@@ -46,12 +44,14 @@ class SimulatedAnnealingSelfplay:
         self.temperature = init_temp
         self.n_games = n_games
         self.n_games_glenn = n_games_glenn
-        self.validation_steps = validation_steps
         self.max_game_rounds = max_game_rounds
 
-        self.filename = str(self.n_iterations) + 'ite_' + str(self.tree_max_nodes) + \
-        'tree_' + str(self.n_games) + 'selfplay_' + str(self.n_games_glenn) + \
-        'glenn_' + str(self.validation_steps) + 'step' 
+        self.filename = 'SA_selfplay_' + str(self.n_iterations) + 'ite_' + \
+        str(self.tree_max_nodes) + 'tree_' + str(self.n_games) + 'selfplay_' + \
+        str(self.n_games_glenn) + 'glenn'
+
+        if not os.path.exists(self.filename):
+            os.makedirs(self.filename)
 
         self.tree_string = ParseTree(DSL('S', True), self.tree_max_nodes)
         self.tree_column = ParseTree(DSL('S', False), self.tree_max_nodes)
@@ -106,14 +106,16 @@ class SimulatedAnnealingSelfplay:
                                                         script_mutated_player, 
                                                         script_best_player
                                                         )
-
+            # Instead of the classical SA that we divide the mutated score by
+            # the current best program score (which we use the error rate), in
+            # here we use best/mut because we are using the victory rate as
+            # parameter for the score function.
             # Update score given the SA parameters
-            new_score_mutated = score_mut**(1 / self.temperature)
-            new_score_best = score_best**(1 / self.temperature)
+            score_best, score_mutated = self.update_score(score_best, score_mut)
 
             # Accept program only if new score is higher.
-            accept = min(1, new_score_best/new_score_mutated)
-
+            accept = min(1, score_best/score_mutated)
+            
             # Adjust the temperature accordingly.
             self.temperature = self.temperature_schedule(i)
 
@@ -121,10 +123,6 @@ class SimulatedAnnealingSelfplay:
             if accept == 1:
                 self.tree_string = new_tree_string
                 self.tree_column = new_tree_column
-                with open('log_' + self.filename + '.txt', 'a') as f:
-                    print('Iteration -', i, 'New program accepted - V/L/D = ', v_mut, l_mut, d_mut, file=f)
-
-            if i % self.validation_steps == 0:
                 best_program_string = self.tree_string.generate_program()
                 best_program_column = self.tree_column.generate_program()
                 script_best_player = self.generate_player(
@@ -136,8 +134,11 @@ class SimulatedAnnealingSelfplay:
                 self.victories.append(vic)
                 self.losses.append(loss)
                 self.draws.append(draw)
+                with open(self.filename + '/' + 'SA_selfplay_log_' + self.filename + '.txt', 'a') as f:
+                    print('Iteration -', i, 'New program accepted - V/L/D against Glenn = ', vic, loss, draw, file=f)
+                
             elapsed_time = time.time() - start
-            with open('log_' + self.filename + '.txt', 'a') as f:
+            with open(self.filename + '/' + 'SA_selfplay_log_' + self.filename + '.txt', 'a') as f:
                 print('Iteration -', i, '- Elapsed time: ', elapsed_time, file=f)
         
         best_program_string = self.tree_string.generate_program()
@@ -149,10 +150,10 @@ class SimulatedAnnealingSelfplay:
                                                 )
 
         full_run_elapsed_time = time.time() - full_run
-        with open('log_' + self.filename + '.txt', 'a') as f:
+        with open(self.filename + '/' + 'SA_selfplay_log_' + self.filename + '.txt', 'a') as f:
             print('Full program elapsed time = ', full_run_elapsed_time, file=f)
 
-        dir_path = os.path.dirname(os.path.realpath(__file__)) + '/'
+        dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/' 
 
         script = Script(
                         best_program_string, 
@@ -161,15 +162,24 @@ class SimulatedAnnealingSelfplay:
                         self.tree_max_nodes
                     )
         
-        self.generate_report(self.filename)
+        self.generate_report(dir_path + self.filename)
 
         script.save_file_custom(dir_path, self.filename)
 
         return best_program_string, best_program_column, script_best_player, self.tree_string, self.tree_column
 
+    def update_score(self, score_best, score_mutated):
+        """ 
+        Update the score according to the current temperature. 
+        """
+        
+        new_score_best = score_best**(1 / self.temperature)
+        new_score_mutated = score_mutated**(1 / self.temperature)
+        return new_score_best, new_score_mutated
+
     def temperature_schedule(self, iteration):
         """ Calculate the next temperature used for the score calculation. """
-
+        itearion = 100000
         return self.d/math.log(iteration)
 
     def calculate_score_function(self, first_player, second_player):
@@ -178,7 +188,7 @@ class SimulatedAnnealingSelfplay:
                                                         first_player,
                                                         second_player
                                                         )
-        victory_rate = victories / self.n_games
+        victory_rate = victories
         score = math.exp(-self.beta * victory_rate)
         return score, victories, losses, draws
 
@@ -282,29 +292,24 @@ class SimulatedAnnealingSelfplay:
 
     def generate_report(self, filename):
         
-        x = [i for i in range(1 * self.validation_steps, (len(self.victories) + 1) * self.validation_steps, self.validation_steps)]
+        x = list(range(len(self.victories)))
 
-        plt.plot(x, self.victories, color='green', label='Victories')
-        plt.plot(x, self.losses, color='red', label='Losses')
-        plt.plot(x, self.draws, color='gray', label='Draws')
+        plt.plot(x, self.victories, color='green', label='Victory')
+        plt.plot(x, self.losses, color='red', label='Loss')
+        plt.plot(x, self.draws, color='gray', label='Draw')
         plt.legend(loc="best")
-        plt.title("Selfplay generated script against Glenn's heuristic")
-        plt.xlabel('SA Iteration')
+        plt.title("SA Selfplay generated script against Glenn's heuristic")
+        plt.xlabel('Iteration')
         plt.ylabel('Number of games')
-        plt.savefig(self.filename + '.png')
-
-
-
-
+        plt.savefig(filename + '.png')
 
 beta = 0.5
-n_iterations = 100000
+n_iterations = 10000
 tree_max_nodes = 100
 d = 1
 init_temp = 1
 n_games = 100
 n_games_glenn = 100
-validation_steps = 100
 max_game_rounds = 500
 
 SA_selfplay = SimulatedAnnealingSelfplay(
@@ -315,7 +320,6 @@ SA_selfplay = SimulatedAnnealingSelfplay(
                                     init_temp,
                                     n_games,
                                     n_games_glenn,
-                                    validation_steps,
                                     max_game_rounds
                                 )
 SA_selfplay.run()
