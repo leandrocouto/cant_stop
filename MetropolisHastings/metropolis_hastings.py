@@ -476,7 +476,7 @@ class MetropolisHastings:
         plt.title("Metropolis Hastings - Games against Glenn")
         plt.xlabel('Iterations')
         plt.ylabel('Number of games')
-        plt.savefig(filename + '_vs_previous_script.png')
+        plt.savefig(filename + '_vs_glenn.png')
 
         plt.close()
 
@@ -489,7 +489,7 @@ class MetropolisHastings:
         plt.title("Metropolis Hastings - Games against UCT - " + str(self.n_uct_playouts) + " playouts")
         plt.xlabel('Iterations')
         plt.ylabel('Number of games')
-        plt.savefig(filename + '_vs_glenn.png')
+        plt.savefig(filename + '_vs_UCT.png')
 
 beta = 0.5
 n_iterations = 50

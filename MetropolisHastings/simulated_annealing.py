@@ -454,7 +454,7 @@ class SimulatedAnnealing:
         return victories, losses, draws
 
     def validate_against_UCT(self, current_script):
-        """ Validate current script against Glenn's heuristic player. """
+        """ Validate current script against UCT. """
 
         victories = 0
         losses = 0
@@ -505,7 +505,7 @@ class SimulatedAnnealing:
         plt.title("Simulated Annealing - Games against Glenn")
         plt.xlabel('Iterations')
         plt.ylabel('Number of games')
-        plt.savefig(filename + '_vs_previous_script.png')
+        plt.savefig(filename + '_vs_glenn.png')
 
         plt.close()
 
@@ -518,7 +518,7 @@ class SimulatedAnnealing:
         plt.title("Simulated Annealing - Games against UCT - " + str(self.n_uct_playouts) + " playouts")
         plt.xlabel('Iterations')
         plt.ylabel('Number of games')
-        plt.savefig(filename + '_vs_glenn.png')
+        plt.savefig(filename + '_vs_UCT.png')
 
 beta = 0.5
 n_iterations = 50

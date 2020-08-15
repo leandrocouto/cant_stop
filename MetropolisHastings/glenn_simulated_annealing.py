@@ -37,7 +37,8 @@ class GlennSimulatedAnnealing:
 
         self.filename = 'glenn_SA_' + str(self.n_iterations) + 'ite_' + \
         str(self.tree_max_nodes) + 'tree_' + str(self.n_games) + 'selfplay_' + \
-        str(self.n_games_glenn) + 'glenn'
+        str(self.n_games_glenn) + 'glenn' + str(self.n_games_uct) + \
+        'uct_' + str(self.n_uct_playouts) + 'uct_playouts'
 
         if not os.path.exists(self.filename):
             os.makedirs(self.filename)
@@ -320,22 +321,37 @@ class GlennSimulatedAnnealing:
         return victories, losses, draws
 
 
-    def generate_report(self, filename):
+    def generate_report(self):
         
-        x = list(range(len(self.victories)))
+        dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/' 
+        filename = dir_path + self.filename
+        x = list(range(len(self.victories_against_glenn)))
 
-        plt.plot(x, self.victories, color='green', label='Victory')
-        plt.plot(x, self.losses, color='red', label='Loss')
-        plt.plot(x, self.draws, color='gray', label='Draw')
+        plt.plot(x, self.victories_against_glenn, color='green', label='Victory')
+        plt.plot(x, self.losses_against_glenn, color='red', label='Loss')
+        plt.plot(x, self.draws_against_glenn, color='gray', label='Draw')
         plt.legend(loc="best")
-        plt.title("Glenn-SA generated script against Glenn's heuristic")
-        plt.xlabel('Iteration')
+        plt.title("Glenn Simulated Annealing - Games against Glenn")
+        plt.xlabel('Iterations')
         plt.ylabel('Number of games')
-        plt.savefig(filename + '.png')
+        plt.savefig(filename + '_vs_glenn.png')
+
+        plt.close()
+
+        x = list(range(len(self.victories_against_UCT)))
+
+        plt.plot(x, self.victories_against_UCT, color='green', label='Victory')
+        plt.plot(x, self.losses_against_UCT, color='red', label='Loss')
+        plt.plot(x, self.draws_against_UCT, color='gray', label='Draw')
+        plt.legend(loc="best")
+        plt.title("Glenn Simulated Annealing - Games against UCT - " + str(self.n_uct_playouts) + " playouts")
+        plt.xlabel('Iterations')
+        plt.ylabel('Number of games')
+        plt.savefig(filename + '_vs_UCT.png')
 
 
 beta = 0.5
-n_iterations = 100
+n_iterations = 10
 tree_max_nodes = 100
 d = 1
 init_temp = 1
