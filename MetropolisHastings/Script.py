@@ -30,7 +30,5 @@ class Script_{0}(Player):
 
     def save_file_custom(self, path, file_name):
         py = self._generateTextScript(file_name)
-        
-        file = open(path + 'Script_'+ file_name + '.py', 'w')
-        file.write(py)
-        file.close()
+        with open(path + 'Script_'+ file_name + '.py', 'w') as f:
+            f.write(py)
