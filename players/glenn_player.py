@@ -1,7 +1,7 @@
 from players.player import Player
 import numpy as np
 
-class Rule_of_28_Player(Player):
+class Glenn_Player(Player):
     """ 
     Heuristic proposed by the article 'A Generalized Heuristic for 
     Can’t Stop'.
@@ -29,6 +29,13 @@ class Rule_of_28_Player(Player):
                 # If all neutral markers are in odd columns
                 elif all([x % 2 != 0 for x in neutral]):
                     score += 2
+
+                if all([x <= 7 for x in neutral]):
+                    score += 4
+                if all([x >= 7 for x in neutral]):
+                    score += 4
+
+
 
             if score >= 28:
                 return 'n'
