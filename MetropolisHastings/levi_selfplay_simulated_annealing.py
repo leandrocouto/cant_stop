@@ -14,7 +14,7 @@ from MetropolisHastings.parse_tree import ParseTree
 from MetropolisHastings.DSL import DSL
 from game import Game
 from Script import Script
-from players.rule_of_28_player import Rule_of_28_Player
+from players.glenn_player import Glenn_Player
 from players.vanilla_uct_player import Vanilla_UCT
 
 class LeviSelfplaySimulatedAnnealing:
@@ -55,7 +55,7 @@ class LeviSelfplaySimulatedAnnealing:
         self.filename = 'levi_selfplay_SA_' + str(self.n_selfplay_iterations) + \
         'selfplay_ite_' + str(self.n_SA_iterations) + 'n_SA_ite_' + \
         str(self.tree_max_nodes) + 'tree_' + str(self.n_games_evaluate) + \
-        'eval_' + str(self.n_games_glenn) + 'glenn' + str(self.n_games_uct) + \
+        'eval_' + str(self.n_games_glenn) + 'glenn_' + str(self.n_games_uct) + \
         'uct_' + str(self.n_uct_playouts) + 'uct_playouts'
 
         if not os.path.exists(self.filename):
@@ -124,13 +124,12 @@ class LeviSelfplaySimulatedAnnealing:
                 self.draws_against_UCT.append(d_uct)
                 elapsed_time_uct = time.time() - start_uct
 
-                elapsed_time = time.time() - start
-
                 # Save data file
                 iteration_data = (
                                     victories, losses, draws,
                                     v_glenn, l_glenn, d_glenn,
-                                    v_uct, l_uct, d_uct
+                                    v_uct, l_uct, d_uct,
+                                    p_tree_string, p_tree_column
                                 )
                 folder = self.filename + '/data/' 
                 if not os.path.exists(folder):
@@ -195,9 +194,9 @@ class LeviSelfplaySimulatedAnnealing:
 
         # Evaluates this program against p.
         victories, losses, draws = self.evaluate(curr_p, p)
+        #print('initial eval = ', victories, losses, draws)
         score = victories
         best_score = score
-        #print('initial best score = ', best_score)
         # Initially assumes that p is the best script of all
         best_solution_string_tree = p_tree_string
         best_solution_column_tree = p_tree_column
@@ -206,6 +205,7 @@ class LeviSelfplaySimulatedAnnealing:
         curr_temp = self.init_temp
 
         for i in range(2, self.n_SA_iterations + 2):
+            start = time.time()
             # Make a copy of curr_p
             mutated_tree_string = pickle.loads(pickle.dumps(curr_tree_string, -1))
             mutated_tree_column = pickle.loads(pickle.dumps(curr_tree_column, -1))
@@ -219,6 +219,7 @@ class LeviSelfplaySimulatedAnnealing:
             mutated_curr_p = self.generate_player(mutated_curr_p_string, mutated_curr_p_column, 'mutated_curr_' + str(i))
             # Evaluates the mutated program against p
             victories_mut, losses_mut, draws_mut = self.evaluate(mutated_curr_p, p)
+            #print('iteration', i, ' eval = ', victories_mut, losses_mut, draws_mut)
             #print('Iteration', i, 'of SA - V/L/D = ', victories_mut, losses_mut, draws_mut)
             new_score = victories_mut
             #print('best score = ', best_score, ', new_score = ', new_score, ', score = ', score)
@@ -258,6 +259,8 @@ class LeviSelfplaySimulatedAnnealing:
                     curr_p = mutated_curr_p
             # update temperature according to schedule
             curr_temp = self.temperature_schedule(i)
+            elapsed_time = time.time() - start
+            #print('tempo da iteracao = ', elapsed_time)
         return best_solution_string_tree, best_solution_column_tree, best_solution
 
     def evaluate(self, first_player, second_player):
@@ -321,7 +324,7 @@ class LeviSelfplaySimulatedAnnealing:
     def validate_against_glenn(self, current_script):
         """ Validate current script against Glenn's heuristic player. """
 
-        glenn = Rule_of_28_Player()
+        glenn = Glenn_Player()
 
         victories = 0
         losses = 0
@@ -365,7 +368,7 @@ class LeviSelfplaySimulatedAnnealing:
         losses = 0
         draws = 0
 
-        for i in range(self.n_games_glenn):
+        for i in range(self.n_games_uct):
             game = game = Game(2, 4, 6, [2,12], 2, 2)
             uct = Vanilla_UCT(c = 1, n_simulations = self.n_uct_playouts)
             if i%2 == 0:
@@ -422,7 +425,7 @@ class LeviSelfplaySimulatedAnnealing:
         plt.plot(x, self.losses_against_glenn, color='red', label='Loss')
         plt.plot(x, self.draws_against_glenn, color='gray', label='Draw')
         plt.legend(loc="best")
-        plt.title("Glenn Simulated Annealing - Games against Glenn")
+        plt.title("Levi Selfplay SA - Games against Glenn")
         plt.xlabel('Iterations')
         plt.ylabel('Number of games')
         plt.savefig(filename + '_vs_glenn.png')
@@ -435,33 +438,34 @@ class LeviSelfplaySimulatedAnnealing:
         plt.plot(x, self.losses_against_UCT, color='red', label='Loss')
         plt.plot(x, self.draws_against_UCT, color='gray', label='Draw')
         plt.legend(loc="best")
-        plt.title("Glenn Simulated Annealing - Games against UCT - " + str(self.n_uct_playouts) + " playouts")
+        plt.title("Levi Selfplay SA - Games against UCT - " + str(self.n_uct_playouts) + " playouts")
         plt.xlabel('Iterations')
         plt.ylabel('Number of games')
         plt.savefig(filename + '_vs_UCT.png')
 
-n_selfplay_iterations = 10
-n_SA_iterations = 50
-tree_max_nodes = 100
-d = 1
-init_temp = 1
-n_games_evaluate = 50
-n_games_glenn = 1000
-n_games_uct = 10
-n_uct_playouts = 100
-max_game_rounds = 500
+if __name__ == "__main__":
+    n_selfplay_iterations = 10000
+    n_SA_iterations = 250
+    tree_max_nodes = 100
+    d = 1
+    init_temp = 1
+    n_games_evaluate = 100
+    n_games_glenn = 1000
+    n_games_uct = 50
+    n_uct_playouts = 50
+    max_game_rounds = 500
 
-levi_selfplay_SA = LeviSelfplaySimulatedAnnealing(
-                                    n_selfplay_iterations,
-                                    n_SA_iterations,
-                                    tree_max_nodes,
-                                    d,
-                                    init_temp,
-                                    n_games_evaluate,
-                                    n_games_glenn,
-                                    n_games_uct,
-                                    n_uct_playouts,
-                                    max_game_rounds
-                                )
-levi_selfplay_SA.selfplay()
+    levi_selfplay_SA = LeviSelfplaySimulatedAnnealing(
+                                        n_selfplay_iterations,
+                                        n_SA_iterations,
+                                        tree_max_nodes,
+                                        d,
+                                        init_temp,
+                                        n_games_evaluate,
+                                        n_games_glenn,
+                                        n_games_uct,
+                                        n_uct_playouts,
+                                        max_game_rounds
+                                    )
+    levi_selfplay_SA.selfplay()
 

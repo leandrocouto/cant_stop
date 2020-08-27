@@ -11,7 +11,7 @@ from MetropolisHastings.parse_tree import ParseTree
 from MetropolisHastings.DSL import DSL
 from game import Game
 from Script import Script
-from players.rule_of_28_player import Rule_of_28_Player
+from players.glenn_player import Glenn_Player
 from players.vanilla_uct_player import Vanilla_UCT
 from play_game_template import simplified_play_single_game
 from play_game_template import play_single_game
@@ -124,7 +124,10 @@ class SimulatedAnnealingSelfplay:
             score_best, score_mutated = self.update_score(score_best, score_mut)
 
             # Accept program only if new score is higher.
-            accept = min(1, score_best/score_mutated)
+            if score_mutated == 0:
+                accept = 0
+            else:
+                accept = min(1, score_best/score_mutated)
             
             # Adjust the temperature accordingly.
             self.temperature = self.temperature_schedule(i)
@@ -159,7 +162,8 @@ class SimulatedAnnealingSelfplay:
                 # Save data file
                 iteration_data = (
                                     v_glenn, l_glenn, d_glenn,
-                                    v_uct, l_uct, d_uct
+                                    v_uct, l_uct, d_uct,
+                                    self.tree_string, self.tree_column
                                 )
                 folder = self.filename + '/data/' 
                 if not os.path.exists(folder):
@@ -301,7 +305,7 @@ class SimulatedAnnealingSelfplay:
     def validate_against_glenn(self, current_script):
         """ Validate current script against Glenn's heuristic player. """
 
-        glenn = Rule_of_28_Player()
+        glenn = Glenn_Player()
 
         victories = 0
         losses = 0
@@ -345,7 +349,7 @@ class SimulatedAnnealingSelfplay:
         losses = 0
         draws = 0
 
-        for i in range(self.n_games_glenn):
+        for i in range(self.n_games_uct):
             game = game = Game(2, 4, 6, [2,12], 2, 2)
             uct = Vanilla_UCT(c = 1, n_simulations = self.n_uct_playouts)
             if i%2 == 0:
@@ -378,7 +382,7 @@ class SimulatedAnnealingSelfplay:
         return victories, losses, draws
 
 
-    def generate_report(self, filename):
+    def generate_report(self):
         
         dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/' 
         filename = dir_path + self.filename
@@ -406,27 +410,28 @@ class SimulatedAnnealingSelfplay:
         plt.ylabel('Number of games')
         plt.savefig(filename + '_vs_UCT.png')
 
-beta = 0.5
-n_iterations = 10
-tree_max_nodes = 100
-d = 1
-init_temp = 1
-n_games = 100
-n_games_glenn = 100
-n_games_uct = 10
-n_uct_playouts = 10
-max_game_rounds = 500
+if __name__ == "__main__":
+    beta = 0.5
+    n_iterations = 10000
+    tree_max_nodes = 100
+    d = 1
+    init_temp = 1
+    n_games = 1000
+    n_games_glenn = 1000
+    n_games_uct = 50
+    n_uct_playouts = 50
+    max_game_rounds = 500
 
-selfplay_SA = SimulatedAnnealingSelfplay(
-                                    beta,
-                                    n_iterations,
-                                    tree_max_nodes,
-                                    d,
-                                    init_temp,
-                                    n_games,
-                                    n_games_glenn,
-                                    n_games_uct,
-                                    n_uct_playouts,
-                                    max_game_rounds
-                                )
-selfplay_SA.run()
+    selfplay_SA = SimulatedAnnealingSelfplay(
+                                        beta,
+                                        n_iterations,
+                                        tree_max_nodes,
+                                        d,
+                                        init_temp,
+                                        n_games,
+                                        n_games_glenn,
+                                        n_games_uct,
+                                        n_uct_playouts,
+                                        max_game_rounds
+                                    )
+    selfplay_SA.run()

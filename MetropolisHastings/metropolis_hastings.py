@@ -3,7 +3,7 @@ sys.path.insert(0,'..')
 import math
 import copy
 from game import Game
-from players.rule_of_28_player import Rule_of_28_Player
+from players.glenn_player import Glenn_Player
 from play_game_template import simplified_play_single_game
 from play_game_template import play_single_game
 from players.vanilla_uct_player import Vanilla_UCT
@@ -387,7 +387,7 @@ class MetropolisHastings:
     def validate_against_glenn(self, current_script):
         """ Validate current script against Glenn's heuristic player. """
 
-        glenn = Rule_of_28_Player()
+        glenn = Glenn_Player()
 
         victories = 0
         losses = 0
@@ -431,7 +431,7 @@ class MetropolisHastings:
         losses = 0
         draws = 0
 
-        for i in range(self.n_games_glenn):
+        for i in range(self.n_games_uct):
             game = game = Game(2, 4, 6, [2,12], 2, 2)
             uct = Vanilla_UCT(c = 1, n_simulations = self.n_uct_playouts)
             if i%2 == 0:
@@ -491,28 +491,29 @@ class MetropolisHastings:
         plt.ylabel('Number of games')
         plt.savefig(filename + '_vs_UCT.png')
 
-beta = 0.5
-n_iterations = 50
-n_games_glenn = 10
-n_games_uct = 10
-n_uct_playouts = 10
-threshold = 0
-tree_max_nodes = 100
-string_dataset = 'fulldata_sorted_string'
-column_dataset = 'fulldata_sorted_column'
-max_game_rounds = 500
+if __name__ == "__main__":
+    beta = 0.5
+    n_iterations = 50
+    n_games_glenn = 10
+    n_games_uct = 10
+    n_uct_playouts = 10
+    threshold = 0
+    tree_max_nodes = 100
+    string_dataset = 'fulldata_sorted_string'
+    column_dataset = 'fulldata_sorted_column'
+    max_game_rounds = 500
 
-MH = MetropolisHastings(
-                                    beta,
-                                    n_iterations,
-                                    n_games_glenn,
-                                    n_games_uct,
-                                    n_uct_playouts,
-                                    threshold,
-                                    tree_max_nodes,
-                                    string_dataset,
-                                    column_dataset,
-                                    max_game_rounds
-                                )
+    MH = MetropolisHastings(
+                                        beta,
+                                        n_iterations,
+                                        n_games_glenn,
+                                        n_games_uct,
+                                        n_uct_playouts,
+                                        threshold,
+                                        tree_max_nodes,
+                                        string_dataset,
+                                        column_dataset,
+                                        max_game_rounds
+                                    )
 
-MH.run()
+    MH.run()

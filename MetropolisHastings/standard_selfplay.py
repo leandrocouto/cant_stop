@@ -11,10 +11,12 @@ from MetropolisHastings.parse_tree import ParseTree
 from MetropolisHastings.DSL import DSL
 from game import Game
 from Script import Script
-from players.rule_of_28_player import Rule_of_28_Player
+from players.glenn_player import Glenn_Player
 from players.vanilla_uct_player import Vanilla_UCT
 from play_game_template import simplified_play_single_game
 from play_game_template import play_single_game
+
+from players.script_test import ScriptTest
 
 class StandardSelfplay:
     """
@@ -143,7 +145,8 @@ class StandardSelfplay:
                 iteration_data = (
                                     victories, losses, draws,
                                     v_glenn, l_glenn, d_glenn,
-                                    v_uct, l_uct, d_uct
+                                    v_uct, l_uct, d_uct,
+                                    self.tree_string, self.tree_column
                                 )
                 folder = self.filename + '/data/' 
                 if not os.path.exists(folder):
@@ -258,7 +261,7 @@ class StandardSelfplay:
     def validate_against_glenn(self, current_script):
         """ Validate current script against Glenn's heuristic player. """
 
-        glenn = Rule_of_28_Player()
+        glenn = Glenn_Player()
 
         victories = 0
         losses = 0
@@ -302,7 +305,7 @@ class StandardSelfplay:
         losses = 0
         draws = 0
 
-        for i in range(self.n_games_glenn):
+        for i in range(self.n_games_uct):
             game = game = Game(2, 4, 6, [2,12], 2, 2)
             uct = Vanilla_UCT(c = 1, n_simulations = self.n_uct_playouts)
             if i%2 == 0:
@@ -335,7 +338,7 @@ class StandardSelfplay:
         return victories, losses, draws
 
 
-    def generate_report(self, filename):
+    def generate_report(self):
         
         dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/' 
         filename = dir_path + self.filename
@@ -377,25 +380,30 @@ class StandardSelfplay:
         plt.ylabel('Number of games')
         plt.savefig(filename + '_vs_UCT.png')
 
-beta = 0.5
-n_iterations = 10
-tree_max_nodes = 100
-d = 1
-init_temp = 1
-n_games = 100
-n_games_glenn = 100
-n_games_uct = 10
-n_uct_playouts = 100
-max_game_rounds = 500
+if __name__ == "__main__":
 
-standard_selfplay = StandardSelfplay(
-                        beta,
-                        n_iterations,
-                        tree_max_nodes,
-                        n_games,
-                        n_games_glenn,
-                        n_games_uct,
-                        n_uct_playouts,
-                        max_game_rounds
-                    )
-standard_selfplay.run()
+    beta = 0.5
+    n_iterations = 10
+    tree_max_nodes = 100
+    d = 1
+    init_temp = 1
+    n_games = 100
+    n_games_glenn = 1000
+    n_games_uct = 10
+    n_uct_playouts = 100
+    max_game_rounds = 500
+
+    standard_selfplay = StandardSelfplay(
+                            beta,
+                            n_iterations,
+                            tree_max_nodes,
+                            n_games,
+                            n_games_glenn,
+                            n_games_uct,
+                            n_uct_playouts,
+                            max_game_rounds
+                        )
+    #standard_selfplay.run()
+    my_script = ScriptTest()
+    victories, losses, draws = standard_selfplay.validate_against_glenn(my_script)
+    print(victories, losses, draws)

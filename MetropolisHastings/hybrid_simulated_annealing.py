@@ -11,7 +11,7 @@ from MetropolisHastings.DSL import DSL
 from Script import Script
 from game import Game
 from MetropolisHastings.parse_tree import ParseTree
-from players.rule_of_28_player import Rule_of_28_Player
+from players.glenn_player import Glenn_Player
 from play_game_template import simplified_play_single_game
 from players.vanilla_uct_player import Vanilla_UCT
 from play_game_template import play_single_game
@@ -129,7 +129,10 @@ class HybridSimulatedAnnealing:
             score_best, score_mutated = self.update_score(score_best, score_mutated)
 
             # Accept program only if new score is higher.
-            accept = min(1, score_best/score_mutated)
+            if score_mutated == 0:
+                accept = 0
+            else:
+                accept = min(1, score_best/score_mutated)
             
             # Adjust the temperature accordingly.
             self.temperature = self.temperature_schedule(i)
@@ -164,7 +167,8 @@ class HybridSimulatedAnnealing:
                 # Save data file
                 iteration_data = (
                                     v_glenn, l_glenn, d_glenn,
-                                    v_uct, l_uct, d_uct
+                                    v_uct, l_uct, d_uct,
+                                    self.tree_string, self.tree_column
                                 )
                 folder = self.filename + '/data/' 
                 if not os.path.exists(folder):
@@ -457,7 +461,7 @@ class HybridSimulatedAnnealing:
     def validate_against_glenn(self, current_script):
         """ Validate current script against Glenn's heuristic player. """
 
-        glenn = Rule_of_28_Player()
+        glenn = Glenn_Player()
 
         victories = 0
         losses = 0
@@ -501,7 +505,7 @@ class HybridSimulatedAnnealing:
         losses = 0
         draws = 0
 
-        for i in range(self.n_games_glenn):
+        for i in range(self.n_games_uct):
             game = game = Game(2, 4, 6, [2,12], 2, 2)
             uct = Vanilla_UCT(c = 1, n_simulations = self.n_uct_playouts)
             if i%2 == 0:
@@ -567,35 +571,35 @@ class HybridSimulatedAnnealing:
         data_column = [d for d in self.column_data if d[3] >= self.threshold]
         return data_string, data_column
 
+if __name__ == "__main__":
+    beta = 0.5
+    n_iterations = 10
+    tree_max_nodes = 100
+    d = 1
+    init_temp = 1
+    n_games = 100
+    n_games_glenn = 1000
+    n_games_uct = 50
+    n_uct_playouts = 50
+    max_game_rounds = 500
+    threshold = 0
+    string_dataset = 'fulldata_sorted_string'
+    column_dataset = 'fulldata_sorted_column'
 
-beta = 0.5
-n_iterations = 10
-tree_max_nodes = 100
-d = 1
-init_temp = 1
-n_games = 100
-n_games_glenn = 100
-n_games_uct = 10
-n_uct_playouts = 10
-max_game_rounds = 500
-threshold = 0
-string_dataset = 'fulldata_sorted_string'
-column_dataset = 'fulldata_sorted_column'
+    hybrid_SA = HybridSimulatedAnnealing(
+                                        beta,
+                                        n_iterations,
+                                        tree_max_nodes,
+                                        d,
+                                        init_temp,
+                                        n_games,
+                                        n_games_glenn,
+                                        n_games_uct,
+                                        n_uct_playouts,
+                                        max_game_rounds,
+                                        string_dataset,
+                                        column_dataset,
+                                        threshold
+                                    )
 
-hybrid_SA = HybridSimulatedAnnealing(
-                                    beta,
-                                    n_iterations,
-                                    tree_max_nodes,
-                                    d,
-                                    init_temp,
-                                    n_games,
-                                    n_games_glenn,
-                                    n_games_uct,
-                                    n_uct_playouts,
-                                    max_game_rounds,
-                                    string_dataset,
-                                    column_dataset,
-                                    threshold
-                                )
-
-hybrid_SA.run()
+    hybrid_SA.run()
