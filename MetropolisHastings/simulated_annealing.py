@@ -25,8 +25,8 @@ import re
 
 class SimulatedAnnealing:
     def __init__(self, beta, n_iterations, n_games_glenn, n_games_uct, 
-        n_uct_playouts, threshold, init_temp, d, tree_max_nodes, string_dataset, 
-        column_dataset, max_game_rounds):
+        uct_playouts, eval_step, threshold, init_temp, d, tree_max_nodes, 
+        string_dataset, column_dataset, max_game_rounds):
         """
         - beta is a constant used in the SA score function.
         - string_data and column_data is a 5-tuple of the game state 
@@ -55,7 +55,8 @@ class SimulatedAnnealing:
         self.n_iterations = n_iterations
         self.n_games_glenn = n_games_glenn
         self.n_games_uct = n_games_uct
-        self.n_uct_playouts = n_uct_playouts
+        self.uct_playouts = uct_playouts
+        self.eval_step = eval_step
         self.threshold = threshold
         self.temperature = init_temp
         self.d = d
@@ -71,8 +72,7 @@ class SimulatedAnnealing:
         self.filename = 'SA_' + str(self.n_iterations) + 'ite_' + \
         str(self.threshold).replace(".", "") + 'threshold_' + \
         str(self.tree_max_nodes) + 'tree_' + str(self.n_games_glenn) + \
-        'glenn_' + str(self.n_games_uct) + 'uct_' + str(self.n_uct_playouts) + \
-        'uct_playouts'
+        'glenn_' + str(self.n_games_uct) + 'uct'
 
         if not os.path.exists(self.filename):
             os.makedirs(self.filename)
@@ -189,10 +189,14 @@ class SimulatedAnnealing:
                 elapsed_time_glenn = time.time() - start_glenn
 
                 start_uct = time.time()
-                v_uct, l_uct, d_uct = self.validate_against_UCT(script_best_player)
-                self.victories_against_UCT.append(v_uct)
-                self.losses_against_UCT.append(l_uct)
-                self.draws_against_UCT.append(d_uct)
+                v_uct = None 
+                l_uct = None 
+                d_uct = None
+                if len(self.victories_against_glenn) % self.eval_step == 0:
+                    v_uct, l_uct, d_uct = self.validate_against_UCT(script_best_player)
+                    self.victories_against_UCT.append(v_uct)
+                    self.losses_against_UCT.append(l_uct)
+                    self.draws_against_UCT.append(d_uct)
                 elapsed_time_uct = time.time() - start_uct
 
                 elapsed_time = time.time() - start
@@ -228,10 +232,10 @@ class SimulatedAnnealing:
 
 
                 with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
-                    print('Iteration -', i, 'New program accepted - V/L/D against Glenn = ',
-                        v_glenn, l_glenn, d_glenn, 
-                        'V/L/D against UCT', self.n_uct_playouts, 'playouts = ', 
-                        v_uct, l_uct, d_uct, file=f)
+                    print('Iteration -', i, 'New program accepted - ',
+                        'V/L/D against Glenn = ', v_glenn, l_glenn, d_glenn, 
+                        'V/L/D against UCT', self.uct_playouts, 'playouts = ', v_uct, l_uct, d_uct, 
+                        file=f)
                     print('Iteration -', i, 'Glenn elapsed time = ', 
                         elapsed_time_glenn, 'UCT elapsed time = ', 
                         elapsed_time_uct, 'Total elapsed time = ', 
@@ -457,39 +461,47 @@ class SimulatedAnnealing:
     def validate_against_UCT(self, current_script):
         """ Validate current script against UCT. """
 
-        victories = 0
-        losses = 0
-        draws = 0
+        victories = []
+        losses = []
+        draws = []
 
-        for i in range(self.n_games_uct):
-            game = game = Game(2, 4, 6, [2,12], 2, 2)
-            uct = Vanilla_UCT(c = 1, n_simulations = self.n_uct_playouts)
-            if i%2 == 0:
+        for i in range(len(self.uct_playouts)):
+            v = 0
+            l = 0
+            d = 0
+            for j in range(self.n_games_uct):
+                game = game = Game(2, 4, 6, [2,12], 2, 2)
+                uct = Vanilla_UCT(c = 1, n_simulations = self.uct_playouts[i])
+                if j%2 == 0:
+                        who_won = play_single_game(
+                                                    current_script, 
+                                                    uct, 
+                                                    game, 
+                                                    self.max_game_rounds
+                                                    )
+                        if who_won == 1:
+                            v += 1
+                        elif who_won == 2:
+                            l += 1
+                        else:
+                            d += 1
+                else:
                     who_won = play_single_game(
-                                                current_script, 
                                                 uct, 
+                                                current_script, 
                                                 game, 
                                                 self.max_game_rounds
                                                 )
-                    if who_won == 1:
-                        victories += 1
-                    elif who_won == 2:
-                        losses += 1
+                    if who_won == 2:
+                        v += 1
+                    elif who_won == 1:
+                        l += 1
                     else:
-                        draws += 1
-            else:
-                who_won = play_single_game(
-                                            uct, 
-                                            current_script, 
-                                            game, 
-                                            self.max_game_rounds
-                                            )
-                if who_won == 2:
-                    victories += 1
-                elif who_won == 1:
-                    losses += 1
-                else:
-                    draws += 1
+                        d += 1
+            
+            victories.append(v)
+            losses.append(l)
+            draws.append(d)
 
         return victories, losses, draws
 
@@ -510,23 +522,31 @@ class SimulatedAnnealing:
 
         plt.close()
 
-        x = list(range(len(self.victories_against_UCT)))
+        for i in range(len(self.uct_playouts)):
+            victories = [vic[i] for vic in self.victories_against_UCT]  
+            losses = [loss[i] for loss in self.losses_against_UCT]
+            draws = [draw[i] for draw in self.draws_against_UCT]
+            
+            x = list(range(len(victories)))
 
-        plt.plot(x, self.victories_against_UCT, color='green', label='Victory')
-        plt.plot(x, self.losses_against_UCT, color='red', label='Loss')
-        plt.plot(x, self.draws_against_UCT, color='gray', label='Draw')
-        plt.legend(loc="best")
-        plt.title("Simulated Annealing - Games against UCT - " + str(self.n_uct_playouts) + " playouts")
-        plt.xlabel('Iterations')
-        plt.ylabel('Number of games')
-        plt.savefig(filename + '_vs_UCT.png')
+            plt.plot(x, victories, color='green', label='Victory')
+            plt.plot(x, losses, color='red', label='Loss')
+            plt.plot(x, draws, color='gray', label='Draw')
+            plt.legend(loc="best")
+            plt.title("Simulated Annealing - Games against UCT - " + str(self.uct_playouts[i]) + " playouts")
+            plt.xlabel('Iterations')
+            plt.ylabel('Number of games')
+            plt.savefig(filename + '_vs_UCT_' + str(self.uct_playouts[i]) +'.png')
+
+            plt.close()
 
 if __name__ == "__main__":
     beta = 0.5
-    n_iterations = 50
-    n_games_glenn = 10
-    n_games_uct = 10
-    n_uct_playouts = 10
+    n_iterations = 10
+    n_games_glenn = 1000
+    n_games_uct = 5
+    uct_playouts = [2, 3, 4]
+    eval_step = 1
     threshold = 0
     tree_max_nodes = 100
     init_temp = 1
@@ -540,7 +560,8 @@ if __name__ == "__main__":
                             n_iterations,
                             n_games_glenn,
                             n_games_uct,
-                            n_uct_playouts,
+                            uct_playouts,
+                            eval_step,
                             threshold,
                             init_temp,
                             d, 
