@@ -1,27 +1,42 @@
-import sys
-sys.path.insert(0,'..')
 import math
+import sys
 import pickle
 import time
-import os
 import re
+import os
 import matplotlib.pyplot as plt
-
-from MetropolisHastings.DSL import DSL
-from Script import Script
-from game import Game
+import numpy as np
+sys.path.insert(0,'..')
 from MetropolisHastings.parse_tree import ParseTree
+from MetropolisHastings.DSL import DSL
+from game import Game
+from Script import Script
 from players.glenn_player import Glenn_Player
 from players.vanilla_uct_player import Vanilla_UCT
 from play_game_template import simplified_play_single_game
 from play_game_template import play_single_game
 
-class GlennSimulatedAnnealing:
+class SimulatedAnnealingSelfplayScore:
+    """
+    Simulated Annealing but instead of keeping a score on how many actions this
+    algorithm got it correctly (when compared to an oracle), the score is now
+    computed on how many victories the mutated get against the current program.
+    The mutated program is accepted if it gets more victories than the current
+    program playing against itself.
+    """
     def __init__(self, beta, n_iterations, tree_max_nodes, d, init_temp, 
         n_games, n_games_glenn, n_games_uct, uct_playouts, eval_step, max_game_rounds):
         """
-        Hybrid between selfplay and Simulated Annealing. Each procedure is 
-        responsible for 50% of the score.
+        Metropolis Hastings with temperature schedule. This allows the 
+        algorithm to explore more the space search.
+        - d is a constant for the temperature schedule.
+        - init_temp is the temperature used for the first iteration. Following
+          temperatures are calculated following self.temperature_schedule().
+        - n_games is the number of games played in selfplay.
+        - n_games_glenn is the number of games played against Glenn's heuristic.
+        - max_game_rounds is the number of rounds necessary in a game to
+        consider it a draw. This is necessary because Can't Stop games can
+        theoretically last forever.
         """
 
         self.beta = beta
@@ -36,7 +51,7 @@ class GlennSimulatedAnnealing:
         self.eval_step = eval_step
         self.max_game_rounds = max_game_rounds
 
-        self.filename = 'glenn_SA_' + str(self.n_iterations) + 'ite_' + \
+        self.filename = 'selfplay_SA_' + str(self.n_iterations) + 'ite_' + \
         str(self.tree_max_nodes) + 'tree_' + str(self.n_games) + 'selfplay_' + \
         str(self.n_games_glenn) + 'glenn' + str(self.n_games_uct) + 'uct'
 
@@ -92,16 +107,21 @@ class GlennSimulatedAnnealing:
                                                 i
                                                 )
 
-            score_best, score_mutated  = self.calculate_score_function(
+            score_best, v_best, l_best, d_best = self.calculate_score_function(
                                                         script_best_player, 
-                                                        script_mutated_player
+                                                        script_best_player
+                                                        )
+
+            score_mut, v_mut, l_mut, d_mut = self.calculate_score_function(
+                                                        script_mutated_player, 
+                                                        script_best_player
                                                         )
             # Instead of the classical SA that we divide the mutated score by
             # the current best program score (which we use the error rate), in
             # here we use best/mut because we are using the victory rate as
             # parameter for the score function.
             # Update score given the SA parameters
-            score_best, score_mutated = self.update_score(score_best, score_mutated)
+            score_best, score_mutated = self.update_score(score_best, score_mut)
 
             # Accept program only if new score is higher.
             if score_mutated == 0:
@@ -166,8 +186,8 @@ class GlennSimulatedAnnealing:
 
 
                 with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
-                    print('Iteration -', i, 
-                        'New program accepted - V/L/D against Glenn = ', v_glenn, l_glenn, d_glenn, 
+                    print('Iteration -', i, 'New program accepted - ', 
+                        'V/L/D against Glenn = ', v_glenn, l_glenn, d_glenn, 
                         'V/L/D against UCT', self.uct_playouts, 'playouts = ', v_uct, l_uct, d_uct, 
                         file=f)
                     print('Iteration -', i, 'Glenn elapsed time = ', 
@@ -205,7 +225,6 @@ class GlennSimulatedAnnealing:
 
         return best_program_string, best_program_column, script_best_player, self.tree_string, self.tree_column
 
-
     def update_score(self, score_best, score_mutated):
         """ 
         Update the score according to the current temperature. 
@@ -217,19 +236,57 @@ class GlennSimulatedAnnealing:
 
     def temperature_schedule(self, iteration):
         """ Calculate the next temperature used for the score calculation. """
+
         return self.d/math.log(iteration)
 
-    def calculate_score_function(self, script_best_player, script_mutated_player):
+    def calculate_score_function(self, first_player, second_player):
 
-        vic_cur, _, _ = self.validate_against_glenn(script_best_player)
-        vic_mut, _, _ = self.validate_against_glenn(script_mutated_player)
-        victory_rate_glenn_cur = vic_cur / self.n_games_glenn
-        victory_rate_glenn_mut = vic_mut / self.n_games_glenn
+        victories, losses, draws = self.calculate_errors(
+                                                        first_player,
+                                                        second_player
+                                                        )
+        victory_rate = victories
+        score = math.exp(-self.beta * victory_rate)
+        return score, victories, losses, draws
 
-        score_cur = math.exp(-self.beta * victory_rate_glenn_cur)
-        score_mut = math.exp(-self.beta * victory_rate_glenn_mut)
+    def calculate_errors(self, first_player, second_player):
+        """ 
+        Calculate how many times the program passed as parameter chose a 
+        different action when compared to the oracle (actions from dataset).
+        """
+        victories = 0
+        losses = 0
+        draws = 0
+        for i in range(self.n_games):
+            game = game = Game(2, 4, 6, [2,12], 2, 2)
+            if i%2 == 0:
+                    who_won = simplified_play_single_game(
+                                                        first_player, 
+                                                        second_player, 
+                                                        game, 
+                                                        self.max_game_rounds
+                                                    )
+                    if who_won == 1:
+                        victories += 1
+                    elif who_won == 2:
+                        losses += 1
+                    else:
+                        draws += 1
+            else:
+                who_won = simplified_play_single_game(
+                                                    second_player, 
+                                                    first_player, 
+                                                    game, 
+                                                    self.max_game_rounds
+                                                )
+                if who_won == 2:
+                    victories += 1
+                elif who_won == 1:
+                    losses += 1
+                else:
+                    draws += 1
 
-        return score_cur, score_mut
+        return victories, losses, draws
 
     def generate_player(self, program_string, program_column, iteration):
         """ Generate a Player object given the program string. """
@@ -347,7 +404,7 @@ class GlennSimulatedAnnealing:
         plt.plot(x, self.losses_against_glenn, color='red', label='Loss')
         plt.plot(x, self.draws_against_glenn, color='gray', label='Draw')
         plt.legend(loc="best")
-        plt.title("Glenn Simulated Annealing - Games against Glenn")
+        plt.title("Selfplay Simulated Annealing - Games against Glenn")
         plt.xlabel('Iterations')
         plt.ylabel('Number of games')
         plt.savefig(filename + '_vs_glenn.png')
@@ -365,7 +422,7 @@ class GlennSimulatedAnnealing:
             plt.plot(x, losses, color='red', label='Loss')
             plt.plot(x, draws, color='gray', label='Draw')
             plt.legend(loc="best")
-            plt.title("Glenn Simulated Annealing - Games against UCT - " + str(self.uct_playouts[i]) + " playouts")
+            plt.title("Selfplay Simulated Annealing - Games against UCT - " + str(self.uct_playouts[i]) + " playouts")
             plt.xlabel('Iterations')
             plt.ylabel('Number of games')
             plt.savefig(filename + '_vs_UCT_' + str(self.uct_playouts[i]) +'.png')
@@ -378,14 +435,14 @@ if __name__ == "__main__":
     tree_max_nodes = 100
     d = 1
     init_temp = 1
-    n_games = 100
-    n_games_glenn = 100
-    n_games_uct = 10
+    n_games = 1000
+    n_games_glenn = 1000
+    n_games_uct = 5
     uct_playouts = [2, 3, 4]
     eval_step = 1
     max_game_rounds = 500
 
-    glenn_SA = GlennSimulatedAnnealing(
+    SA_selfplay_score = SimulatedAnnealingSelfplayScore(
                                         beta,
                                         n_iterations,
                                         tree_max_nodes,
@@ -398,5 +455,4 @@ if __name__ == "__main__":
                                         eval_step,
                                         max_game_rounds
                                     )
-
-    glenn_SA.run()
+    SA_selfplay_score.run()
