@@ -17,9 +17,7 @@ from players.vanilla_uct_player import Vanilla_UCT
 from play_game_template import simplified_play_single_game
 from play_game_template import play_single_game
 
-from players.script_test import ScriptTest
-
-class StandardSelfplayFictitiousPlay:
+class RandomWalkFictitiousPlay:
     """
     Simulated Annealing but instead of keeping a score on how many actions this
     algorithm got it correctly (when compared to an oracle), the score is now
@@ -48,7 +46,7 @@ class StandardSelfplayFictitiousPlay:
         self.eval_step = eval_step
         self.max_game_rounds = max_game_rounds
 
-        self.filename = 'standard_selfplay_fp_' + str(self.n_iterations) + 'ite_' + \
+        self.filename = 'random_walk_fp_' + str(self.n_iterations) + 'ite_' + \
         str(self.tree_max_nodes) + 'tree_' + str(self.n_games_evaluate) + 'eval_' + \
         str(self.n_games_glenn) + 'glenn' + str(self.n_games_uct) + \
         'uct'
@@ -91,6 +89,8 @@ class StandardSelfplayFictitiousPlay:
                                                 )
 
         br_set = [script_best_player]
+        victories_best, losses_best, draws_best = self.evaluate(script_best_player, br_set)
+        best_score = sum(victories_best) / len(victories_best)
         # Main loop
         for i in range(self.n_iterations):
             start = time.time()
@@ -106,14 +106,12 @@ class StandardSelfplayFictitiousPlay:
                                                 mutated_program_column,
                                                 i
                                                 )
-
-            victories_best, losses_best, draws_best = self.evaluate(script_best_player, br_set)
+    
             victories_mut, losses_mut, draws_mut = self.evaluate(script_mutated_player, br_set)
-            score_best = sum(victories_best) / len(victories_best)
-            score_mutated = sum(victories_mut) / len(victories_mut)
+            mutated_score = sum(victories_mut) / len(victories_mut)
 
             # If the new synthesized program is better against br_p
-            if score_mutated > score_best:
+            if mutated_score > best_score:
                 self.victories.append(victories_mut)
                 self.losses.append(losses_mut)
                 self.draws.append(draws_mut)
@@ -129,6 +127,14 @@ class StandardSelfplayFictitiousPlay:
                 # Add the new player to br_set
                 br_set.append(script_mutated_player)
 
+                # Save the mutated score to best score
+                best_score = mutated_score
+                # Since mutated score did not take into consideration the program
+                # just added to br_set, we add a score of 0.5 because it is
+                # reasonable to assume that a program played against itself will
+                # result in a 50% victory rate. 
+                #best_score += 0.5 / len(br_set)
+
                 start_glenn = time.time()
                 v_glenn, l_glenn, d_glenn = self.validate_against_glenn(script_best_player)
                 self.victories_against_glenn.append(v_glenn)
@@ -139,7 +145,7 @@ class StandardSelfplayFictitiousPlay:
                 v_uct = None 
                 l_uct = None 
                 d_uct = None
-                # Only play games against UCT every 10 successful iterations
+                # Only play games against UCT every eval_step successful iterations
                 start_uct = time.time()
                 
                 if len(self.victories_against_glenn) % self.eval_step == 0:
@@ -392,7 +398,7 @@ class StandardSelfplayFictitiousPlay:
         plt.plot(x, self.losses_against_glenn, color='red', label='Loss')
         plt.plot(x, self.draws_against_glenn, color='gray', label='Draw')
         plt.legend(loc="best")
-        plt.title("Fictitious Play - Games against Glenn")
+        plt.title("Standard Selfplay Fictitious Play - Games against Glenn")
         plt.xlabel('Iterations')
         plt.ylabel('Number of games')
         plt.savefig(filename + '_vs_glenn.png')
@@ -419,16 +425,16 @@ class StandardSelfplayFictitiousPlay:
 
 if __name__ == "__main__":
 
-    n_iterations = 10000
+    n_iterations = 301
     tree_max_nodes = 100
     n_games_evaluate = 100
     n_games_glenn = 1000
     n_games_uct = 50
     max_game_rounds = 500
-    uct_playouts = [50, 100, 200]
+    uct_playouts = [2, 3, 4]
     eval_step = 10
 
-    standard_selfplay_fp = StandardSelfplayFictitiousPlay(
+    random_walk_fp = RandomWalkFictitiousPlay(
                             n_iterations,
                             tree_max_nodes,
                             n_games_evaluate,
@@ -438,4 +444,4 @@ if __name__ == "__main__":
                             eval_step,
                             max_game_rounds
                         )
-    standard_selfplay_fp.run()
+    random_walk_fp.run()

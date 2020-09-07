@@ -18,7 +18,7 @@ from play_game_template import play_single_game
 
 from players.script_test import ScriptTest
 
-class StandardSelfplay:
+class RandomWalkSelfplay:
     """
     Simulated Annealing but instead of keeping a score on how many actions this
     algorithm got it correctly (when compared to an oracle), the score is now
@@ -47,7 +47,7 @@ class StandardSelfplay:
         self.eval_step = eval_step
         self.max_game_rounds = max_game_rounds
 
-        self.filename = 'standard_selfplay_' + str(self.n_iterations) + 'ite_' + \
+        self.filename = 'random_walk_selfplay_' + str(self.n_iterations) + 'ite_' + \
         str(self.tree_max_nodes) + 'tree_' + str(self.n_games) + 'selfplay_' + \
         str(self.n_games_glenn) + 'glenn' + str(self.n_games_uct) + 'uct'
 
@@ -363,7 +363,7 @@ class StandardSelfplay:
         plt.plot(x, self.losses, color='red', label='Loss')
         plt.plot(x, self.draws, color='gray', label='Draw')
         plt.legend(loc="best")
-        plt.title("Selfplay generated script against previous script")
+        plt.title("Random Walk Selfplay generated script against previous script")
         plt.xlabel('Iterations')
         plt.ylabel('Number of games')
         plt.savefig(filename + '_vs_previous_script.png')
@@ -376,7 +376,7 @@ class StandardSelfplay:
         plt.plot(x, self.losses_against_glenn, color='red', label='Loss')
         plt.plot(x, self.draws_against_glenn, color='gray', label='Draw')
         plt.legend(loc="best")
-        plt.title("Fictitious Play - Games against Glenn")
+        plt.title("Random Walk Selfplay - Games against Glenn")
         plt.xlabel('Iterations')
         plt.ylabel('Number of games')
         plt.savefig(filename + '_vs_glenn.png')
@@ -394,7 +394,7 @@ class StandardSelfplay:
             plt.plot(x, losses, color='red', label='Loss')
             plt.plot(x, draws, color='gray', label='Draw')
             plt.legend(loc="best")
-            plt.title("Standard Selfplay Fictitious Play - Games against UCT - " + str(self.uct_playouts[i]) + " playouts")
+            plt.title("Random Walk Selfplay - Games against UCT - " + str(self.uct_playouts[i]) + " playouts")
             plt.xlabel('Iterations')
             plt.ylabel('Number of games')
             plt.savefig(filename + '_vs_UCT_' + str(self.uct_playouts[i]) +'.png')
@@ -415,7 +415,7 @@ if __name__ == "__main__":
     eval_step = 1
     max_game_rounds = 500
 
-    standard_selfplay = StandardSelfplay(
+    random_walk_selfplay = RandomWalkSelfplay(
                             beta,
                             n_iterations,
                             tree_max_nodes,
@@ -426,4 +426,4 @@ if __name__ == "__main__":
                             eval_step,
                             max_game_rounds
                         )
-    standard_selfplay.run()
+    random_walk_selfplay.run()
