@@ -93,6 +93,9 @@ class FictitiousPlay:
 
         br_set = [p]
 
+        victories_p, losses_p, draws_p = self.evaluate(p, br_set)
+        score_p = sum(victories_p) / len(victories_p)
+
         for i in range(self.n_selfplay_iterations):
             start = time.time()
             br_tree_string, br_tree_column, br_p = self.simulated_annealing(br_set)
@@ -101,9 +104,9 @@ class FictitiousPlay:
 
             
             victories_br_p, losses_br_p, draws_br_p = self.evaluate(br_p, br_set)
-            victories_p, losses_p, draws_p = self.evaluate(p, br_set)
+            
             score_br_p = sum(victories_br_p) / len(victories_br_p)
-            score_p = sum(victories_p) / len(victories_p)
+            
             # if br_p is better, keep it
             if score_br_p > score_p:
                 p_tree_string = br_tree_string
@@ -114,6 +117,9 @@ class FictitiousPlay:
                 self.losses.append(losses_br_p)
                 self.draws.append(draws_br_p)
                 self.scores.append(score_br_p)
+
+                # Save the mutated score to best score
+                score_p = score_br_p
 
                 # Validade against Glenn's heuristic
                 start_glenn = time.time()
@@ -456,7 +462,7 @@ class FictitiousPlay:
             plt.close()
 
 if __name__ == "__main__":
-    n_selfplay_iterations = 10
+    n_selfplay_iterations = 100
     n_SA_iterations = 10
     tree_max_nodes = 100
     d = 1
