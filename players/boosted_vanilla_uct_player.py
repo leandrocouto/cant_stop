@@ -7,6 +7,7 @@ from players.player import Player
 from MetropolisHastings.DSL import DSL
 from players.uct_player import UCTPlayer, Node
 
+'''
 class RolloutScript(Player):
     def get_action(self, state):
         import numpy as np
@@ -24,6 +25,26 @@ class RolloutScript(Player):
             weights = [ 12 , 1 , 12 , 12 , 6 , 13 , 18 , 3 , 9 , 18 , 5 ] 
             for i in range(len(actions)): 
                 score_columns[i] = 7 + DSL.advance_in_action_col(actions[i]) + DSL.get_weight_for_action_columns(actions[i], weights) - abs( DSL.does_action_place_new_neutral(actions[i], state) * 35 ) 
+            return actions[np.argmax(score_columns)] 
+'''
+
+class RolloutScript(Player):
+    def get_action(self, state):
+        import numpy as np
+        actions = state.available_moves()
+        score_yes_no = 0
+        score_columns = np.zeros(len(actions))
+        if actions[0] in ['y','n'] : 
+            score_yes_no = DSL.number_cells_advanced_this_round(state) 
+            if score_yes_no < 5 : 
+                return 'y' 
+            else: 
+                return 'n' 
+        else: 
+            score_columns = np.zeros(len(actions)) 
+            weights = [ 14 , 1 , 14 , 2 , 18 , 4 , 8 , 2 , 16 , 4 , 18 ] 
+            for i in range(len(actions)): 
+                score_columns[i] = abs( DSL.get_weight_for_action_columns(actions[i], weights) * abs( DSL.get_weight_for_action_columns(actions[i], weights) + abs( 5 - 22 ) - 13 ) ) 
             return actions[np.argmax(score_columns)] 
 
 class Boosted_Vanilla_UCT(UCTPlayer):
