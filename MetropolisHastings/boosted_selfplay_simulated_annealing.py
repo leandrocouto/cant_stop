@@ -92,6 +92,12 @@ class BoostedSelfplaySimulatedAnnealing:
 
         for i in range(self.n_selfplay_iterations):
             start = time.time()
+            #print('antes sa')
+            #print('p_program_string')
+            #print(p_program_string)
+            #print('p_program_column')
+            #print(p_program_column)
+            #print('fim')
             br_tree_string, br_tree_column, br_p = self.simulated_annealing(
                                                     p_tree_string,
                                                     p_tree_column,
@@ -189,10 +195,15 @@ class BoostedSelfplaySimulatedAnnealing:
         
         curr_tree_string = pickle.loads(pickle.dumps(p_tree_string, -1))
         curr_tree_column = pickle.loads(pickle.dumps(p_tree_column, -1))
-        curr_tree_string.build_tree(curr_tree_string.root)
-        curr_tree_column.build_tree(curr_tree_column.root)
+        #curr_tree_string.build_tree(curr_tree_string.root)
+        #curr_tree_column.build_tree(curr_tree_column.root)
         curr_p_string = curr_tree_string.generate_program()
         curr_p_column = curr_tree_column.generate_program()
+        #print('curr_p_string')
+        #print(curr_p_string)
+        #print('curr_p_column')
+        #print(curr_p_column)
+        #exit()
         curr_p = self.generate_player(curr_p_string, curr_p_column, 'SA_curr')
 
         # Evaluates this program against p.
@@ -410,27 +421,37 @@ class BoostedSelfplaySimulatedAnnealing:
         dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/' 
         filename = dir_path + self.filename
 
-        x = list(range(len(self.victories)))
+        # Calculate the number of games played so far
+        x = []
+        value = 0
+        for j in range(1, len(self.victories) + 1):
+            value += self.n_SA_iterations * self.n_games_evaluate
+            x.append(value)
 
         plt.plot(x, self.victories, color='green', label='Victory')
         plt.plot(x, self.losses, color='red', label='Loss')
         plt.plot(x, self.draws, color='gray', label='Draw')
         plt.legend(loc="best")
         plt.title("Selfplay generated script against previous script")
-        plt.xlabel('Iterations')
+        plt.xlabel('Games played')
         plt.ylabel('Number of games')
         plt.savefig(filename + '_vs_previous_script.png')
 
         plt.close()
 
-        x = list(range(len(self.victories_against_glenn)))
+        # Calculate the number of games played so far
+        x = []
+        value = 0
+        for j in range(1, len(self.victories_against_glenn) + 1):
+            value += self.n_SA_iterations * self.n_games_evaluate
+            x.append(value)
 
         plt.plot(x, self.victories_against_glenn, color='green', label='Victory')
         plt.plot(x, self.losses_against_glenn, color='red', label='Loss')
         plt.plot(x, self.draws_against_glenn, color='gray', label='Draw')
         plt.legend(loc="best")
         plt.title("Boosted Selfplay SA - Games against Glenn")
-        plt.xlabel('Iterations')
+        plt.xlabel('Games played')
         plt.ylabel('Number of games')
         plt.savefig(filename + '_vs_glenn.png')
 
@@ -441,14 +462,18 @@ class BoostedSelfplaySimulatedAnnealing:
             losses = [loss[i] for loss in self.losses_against_UCT]
             draws = [draw[i] for draw in self.draws_against_UCT]
             
-            x = list(range(len(victories)))
+            x = []
+            value = 0
+            for j in range(1, len(victories) + 1):
+                value += self.eval_step * self.n_SA_iterations * self.n_games_evaluate
+                x.append(value)
 
             plt.plot(x, victories, color='green', label='Victory')
             plt.plot(x, losses, color='red', label='Loss')
             plt.plot(x, draws, color='gray', label='Draw')
             plt.legend(loc="best")
             plt.title("Boosted Selfplay SA - Games against UCT - " + str(self.uct_playouts[i]) + " playouts")
-            plt.xlabel('Iterations')
+            plt.xlabel('Games played')
             plt.ylabel('Number of games')
             plt.savefig(filename + '_vs_UCT_' + str(self.uct_playouts[i]) +'.png')
 
