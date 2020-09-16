@@ -418,27 +418,37 @@ class SelfplaySimulatedAnnealing:
         dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/' 
         filename = dir_path + self.filename
 
-        x = list(range(len(self.victories)))
+        # Calculate the number of games played so far
+        x = []
+        value = 0
+        for j in range(1, len(self.victories) + 1):
+            value += self.n_SA_iterations * self.n_games_evaluate
+            x.append(value)
 
         plt.plot(x, self.victories, color='green', label='Victory')
         plt.plot(x, self.losses, color='red', label='Loss')
         plt.plot(x, self.draws, color='gray', label='Draw')
         plt.legend(loc="best")
         plt.title("Selfplay generated script against previous script")
-        plt.xlabel('Iterations')
+        plt.xlabel('Games played')
         plt.ylabel('Number of games')
         plt.savefig(filename + '_vs_previous_script.png')
 
         plt.close()
 
-        x = list(range(len(self.victories_against_glenn)))
+        # Calculate the number of games played so far
+        x = []
+        value = 0
+        for j in range(1, len(self.victories_against_glenn) + 1):
+            value += self.n_SA_iterations * self.n_games_evaluate
+            x.append(value)
 
         plt.plot(x, self.victories_against_glenn, color='green', label='Victory')
         plt.plot(x, self.losses_against_glenn, color='red', label='Loss')
         plt.plot(x, self.draws_against_glenn, color='gray', label='Draw')
         plt.legend(loc="best")
-        plt.title("Levi Selfplay SA - Games against Glenn")
-        plt.xlabel('Iterations')
+        plt.title("Selfplay SA - Games against Glenn")
+        plt.xlabel('Games played')
         plt.ylabel('Number of games')
         plt.savefig(filename + '_vs_glenn.png')
 
@@ -449,14 +459,18 @@ class SelfplaySimulatedAnnealing:
             losses = [loss[i] for loss in self.losses_against_UCT]
             draws = [draw[i] for draw in self.draws_against_UCT]
             
-            x = list(range(len(victories)))
+            x = []
+            value = 0
+            for j in range(1, len(victories) + 1):
+                value += self.eval_step * self.n_SA_iterations * self.n_games_evaluate
+                x.append(value)
 
             plt.plot(x, victories, color='green', label='Victory')
             plt.plot(x, losses, color='red', label='Loss')
             plt.plot(x, draws, color='gray', label='Draw')
             plt.legend(loc="best")
-            plt.title("Levi Selfplay SA - Games against UCT - " + str(self.uct_playouts[i]) + " playouts")
-            plt.xlabel('Iterations')
+            plt.title("Selfplay SA - Games against UCT - " + str(self.uct_playouts[i]) + " playouts")
+            plt.xlabel('Games played')
             plt.ylabel('Number of games')
             plt.savefig(filename + '_vs_UCT_' + str(self.uct_playouts[i]) +'.png')
 

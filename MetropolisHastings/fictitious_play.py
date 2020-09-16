@@ -93,18 +93,16 @@ class FictitiousPlay:
 
         br_set = [p]
 
-        victories_p, losses_p, draws_p = self.evaluate(p, br_set)
-        score_p = sum(victories_p) / len(victories_p)
-
         for i in range(self.n_selfplay_iterations):
             start = time.time()
             br_tree_string, br_tree_column, br_p = self.simulated_annealing(br_set)
 
             elapsed_time = time.time() - start
 
-            
+            victories_p, losses_p, draws_p = self.evaluate(p, br_set)
+            score_p = sum(victories_p) / len(victories_p)
+
             victories_br_p, losses_br_p, draws_br_p = self.evaluate(br_p, br_set)
-            
             score_br_p = sum(victories_br_p) / len(victories_br_p)
             
             # if br_p is better, keep it
@@ -119,7 +117,7 @@ class FictitiousPlay:
                 self.scores.append(score_br_p)
 
                 # Save the mutated score to best score
-                score_p = score_br_p
+                #score_p = score_br_p
 
                 # Validade against Glenn's heuristic
                 start_glenn = time.time()
@@ -413,31 +411,44 @@ class FictitiousPlay:
         dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/' 
         filename = dir_path + self.filename
 
-        x = list(range(len(self.victories)))
+        #x = list(range(len(self.victories)))
 
         vic = [sum(self.victories[i])/len(self.victories[i]) for i in range(len(self.victories))]
         loss = [sum(self.losses[i])/len(self.losses[i]) for i in range(len(self.losses))]
         draw = [sum(self.draws[i])/len(self.draws[i]) for i in range(len(self.draws))]
+
+        # Calculate the number of games played so far
+        x = []
+        value = 0
+        for j in range(1, len(vic) + 1):
+            value += self.n_SA_iterations * self.n_games_evaluate * j
+            x.append(value)
 
         plt.plot(x, vic, color='green', label='Victory')
         plt.plot(x, loss, color='red', label='Loss')
         plt.plot(x, draw, color='gray', label='Draw')
         plt.legend(loc="best")
         plt.title("Selfplay generated script against br_set (average values)")
-        plt.xlabel('Iterations')
-        plt.ylabel('Number of games')
+        plt.xlabel('Games played')
+        plt.ylabel('Rate')
         plt.savefig(filename + '_vs_br_set.png')
 
         plt.close()
 
-        x = list(range(len(self.victories_against_glenn)))
+        # Calculate the number of games played so far
+        x = []
+        value = 0
+        for j in range(1, len(self.victories_against_glenn) + 1):
+            value += self.n_SA_iterations * self.n_games_evaluate * j
+            x.append(value)
+        #x = list(range(len(self.victories_against_glenn)))
 
         plt.plot(x, self.victories_against_glenn, color='green', label='Victory')
         plt.plot(x, self.losses_against_glenn, color='red', label='Loss')
         plt.plot(x, self.draws_against_glenn, color='gray', label='Draw')
         plt.legend(loc="best")
         plt.title("Fictitious Play - Games against Glenn")
-        plt.xlabel('Iterations')
+        plt.xlabel('Games played')
         plt.ylabel('Number of games')
         plt.savefig(filename + '_vs_glenn.png')
 
@@ -448,22 +459,28 @@ class FictitiousPlay:
             losses = [loss[i] for loss in self.losses_against_UCT]
             draws = [draw[i] for draw in self.draws_against_UCT]
             
-            x = list(range(len(victories)))
+            # Calculate the number of games played so far
+            x = []
+            value = 0
+            for j in range(1, len(victories) + 1):
+                value += self.eval_step * self.n_SA_iterations * self.n_games_evaluate * j
+                x.append(value)
+            #x = list(range(len(victories)))
 
             plt.plot(x, victories, color='green', label='Victory')
             plt.plot(x, losses, color='red', label='Loss')
             plt.plot(x, draws, color='gray', label='Draw')
             plt.legend(loc="best")
             plt.title("Fictitious Play - Games against UCT - " + str(self.uct_playouts[i]) + " playouts")
-            plt.xlabel('Iterations')
+            plt.xlabel('Games played')
             plt.ylabel('Number of games')
             plt.savefig(filename + '_vs_UCT_' + str(self.uct_playouts[i]) +'.png')
 
             plt.close()
 
 if __name__ == "__main__":
-    n_selfplay_iterations = 100
-    n_SA_iterations = 10
+    n_selfplay_iterations = 10
+    n_SA_iterations = 50
     tree_max_nodes = 100
     d = 1
     init_temp = 1

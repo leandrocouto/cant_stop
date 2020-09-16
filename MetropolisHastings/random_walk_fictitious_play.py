@@ -89,8 +89,7 @@ class RandomWalkFictitiousPlay:
                                                 )
 
         br_set = [script_best_player]
-        victories_best, losses_best, draws_best = self.evaluate(script_best_player, br_set)
-        best_score = sum(victories_best) / len(victories_best)
+        
         # Main loop
         for i in range(self.n_iterations):
             start = time.time()
@@ -106,7 +105,10 @@ class RandomWalkFictitiousPlay:
                                                 mutated_program_column,
                                                 i
                                                 )
-    
+            
+            victories_best, losses_best, draws_best = self.evaluate(script_best_player, br_set)
+            best_score = sum(victories_best) / len(victories_best)
+
             victories_mut, losses_mut, draws_mut = self.evaluate(script_mutated_player, br_set)
             mutated_score = sum(victories_mut) / len(victories_mut)
 
@@ -126,14 +128,6 @@ class RandomWalkFictitiousPlay:
                 
                 # Add the new player to br_set
                 br_set.append(script_mutated_player)
-
-                # Save the mutated score to best score
-                best_score = mutated_score
-                # Since mutated score did not take into consideration the program
-                # just added to br_set, we add a score of 0.5 because it is
-                # reasonable to assume that a program played against itself will
-                # result in a 50% victory rate. 
-                #best_score += 0.5 / len(br_set)
 
                 start_glenn = time.time()
                 v_glenn, l_glenn, d_glenn = self.validate_against_glenn(script_best_player)
@@ -375,31 +369,44 @@ class RandomWalkFictitiousPlay:
         dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/' 
         filename = dir_path + self.filename
 
-        x = list(range(len(self.victories)))
+        #x = list(range(len(self.victories)))
 
         vic = [sum(self.victories[i])/len(self.victories[i]) for i in range(len(self.victories))]
         loss = [sum(self.losses[i])/len(self.losses[i]) for i in range(len(self.losses))]
         draw = [sum(self.draws[i])/len(self.draws[i]) for i in range(len(self.draws))]
+
+        # Calculate the number of games played so far
+        x = []
+        value = 0
+        for j in range(1, len(vic) + 1):
+            value += self.n_games_evaluate * j
+            x.append(value)
 
         plt.plot(x, vic, color='green', label='Victory')
         plt.plot(x, loss, color='red', label='Loss')
         plt.plot(x, draw, color='gray', label='Draw')
         plt.legend(loc="best")
         plt.title("Selfplay generated script against br_set (average values)")
-        plt.xlabel('Iterations')
-        plt.ylabel('Number of games')
+        plt.xlabel('Games played')
+        plt.ylabel('Rate')
         plt.savefig(filename + '_vs_br_set.png')
 
         plt.close()
 
-        x = list(range(len(self.victories_against_glenn)))
+        #x = list(range(len(self.victories_against_glenn)))
+        # Calculate the number of games played so far
+        x = []
+        value = 0
+        for j in range(1, len(self.victories_against_glenn) + 1):
+            value += self.n_games_evaluate * j
+            x.append(value)
 
         plt.plot(x, self.victories_against_glenn, color='green', label='Victory')
         plt.plot(x, self.losses_against_glenn, color='red', label='Loss')
         plt.plot(x, self.draws_against_glenn, color='gray', label='Draw')
         plt.legend(loc="best")
-        plt.title("Standard Selfplay Fictitious Play - Games against Glenn")
-        plt.xlabel('Iterations')
+        plt.title("Random Walk Fictitious Play - Games against Glenn")
+        plt.xlabel('Games played')
         plt.ylabel('Number of games')
         plt.savefig(filename + '_vs_glenn.png')
 
@@ -410,14 +417,20 @@ class RandomWalkFictitiousPlay:
             losses = [loss[i] for loss in self.losses_against_UCT]
             draws = [draw[i] for draw in self.draws_against_UCT]
             
-            x = list(range(len(victories)))
+            #x = list(range(len(victories)))
+            # Calculate the number of games played so far
+            x = []
+            value = 0
+            for j in range(1, len(victories) + 1):
+                value += self.eval_step * self.n_games_evaluate * j
+                x.append(value)
 
             plt.plot(x, victories, color='green', label='Victory')
             plt.plot(x, losses, color='red', label='Loss')
             plt.plot(x, draws, color='gray', label='Draw')
             plt.legend(loc="best")
-            plt.title("Standard Selfplay Fictitious Play - Games against UCT - " + str(self.uct_playouts[i]) + " playouts")
-            plt.xlabel('Iterations')
+            plt.title("Random Walk Fictitious Play - Games against UCT - " + str(self.uct_playouts[i]) + " playouts")
+            plt.xlabel('Games played')
             plt.ylabel('Number of games')
             plt.savefig(filename + '_vs_UCT_' + str(self.uct_playouts[i]) +'.png')
 
@@ -425,14 +438,14 @@ class RandomWalkFictitiousPlay:
 
 if __name__ == "__main__":
 
-    n_iterations = 301
+    n_iterations = 20
     tree_max_nodes = 100
     n_games_evaluate = 100
     n_games_glenn = 1000
-    n_games_uct = 50
+    n_games_uct = 5
     max_game_rounds = 500
     uct_playouts = [2, 3, 4]
-    eval_step = 10
+    eval_step = 1
 
     random_walk_fp = RandomWalkFictitiousPlay(
                             n_iterations,
