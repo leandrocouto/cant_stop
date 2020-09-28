@@ -26,7 +26,7 @@ class RandomWalkSelfplay:
     The mutated program is accepted if it gets more victories than the current
     program playing against itself.
     """
-    def __init__(self, beta, n_iterations, tree_max_nodes, n_games, 
+    def __init__(self, n_iterations, tree_max_nodes, n_games, 
         n_games_glenn, n_games_uct, uct_playouts, eval_step, max_game_rounds):
         """
         Metropolis Hastings with temperature schedule. This allows the 
@@ -47,7 +47,7 @@ class RandomWalkSelfplay:
         self.eval_step = eval_step
         self.max_game_rounds = max_game_rounds
 
-        self.filename = 'random_walk_selfplay_' + str(self.n_iterations) + 'ite_' + \
+        self.filename = 'RWSP_' + str(self.n_iterations) + 'ite_' + \
         str(self.tree_max_nodes) + 'tree_' + str(self.n_games) + 'selfplay_' + \
         str(self.n_games_glenn) + 'glenn' + str(self.n_games_uct) + 'uct'
 
@@ -61,6 +61,10 @@ class RandomWalkSelfplay:
         self.victories = []
         self.losses = []
         self.draws = []
+        self.games_played_successful = []
+        self.games_played_all = []
+        self.games_played_uct = []
+        self.games_played = 0
 
         # For analysis - Games against Glenn
         self.victories_against_glenn = []
@@ -110,11 +114,16 @@ class RandomWalkSelfplay:
 
             victories, losses, draws = self.selfplay(script_mutated_player, script_best_player)
 
+            self.games_played += self.n_games
+            self.games_played_all.append(self.games_played)
+
             # If the new synthesized program is better
             if victories > losses:
                 self.victories.append(victories)
                 self.losses.append(losses)
                 self.draws.append(draws)
+
+                self.games_played_successful.append(self.games_played)
 
                 self.tree_string = new_tree_string
                 self.tree_column = new_tree_column
@@ -139,6 +148,9 @@ class RandomWalkSelfplay:
                 start_uct = time.time()
                 # Only play games against UCT every eval_step successful iterations
                 if len(self.victories_against_glenn) % self.eval_step == 0:
+
+                    self.games_played_uct.append(self.games_played)
+
                     v_uct, l_uct, d_uct = self.validate_against_UCT(script_best_player)
                     self.victories_against_UCT.append(v_uct)
                     self.losses_against_UCT.append(l_uct)
@@ -152,6 +164,10 @@ class RandomWalkSelfplay:
                                     victories, losses, draws,
                                     v_glenn, l_glenn, d_glenn,
                                     v_uct, l_uct, d_uct,
+                                    self.games_played,
+                                    self.games_played_successful,
+                                    self.games_played_all,
+                                    self.games_played_uct,
                                     self.tree_string, self.tree_column
                                 )
                 folder = self.filename + '/data/' 
@@ -169,11 +185,14 @@ class RandomWalkSelfplay:
                             )      
                 script.save_file_custom(dir_path, self.filename + '_iteration_' + str(i))
 
+                # Generate the graphs with current data
+                self.generate_report()
 
                 with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
                     print('Iteration -', i, 'New program accepted - ', 
                         'V/L/D against Glenn = ', v_glenn, l_glenn, d_glenn, 
                         'V/L/D against UCT', self.uct_playouts, 'playouts = ', v_uct, l_uct, d_uct, 
+                        'Games played = ', self.games_played,
                         file=f)
                     print('Iteration -', i, 'Glenn elapsed time = ', 
                         elapsed_time_glenn, 'UCT elapsed time = ', 
@@ -182,7 +201,7 @@ class RandomWalkSelfplay:
             else:
                 elapsed_time = time.time() - start
                 with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
-                    print('Iteration -', i, '- Elapsed time: ', elapsed_time, file=f)
+                    print('Iteration -', i, '- Elapsed time: ', elapsed_time, 'Games played = ', self.games_played, file=f)
         
         best_program_string = self.tree_string.generate_program()
         best_program_column = self.tree_column.generate_program()
@@ -205,8 +224,6 @@ class RandomWalkSelfplay:
         full_run_elapsed_time = time.time() - full_run
         with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
             print('Full program elapsed time = ', full_run_elapsed_time, file=f)
-
-        self.generate_report()
 
         return best_program_string, best_program_column, script_best_player, self.tree_string, self.tree_column
 
@@ -357,16 +374,9 @@ class RandomWalkSelfplay:
         dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/' 
         filename = dir_path + self.filename
 
-        # Calculate the number of games played so far
-        x = []
-        value = 0
-        for j in range(1, len(self.victories) + 1):
-            value += self.n_games
-            x.append(value)
-
-        plt.plot(x, self.victories, color='green', label='Victory')
-        plt.plot(x, self.losses, color='red', label='Loss')
-        plt.plot(x, self.draws, color='gray', label='Draw')
+        plt.plot(self.games_played_successful, self.victories, color='green', label='Victory')
+        plt.plot(self.games_played_successful, self.losses, color='red', label='Loss')
+        plt.plot(self.games_played_successful, self.draws, color='gray', label='Draw')
         plt.legend(loc="best")
         plt.title("Random Walk Selfplay generated script against previous script")
         plt.xlabel('Games played')
@@ -375,16 +385,9 @@ class RandomWalkSelfplay:
 
         plt.close()
 
-        # Calculate the number of games played so far
-        x = []
-        value = 0
-        for j in range(1, len(self.victories_against_glenn) + 1):
-            value += self.n_games
-            x.append(value)
-
-        plt.plot(x, self.victories_against_glenn, color='green', label='Victory')
-        plt.plot(x, self.losses_against_glenn, color='red', label='Loss')
-        plt.plot(x, self.draws_against_glenn, color='gray', label='Draw')
+        plt.plot(self.games_played_successful, self.victories_against_glenn, color='green', label='Victory')
+        plt.plot(self.games_played_successful, self.losses_against_glenn, color='red', label='Loss')
+        plt.plot(self.games_played_successful, self.draws_against_glenn, color='gray', label='Draw')
         plt.legend(loc="best")
         plt.title("Random Walk Selfplay - Games against Glenn")
         plt.xlabel('Games played')
@@ -397,16 +400,10 @@ class RandomWalkSelfplay:
             victories = [vic[i] for vic in self.victories_against_UCT]  
             losses = [loss[i] for loss in self.losses_against_UCT]
             draws = [draw[i] for draw in self.draws_against_UCT]
-            
-            x = []
-            value = 0
-            for j in range(1, len(victories) + 1):
-                value += self.eval_step * self.n_games
-                x.append(value)
 
-            plt.plot(x, victories, color='green', label='Victory')
-            plt.plot(x, losses, color='red', label='Loss')
-            plt.plot(x, draws, color='gray', label='Draw')
+            plt.plot(self.games_played_uct, victories, color='green', label='Victory')
+            plt.plot(self.games_played_uct, losses, color='red', label='Loss')
+            plt.plot(self.games_played_uct, draws, color='gray', label='Draw')
             plt.legend(loc="best")
             plt.title("Random Walk Selfplay - Games against UCT - " + str(self.uct_playouts[i]) + " playouts")
             plt.xlabel('Games played')
@@ -416,12 +413,8 @@ class RandomWalkSelfplay:
             plt.close()
 
 if __name__ == "__main__":
-
-    beta = 0.5
-    n_iterations = 10
+    n_iterations = 20
     tree_max_nodes = 100
-    d = 1
-    init_temp = 1
     n_games = 100
     n_games_glenn = 1000
     n_games_uct = 3
@@ -430,7 +423,6 @@ if __name__ == "__main__":
     max_game_rounds = 500
 
     random_walk_selfplay = RandomWalkSelfplay(
-                            beta,
                             n_iterations,
                             tree_max_nodes,
                             n_games,

@@ -46,7 +46,7 @@ class RandomWalkFictitiousPlay:
         self.eval_step = eval_step
         self.max_game_rounds = max_game_rounds
 
-        self.filename = 'random_walk_fp_' + str(self.n_iterations) + 'ite_' + \
+        self.filename = 'RWFP_' + str(self.n_iterations) + 'ite_' + \
         str(self.tree_max_nodes) + 'tree_' + str(self.n_games_evaluate) + 'eval_' + \
         str(self.n_games_glenn) + 'glenn' + str(self.n_games_uct) + \
         'uct'
@@ -61,6 +61,10 @@ class RandomWalkFictitiousPlay:
         self.victories = []
         self.losses = []
         self.draws = []
+        self.games_played_successful = []
+        self.games_played_all = []
+        self.games_played_uct = []
+        self.games_played = 0
 
         # For analysis - Games against Glenn
         self.victories_against_glenn = []
@@ -112,11 +116,16 @@ class RandomWalkFictitiousPlay:
             victories_mut, losses_mut, draws_mut = self.evaluate(script_mutated_player, br_set)
             mutated_score = sum(victories_mut) / len(victories_mut)
 
+            self.games_played += 2 * self.n_games_evaluate * len(br_set)
+            self.games_played_all.append(self.games_played)
+
             # If the new synthesized program is better against br_p
             if mutated_score > best_score:
                 self.victories.append(victories_mut)
                 self.losses.append(losses_mut)
                 self.draws.append(draws_mut)
+
+                self.games_played_successful.append(self.games_played)
 
                 # Copy mutated to best
                 self.tree_string = pickle.loads(pickle.dumps(new_tree_string, -1))
@@ -143,6 +152,9 @@ class RandomWalkFictitiousPlay:
                 start_uct = time.time()
                 
                 if len(self.victories_against_glenn) % self.eval_step == 0:
+
+                    self.games_played_uct.append(self.games_played)
+
                     v_uct, l_uct, d_uct = self.validate_against_UCT(script_best_player)
                     self.victories_against_UCT.append(v_uct)
                     self.losses_against_UCT.append(l_uct)
@@ -157,6 +169,11 @@ class RandomWalkFictitiousPlay:
                                     victories_mut, losses_mut, draws_mut,
                                     v_glenn, l_glenn, d_glenn,
                                     v_uct, l_uct, d_uct,
+                                    len(br_set) - 1,
+                                    self.games_played,
+                                    self.games_played_successful,
+                                    self.games_played_all,
+                                    self.games_played_uct,
                                     self.tree_string, self.tree_column
                                 )
                 folder = self.filename + '/data/' 
@@ -174,21 +191,25 @@ class RandomWalkFictitiousPlay:
                             )      
                 script.save_file_custom(dir_path, self.filename + '_iteration_' + str(i))
 
+                # Generate the graphs with current data
+                self.generate_report()
 
                 with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
                     print('Iteration -', i, 'New program accepted - ',
                         'V/L/D against br_set = ', victories_mut, losses_mut, draws_mut,
                         'V/L/D against Glenn = ', v_glenn, l_glenn, d_glenn, 
                         'V/L/D against UCT', self.uct_playouts, 'playouts = ', v_uct, l_uct, d_uct, 
+                        'Games played = ', self.games_played,
                         file=f)
                     print('Iteration -', i, 'Glenn elapsed time = ', 
                         elapsed_time_glenn, 'UCT elapsed time = ', 
                         elapsed_time_uct, 'Total elapsed time = ', 
                         elapsed_time, file=f)
+            # The new script was not better, ignore this iteration
             else:
                 elapsed_time = time.time() - start
                 with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
-                    print('Iteration -', i, '- Elapsed time: ', elapsed_time, file=f)
+                    print('Iteration -', i, '- Elapsed time: ', elapsed_time, 'Games played = ', self.games_played, file=f)
         
         best_program_string = self.tree_string.generate_program()
         best_program_column = self.tree_column.generate_program()
@@ -211,8 +232,6 @@ class RandomWalkFictitiousPlay:
         full_run_elapsed_time = time.time() - full_run
         with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
             print('Full program elapsed time = ', full_run_elapsed_time, file=f)
-
-        self.generate_report()
 
         return best_program_string, best_program_column, script_best_player, self.tree_string, self.tree_column
 
@@ -369,22 +388,13 @@ class RandomWalkFictitiousPlay:
         dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/' 
         filename = dir_path + self.filename
 
-        #x = list(range(len(self.victories)))
-
         vic = [sum(self.victories[i])/len(self.victories[i]) for i in range(len(self.victories))]
         loss = [sum(self.losses[i])/len(self.losses[i]) for i in range(len(self.losses))]
         draw = [sum(self.draws[i])/len(self.draws[i]) for i in range(len(self.draws))]
 
-        # Calculate the number of games played so far
-        x = []
-        value = 0
-        for j in range(1, len(vic) + 1):
-            value += self.n_games_evaluate * j
-            x.append(value)
-
-        plt.plot(x, vic, color='green', label='Victory')
-        plt.plot(x, loss, color='red', label='Loss')
-        plt.plot(x, draw, color='gray', label='Draw')
+        plt.plot(self.games_played_successful, vic, color='green', label='Victory')
+        plt.plot(self.games_played_successful, loss, color='red', label='Loss')
+        plt.plot(self.games_played_successful, draw, color='gray', label='Draw')
         plt.legend(loc="best")
         plt.title("Selfplay generated script against br_set (average values)")
         plt.xlabel('Games played')
@@ -393,17 +403,9 @@ class RandomWalkFictitiousPlay:
 
         plt.close()
 
-        #x = list(range(len(self.victories_against_glenn)))
-        # Calculate the number of games played so far
-        x = []
-        value = 0
-        for j in range(1, len(self.victories_against_glenn) + 1):
-            value += self.n_games_evaluate * j
-            x.append(value)
-
-        plt.plot(x, self.victories_against_glenn, color='green', label='Victory')
-        plt.plot(x, self.losses_against_glenn, color='red', label='Loss')
-        plt.plot(x, self.draws_against_glenn, color='gray', label='Draw')
+        plt.plot(self.games_played_successful, self.victories_against_glenn, color='green', label='Victory')
+        plt.plot(self.games_played_successful, self.losses_against_glenn, color='red', label='Loss')
+        plt.plot(self.games_played_successful, self.draws_against_glenn, color='gray', label='Draw')
         plt.legend(loc="best")
         plt.title("Random Walk Fictitious Play - Games against Glenn")
         plt.xlabel('Games played')
@@ -416,18 +418,10 @@ class RandomWalkFictitiousPlay:
             victories = [vic[i] for vic in self.victories_against_UCT]  
             losses = [loss[i] for loss in self.losses_against_UCT]
             draws = [draw[i] for draw in self.draws_against_UCT]
-            
-            #x = list(range(len(victories)))
-            # Calculate the number of games played so far
-            x = []
-            value = 0
-            for j in range(1, len(victories) + 1):
-                value += self.eval_step * self.n_games_evaluate * j
-                x.append(value)
 
-            plt.plot(x, victories, color='green', label='Victory')
-            plt.plot(x, losses, color='red', label='Loss')
-            plt.plot(x, draws, color='gray', label='Draw')
+            plt.plot(self.games_played_uct, victories, color='green', label='Victory')
+            plt.plot(self.games_played_uct, losses, color='red', label='Loss')
+            plt.plot(self.games_played_uct, draws, color='gray', label='Draw')
             plt.legend(loc="best")
             plt.title("Random Walk Fictitious Play - Games against UCT - " + str(self.uct_playouts[i]) + " playouts")
             plt.xlabel('Games played')

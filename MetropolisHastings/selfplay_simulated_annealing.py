@@ -53,7 +53,7 @@ class SelfplaySimulatedAnnealing:
         self.eval_step = eval_step
         self.max_game_rounds = max_game_rounds
 
-        self.filename = 'selfplay_SA_' + str(self.n_selfplay_iterations) + \
+        self.filename = 'SASP_' + str(self.n_selfplay_iterations) + \
         'selfplay_ite_' + str(self.n_SA_iterations) + 'n_SA_ite_' + \
         str(self.tree_max_nodes) + 'tree_' + str(self.n_games_evaluate) + \
         'eval_' + str(self.n_games_glenn) + 'glenn_' + str(self.n_games_uct) + 'uct'
@@ -65,6 +65,10 @@ class SelfplaySimulatedAnnealing:
         self.victories = []
         self.losses = []
         self.draws = []
+        self.games_played_successful = []
+        self.games_played_all = []
+        self.games_played_uct = []
+        self.games_played = 0
 
         # For analysis - Games against Glenn
         self.victories_against_glenn = []
@@ -97,9 +101,13 @@ class SelfplaySimulatedAnnealing:
                                                     p_tree_column,
                                                     p)
 
+            self.games_played += self.n_SA_iterations * self.n_games_evaluate
+            self.games_played_all.append(self.games_played)
+
             elapsed_time = time.time() - start
             
             victories, losses, draws = self.evaluate(br_p, p)
+
             # if br_p is better, keep it
             if victories > losses:
                 p_tree_string = br_tree_string
@@ -108,6 +116,8 @@ class SelfplaySimulatedAnnealing:
                 self.victories.append(victories)
                 self.losses.append(losses)
                 self.draws.append(draws)
+
+                self.games_played_successful.append(self.games_played)
 
                 # Validade against Glenn's heuristic
                 start_glenn = time.time()
@@ -122,6 +132,9 @@ class SelfplaySimulatedAnnealing:
                 l_uct = None 
                 d_uct = None
                 if len(self.victories_against_glenn) % self.eval_step == 0:
+
+                    self.games_played_uct.append(self.games_played)
+
                     v_uct, l_uct, d_uct = self.validate_against_UCT(p)
                     self.victories_against_UCT.append(v_uct)
                     self.losses_against_UCT.append(l_uct)
@@ -133,6 +146,10 @@ class SelfplaySimulatedAnnealing:
                                     victories, losses, draws,
                                     v_glenn, l_glenn, d_glenn,
                                     v_uct, l_uct, d_uct,
+                                    self.games_played,
+                                    self.games_played_successful,
+                                    self.games_played_all,
+                                    self.games_played_uct,
                                     p_tree_string, p_tree_column
                                 )
                 folder = self.filename + '/data/' 
@@ -150,22 +167,25 @@ class SelfplaySimulatedAnnealing:
                             )      
                 script.save_file_custom(dir_path, self.filename + '_iteration_' + str(i))
 
+                # Generate the graphs with current data
+                self.generate_report()
 
                 with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
                     print('Iteration -', i, 'New program accepted - ', 
                         'V/L/D new script vs old = ', victories, losses, draws, 
                         'V/L/D against Glenn = ', v_glenn, l_glenn, d_glenn, 
                         'V/L/D against UCT', self.uct_playouts, 'playouts = ', v_uct, l_uct, d_uct, 
+                        'Games played = ', self.games_played,
                         file=f)
                     print('Iteration -', i, 'SA elapsed time = ', elapsed_time,
                         'Glenn elapsed time = ', elapsed_time_glenn, 
                         'UCT elapsed time = ', elapsed_time_uct, 
                         'Total elapsed time = ', elapsed_time + elapsed_time_glenn + elapsed_time_uct, file=f)
 
-            # Otherwise stop the execution andr return the best player so far
+            # The new script was not better, ignore this iteration
             else:
                 with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
-                    print('Iteration -', i, '- Elapsed time: ', elapsed_time, file=f)
+                    print('Iteration -', i, '- Elapsed time: ', elapsed_time, 'Games played = ', self.games_played, file=f)
 
         # Save the best script
         dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/'
@@ -180,8 +200,6 @@ class SelfplaySimulatedAnnealing:
         full_run_elapsed_time = time.time() - full_run
         with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
             print('Full program elapsed time = ', full_run_elapsed_time, file=f)
-
-        self.generate_report()
 
         return p_program_string, p_program_column, p, p_tree_string, p_tree_column
 
@@ -198,7 +216,6 @@ class SelfplaySimulatedAnnealing:
 
         # Evaluates this program against p.
         victories, losses, draws = self.evaluate(curr_p, p)
-        #print('initial eval = ', victories, losses, draws)
         score = victories
         best_score = score
         # Initially assumes that p is the best script of all
@@ -223,10 +240,7 @@ class SelfplaySimulatedAnnealing:
             mutated_curr_p = self.generate_player(mutated_curr_p_string, mutated_curr_p_column, 'mutated_curr_' + str(i))
             # Evaluates the mutated program against p
             victories_mut, losses_mut, draws_mut = self.evaluate(mutated_curr_p, p)
-            #print('iteration', i, ' eval = ', victories_mut, losses_mut, draws_mut)
-            #print('Iteration', i, 'of SA - V/L/D = ', victories_mut, losses_mut, draws_mut)
             new_score = victories_mut
-            #print('best score = ', best_score, ', new_score = ', new_score, ', score = ', score)
             # if mutated_curr_p is better than p, then accept it
             if new_score > score:
                 #print('new score bateu score')
@@ -241,7 +255,6 @@ class SelfplaySimulatedAnnealing:
                 curr_p = mutated_curr_p
                 # Keep track of the best solution
                 if new_score > best_score:
-                    #print('new score bateu best score')
                     best_score = new_score
                     # Copy the trees
                     best_solution_string_tree = mutated_tree_string
@@ -264,7 +277,6 @@ class SelfplaySimulatedAnnealing:
             # update temperature according to schedule
             curr_temp = self.temperature_schedule(i)
             elapsed_time = time.time() - start
-            #print('tempo da iteracao = ', elapsed_time)
         return best_solution_string_tree, best_solution_column_tree, best_solution
 
     def evaluate(self, first_player, second_player):
@@ -418,16 +430,9 @@ class SelfplaySimulatedAnnealing:
         dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/' 
         filename = dir_path + self.filename
 
-        # Calculate the number of games played so far
-        x = []
-        value = 0
-        for j in range(1, len(self.victories) + 1):
-            value += self.n_SA_iterations * self.n_games_evaluate
-            x.append(value)
-
-        plt.plot(x, self.victories, color='green', label='Victory')
-        plt.plot(x, self.losses, color='red', label='Loss')
-        plt.plot(x, self.draws, color='gray', label='Draw')
+        plt.plot(self.games_played_successful, self.victories, color='green', label='Victory')
+        plt.plot(self.games_played_successful, self.losses, color='red', label='Loss')
+        plt.plot(self.games_played_successful, self.draws, color='gray', label='Draw')
         plt.legend(loc="best")
         plt.title("Selfplay generated script against previous script")
         plt.xlabel('Games played')
@@ -436,16 +441,9 @@ class SelfplaySimulatedAnnealing:
 
         plt.close()
 
-        # Calculate the number of games played so far
-        x = []
-        value = 0
-        for j in range(1, len(self.victories_against_glenn) + 1):
-            value += self.n_SA_iterations * self.n_games_evaluate
-            x.append(value)
-
-        plt.plot(x, self.victories_against_glenn, color='green', label='Victory')
-        plt.plot(x, self.losses_against_glenn, color='red', label='Loss')
-        plt.plot(x, self.draws_against_glenn, color='gray', label='Draw')
+        plt.plot(self.games_played_successful, self.victories_against_glenn, color='green', label='Victory')
+        plt.plot(self.games_played_successful, self.losses_against_glenn, color='red', label='Loss')
+        plt.plot(self.games_played_successful, self.draws_against_glenn, color='gray', label='Draw')
         plt.legend(loc="best")
         plt.title("Selfplay SA - Games against Glenn")
         plt.xlabel('Games played')
@@ -458,16 +456,10 @@ class SelfplaySimulatedAnnealing:
             victories = [vic[i] for vic in self.victories_against_UCT]  
             losses = [loss[i] for loss in self.losses_against_UCT]
             draws = [draw[i] for draw in self.draws_against_UCT]
-            
-            x = []
-            value = 0
-            for j in range(1, len(victories) + 1):
-                value += self.eval_step * self.n_SA_iterations * self.n_games_evaluate
-                x.append(value)
 
-            plt.plot(x, victories, color='green', label='Victory')
-            plt.plot(x, losses, color='red', label='Loss')
-            plt.plot(x, draws, color='gray', label='Draw')
+            plt.plot(self.games_played_uct, victories, color='green', label='Victory')
+            plt.plot(self.games_played_uct, losses, color='red', label='Loss')
+            plt.plot(self.games_played_uct, draws, color='gray', label='Draw')
             plt.legend(loc="best")
             plt.title("Selfplay SA - Games against UCT - " + str(self.uct_playouts[i]) + " playouts")
             plt.xlabel('Games played')
@@ -477,8 +469,8 @@ class SelfplaySimulatedAnnealing:
             plt.close()
 
 if __name__ == "__main__":
-    n_selfplay_iterations = 10
-    n_SA_iterations = 5
+    n_selfplay_iterations = 20
+    n_SA_iterations = 10
     tree_max_nodes = 100
     d = 1
     init_temp = 1

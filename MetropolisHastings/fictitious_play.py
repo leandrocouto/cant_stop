@@ -25,9 +25,9 @@ class FictitiousPlay:
     The mutated program is accepted if it gets more victories than the current
     program playing against itself.
     """
-    def __init__(self, n_selfplay_iterations, n_SA_iterations, 
-        tree_max_nodes, d, init_temp, n_games_evaluate, n_games_glenn, 
-        n_games_uct, uct_playouts, eval_step, max_game_rounds):
+    def __init__(self, n_iterations, n_SA_iterations, tree_max_nodes, d, 
+        init_temp, n_games_evaluate, n_games_glenn, n_games_uct, uct_playouts, 
+        eval_step, max_game_rounds):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -41,7 +41,7 @@ class FictitiousPlay:
         theoretically last forever.
         """
 
-        self.n_selfplay_iterations = n_selfplay_iterations
+        self.n_iterations = n_iterations
         self.n_SA_iterations = n_SA_iterations
         self.tree_max_nodes = tree_max_nodes
         self.d = d
@@ -53,8 +53,8 @@ class FictitiousPlay:
         self.eval_step = eval_step
         self.max_game_rounds = max_game_rounds
 
-        self.filename = 'fictitious_play_' + str(self.n_selfplay_iterations) + \
-        'selfplay_ite_' + str(self.n_SA_iterations) + 'n_SA_ite_' + \
+        self.filename = 'SAFP_' + str(self.n_iterations) + \
+        'n_ite_' + str(self.n_SA_iterations) + 'n_SA_ite_' + \
         str(self.tree_max_nodes) + 'tree_' + str(self.n_games_evaluate) + \
         'eval_' + str(self.n_games_glenn) + 'glenn_' + str(self.n_games_uct) + 'uct'
 
@@ -66,6 +66,10 @@ class FictitiousPlay:
         self.losses = []
         self.draws = []
         self.scores = []
+        self.games_played_successful = []
+        self.games_played_all = []
+        self.games_played_uct = []
+        self.games_played = 0
 
         # For analysis - Games against Glenn
         self.victories_against_glenn = []
@@ -77,7 +81,7 @@ class FictitiousPlay:
         self.losses_against_UCT = []
         self.draws_against_UCT = []
 
-    def selfplay(self):
+    def run(self):
 
         full_run = time.time()
         p_tree_string = ParseTree(DSL('S', True), self.tree_max_nodes)
@@ -93,7 +97,7 @@ class FictitiousPlay:
 
         br_set = [p]
 
-        for i in range(self.n_selfplay_iterations):
+        for i in range(self.n_iterations):
             start = time.time()
             br_tree_string, br_tree_column, br_p = self.simulated_annealing(br_set)
 
@@ -104,6 +108,9 @@ class FictitiousPlay:
 
             victories_br_p, losses_br_p, draws_br_p = self.evaluate(br_p, br_set)
             score_br_p = sum(victories_br_p) / len(victories_br_p)
+
+            self.games_played += 2 * self.n_SA_iterations * self.n_games_evaluate * len(br_set)
+            self.games_played_all.append(self.games_played)
             
             # if br_p is better, keep it
             if score_br_p > score_p:
@@ -116,8 +123,7 @@ class FictitiousPlay:
                 self.draws.append(draws_br_p)
                 self.scores.append(score_br_p)
 
-                # Save the mutated score to best score
-                #score_p = score_br_p
+                self.games_played_successful.append(self.games_played)
 
                 # Validade against Glenn's heuristic
                 start_glenn = time.time()
@@ -126,12 +132,16 @@ class FictitiousPlay:
                 self.losses_against_glenn.append(l_glenn)
                 self.draws_against_glenn.append(d_glenn)
                 elapsed_time_glenn = time.time() - start_glenn
+
                 # Validade against UCT
                 start_uct = time.time()
                 v_uct = None 
                 l_uct = None 
                 d_uct = None
                 if len(self.victories_against_glenn) % self.eval_step == 0:
+
+                    self.games_played_uct.append(self.games_played)
+
                     v_uct, l_uct, d_uct = self.validate_against_UCT(p)
                     self.victories_against_UCT.append(v_uct)
                     self.losses_against_UCT.append(l_uct)
@@ -142,6 +152,12 @@ class FictitiousPlay:
                                     victories_br_p, losses_br_p, draws_br_p,
                                     v_glenn, l_glenn, d_glenn,
                                     v_uct, l_uct, d_uct,
+                                    len(br_set) - 1,
+                                    score_br_p, score_p,
+                                    self.games_played,
+                                    self.games_played_successful,
+                                    self.games_played_all,
+                                    self.games_played_uct,
                                     p_tree_string, p_tree_column
                                 )
                 folder = self.filename + '/data/' 
@@ -154,34 +170,37 @@ class FictitiousPlay:
                 script = Script(
                                 p_tree_string.generate_program(), 
                                 p_tree_column.generate_program(), 
-                                self.n_selfplay_iterations, 
+                                self.n_iterations, 
                                 self.tree_max_nodes
                             )      
                 script.save_file_custom(dir_path, self.filename + '_iteration_' + str(i))
 
+                # Generate the graphs with current data
+                self.generate_report()
 
                 with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
                     print('Iteration -', i, 'New program accepted - V/L/D new script vs old = ',
                         victories_br_p, losses_br_p, draws_br_p, 
                         'V/L/D against Glenn = ', v_glenn, l_glenn, d_glenn, 
                         'V/L/D against UCT', self.uct_playouts, 'playouts = ', v_uct, l_uct, d_uct, 
+                        'Games played = ', self.games_played,
                         file=f)
                     print('Iteration -', i, 'SA elapsed time = ', elapsed_time,
                         'Glenn elapsed time = ', elapsed_time_glenn, 
                         'UCT elapsed time = ', elapsed_time_uct, 
                         'Total elapsed time = ', elapsed_time + elapsed_time_glenn + elapsed_time_uct, file=f)
 
-            # Otherwise stop the execution andr return the best player so far
+            # The new script was not better, ignore this iteration
             else:
                 with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
-                    print('Iteration -', i, '- Elapsed time: ', elapsed_time, file=f)
+                    print('Iteration -', i, '- Elapsed time: ', elapsed_time, 'Games played = ', self.games_played, file=f)
 
         # Save the best script
         dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/'
         script = Script(
                         p_program_string, 
                         p_program_column, 
-                        self.n_selfplay_iterations, 
+                        self.n_iterations, 
                         self.tree_max_nodes
                     )      
         script.save_file_custom(dir_path, self.filename + '_best_script')
@@ -189,8 +208,6 @@ class FictitiousPlay:
         full_run_elapsed_time = time.time() - full_run
         with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
             print('Full program elapsed time = ', full_run_elapsed_time, file=f)
-
-        self.generate_report()
 
         return p_program_string, p_program_column, p, p_tree_string, p_tree_column
 
@@ -306,7 +323,7 @@ class FictitiousPlay:
         script = Script(
                         program_string, 
                         program_column, 
-                        self.n_selfplay_iterations, 
+                        self.n_iterations, 
                         self.tree_max_nodes
                     )
         return self._string_to_object(script._generateTextScript(iteration))
@@ -411,22 +428,13 @@ class FictitiousPlay:
         dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/' 
         filename = dir_path + self.filename
 
-        #x = list(range(len(self.victories)))
-
         vic = [sum(self.victories[i])/len(self.victories[i]) for i in range(len(self.victories))]
         loss = [sum(self.losses[i])/len(self.losses[i]) for i in range(len(self.losses))]
         draw = [sum(self.draws[i])/len(self.draws[i]) for i in range(len(self.draws))]
 
-        # Calculate the number of games played so far
-        x = []
-        value = 0
-        for j in range(1, len(vic) + 1):
-            value += self.n_SA_iterations * self.n_games_evaluate * j
-            x.append(value)
-
-        plt.plot(x, vic, color='green', label='Victory')
-        plt.plot(x, loss, color='red', label='Loss')
-        plt.plot(x, draw, color='gray', label='Draw')
+        plt.plot(self.games_played_successful, vic, color='green', label='Victory')
+        plt.plot(self.games_played_successful, loss, color='red', label='Loss')
+        plt.plot(self.games_played_successful, draw, color='gray', label='Draw')
         plt.legend(loc="best")
         plt.title("Selfplay generated script against br_set (average values)")
         plt.xlabel('Games played')
@@ -435,17 +443,10 @@ class FictitiousPlay:
 
         plt.close()
 
-        # Calculate the number of games played so far
-        x = []
-        value = 0
-        for j in range(1, len(self.victories_against_glenn) + 1):
-            value += self.n_SA_iterations * self.n_games_evaluate * j
-            x.append(value)
-        #x = list(range(len(self.victories_against_glenn)))
 
-        plt.plot(x, self.victories_against_glenn, color='green', label='Victory')
-        plt.plot(x, self.losses_against_glenn, color='red', label='Loss')
-        plt.plot(x, self.draws_against_glenn, color='gray', label='Draw')
+        plt.plot(self.games_played_successful, self.victories_against_glenn, color='green', label='Victory')
+        plt.plot(self.games_played_successful, self.losses_against_glenn, color='red', label='Loss')
+        plt.plot(self.games_played_successful, self.draws_against_glenn, color='gray', label='Draw')
         plt.legend(loc="best")
         plt.title("Fictitious Play - Games against Glenn")
         plt.xlabel('Games played')
@@ -458,18 +459,10 @@ class FictitiousPlay:
             victories = [vic[i] for vic in self.victories_against_UCT]  
             losses = [loss[i] for loss in self.losses_against_UCT]
             draws = [draw[i] for draw in self.draws_against_UCT]
-            
-            # Calculate the number of games played so far
-            x = []
-            value = 0
-            for j in range(1, len(victories) + 1):
-                value += self.eval_step * self.n_SA_iterations * self.n_games_evaluate * j
-                x.append(value)
-            #x = list(range(len(victories)))
 
-            plt.plot(x, victories, color='green', label='Victory')
-            plt.plot(x, losses, color='red', label='Loss')
-            plt.plot(x, draws, color='gray', label='Draw')
+            plt.plot(self.games_played_uct, victories, color='green', label='Victory')
+            plt.plot(self.games_played_uct, losses, color='red', label='Loss')
+            plt.plot(self.games_played_uct, draws, color='gray', label='Draw')
             plt.legend(loc="best")
             plt.title("Fictitious Play - Games against UCT - " + str(self.uct_playouts[i]) + " playouts")
             plt.xlabel('Games played')
@@ -479,8 +472,8 @@ class FictitiousPlay:
             plt.close()
 
 if __name__ == "__main__":
-    n_selfplay_iterations = 10
-    n_SA_iterations = 50
+    n_iterations = 20
+    n_SA_iterations = 10
     tree_max_nodes = 100
     d = 1
     init_temp = 1
@@ -492,7 +485,7 @@ if __name__ == "__main__":
     max_game_rounds = 500
 
     fictitious_play = FictitiousPlay(
-                                        n_selfplay_iterations,
+                                        n_iterations,
                                         n_SA_iterations,
                                         tree_max_nodes,
                                         d,
@@ -504,5 +497,5 @@ if __name__ == "__main__":
                                         eval_step,
                                         max_game_rounds
                                     )
-    fictitious_play.selfplay()
+    fictitious_play.run()
 
