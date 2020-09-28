@@ -17,7 +17,7 @@ from Script import Script
 from players.glenn_player import Glenn_Player
 from players.vanilla_uct_player import Vanilla_UCT
 
-class BoostedSelfplaySimulatedAnnealing:
+class BoostedFictitiousPlay:
     """
     Simulated Annealing but instead of keeping a score on how many actions this
     algorithm got it correctly (when compared to an oracle), the score is now
@@ -25,7 +25,7 @@ class BoostedSelfplaySimulatedAnnealing:
     The mutated program is accepted if it gets more victories than the current
     program playing against itself.
     """
-    def __init__(self, n_selfplay_iterations, n_SA_iterations, 
+    def __init__(self, n_iterations, n_SA_iterations, 
         tree_max_nodes, d, init_temp, n_games_evaluate, n_games_glenn, 
         n_games_uct, uct_playouts, eval_step, max_game_rounds):
         """
@@ -41,7 +41,7 @@ class BoostedSelfplaySimulatedAnnealing:
         theoretically last forever.
         """
 
-        self.n_selfplay_iterations = n_selfplay_iterations
+        self.n_iterations = n_iterations
         self.n_SA_iterations = n_SA_iterations
         self.tree_max_nodes = tree_max_nodes
         self.d = d
@@ -53,8 +53,8 @@ class BoostedSelfplaySimulatedAnnealing:
         self.eval_step = eval_step
         self.max_game_rounds = max_game_rounds
 
-        self.filename = 'BSASP_' + str(self.n_selfplay_iterations) + \
-        'selfplay_ite_' + str(self.n_SA_iterations) + 'n_SA_ite_' + \
+        self.filename = 'BSAFP_' + str(self.n_iterations) + \
+        'n_ite_' + str(self.n_SA_iterations) + 'n_SA_ite_' + \
         str(self.tree_max_nodes) + 'tree_' + str(self.n_games_evaluate) + \
         'eval_' + str(self.n_games_glenn) + 'glenn_' + str(self.n_games_uct) + 'uct'
 
@@ -65,6 +65,7 @@ class BoostedSelfplaySimulatedAnnealing:
         self.victories = []
         self.losses = []
         self.draws = []
+        self.scores = []
         self.games_played_successful = []
         self.games_played_all = []
         self.games_played_uct = []
@@ -80,7 +81,7 @@ class BoostedSelfplaySimulatedAnnealing:
         self.losses_against_UCT = []
         self.draws_against_UCT = []
 
-    def selfplay(self):
+    def run(self):
 
         full_run = time.time()
         p_tree_string = ParseTree(DSL('S', True), self.tree_max_nodes)
@@ -94,27 +95,33 @@ class BoostedSelfplaySimulatedAnnealing:
 
         p = self.generate_player(p_program_string, p_program_column, 'p')
 
-        for i in range(self.n_selfplay_iterations):
-            start = time.time()
-            br_tree_string, br_tree_column, br_p = self.simulated_annealing(
-                                                    p_tree_string,
-                                                    p_tree_column,
-                                                    p)
+        br_set = [p]
 
-            self.games_played += self.n_SA_iterations * self.n_games_evaluate
-            self.games_played_all.append(self.games_played)
+        for i in range(self.n_iterations):
+            start = time.time()
+            br_tree_string, br_tree_column, br_p = self.simulated_annealing(p_tree_string, p_tree_column, br_set)
 
             elapsed_time = time.time() - start
+
+            victories_p, losses_p, draws_p = self.evaluate(p, br_set)
+            score_p = sum(victories_p) / len(victories_p)
+
+            victories_br_p, losses_br_p, draws_br_p = self.evaluate(br_p, br_set)
+            score_br_p = sum(victories_br_p) / len(victories_br_p)
+
+            self.games_played += 2 * self.n_SA_iterations * self.n_games_evaluate * len(br_set)
+            self.games_played_all.append(self.games_played)
             
-            victories, losses, draws = self.evaluate(br_p, p)
             # if br_p is better, keep it
-            if victories > losses:
+            if score_br_p > score_p:
                 p_tree_string = br_tree_string
                 p_tree_column = br_tree_column
                 p = br_p
-                self.victories.append(victories)
-                self.losses.append(losses)
-                self.draws.append(draws)
+                br_set.append(br_p)
+                self.victories.append(victories_br_p)
+                self.losses.append(losses_br_p)
+                self.draws.append(draws_br_p)
+                self.scores.append(score_br_p)
 
                 self.games_played_successful.append(self.games_played)
 
@@ -139,12 +146,13 @@ class BoostedSelfplaySimulatedAnnealing:
                     self.losses_against_UCT.append(l_uct)
                     self.draws_against_UCT.append(d_uct)
                 elapsed_time_uct = time.time() - start_uct
-
                 # Save data file
                 iteration_data = (
-                                    victories, losses, draws,
+                                    victories_br_p, losses_br_p, draws_br_p,
                                     v_glenn, l_glenn, d_glenn,
                                     v_uct, l_uct, d_uct,
+                                    len(br_set) - 1,
+                                    score_br_p, score_p,
                                     self.games_played,
                                     self.games_played_successful,
                                     self.games_played_all,
@@ -161,7 +169,7 @@ class BoostedSelfplaySimulatedAnnealing:
                 script = Script(
                                 p_tree_string.generate_program(), 
                                 p_tree_column.generate_program(), 
-                                self.n_selfplay_iterations, 
+                                self.n_iterations, 
                                 self.tree_max_nodes
                             )      
                 script.save_file_custom(dir_path, self.filename + '_iteration_' + str(i))
@@ -170,8 +178,8 @@ class BoostedSelfplaySimulatedAnnealing:
                 self.generate_report()
 
                 with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
-                    print('Iteration -', i, 'New program accepted - ', 
-                        'V/L/D new script vs old = ', victories, losses, draws, 
+                    print('Iteration -', i, 'New program accepted - V/L/D new script vs old = ',
+                        victories_br_p, losses_br_p, draws_br_p, 
                         'V/L/D against Glenn = ', v_glenn, l_glenn, d_glenn, 
                         'V/L/D against UCT', self.uct_playouts, 'playouts = ', v_uct, l_uct, d_uct, 
                         'Games played = ', self.games_played,
@@ -191,7 +199,7 @@ class BoostedSelfplaySimulatedAnnealing:
         script = Script(
                         p_program_string, 
                         p_program_column, 
-                        self.n_selfplay_iterations, 
+                        self.n_iterations, 
                         self.tree_max_nodes
                     )      
         script.save_file_custom(dir_path, self.filename + '_best_script')
@@ -202,119 +210,103 @@ class BoostedSelfplaySimulatedAnnealing:
 
         return p_program_string, p_program_column, p, p_tree_string, p_tree_column
 
-    def simulated_annealing(self, p_tree_string, p_tree_column, p):
+    def simulated_annealing(self, p_tree_string, p_tree_column, br_set):
         
-        curr_tree_string = pickle.loads(pickle.dumps(p_tree_string, -1))
-        curr_tree_column = pickle.loads(pickle.dumps(p_tree_column, -1))
-        #curr_tree_string.build_tree(curr_tree_string.root)
-        #curr_tree_column.build_tree(curr_tree_column.root)
-        curr_p_string = curr_tree_string.generate_program()
-        curr_p_column = curr_tree_column.generate_program()
-        #print('curr_p_string')
-        #print(curr_p_string)
-        #print('curr_p_column')
-        #print(curr_p_column)
-        #exit()
-        curr_p = self.generate_player(curr_p_string, curr_p_column, 'SA_curr')
+        best_solution_string_tree = pickle.loads(pickle.dumps(p_tree_string, -1))
+        best_solution_column_tree = pickle.loads(pickle.dumps(p_tree_column, -1))
+        best_string = best_solution_string_tree.generate_program()
+        best_column = best_solution_column_tree.generate_program()
+        best_solution = self.generate_player(best_string, best_column, 'SA_best')
 
-        # Evaluates this program against p.
-        victories, losses, draws = self.evaluate(curr_p, p)
-        score = victories
-        best_score = score
-        # Initially assumes that p is the best script of all
-        best_solution_string_tree = p_tree_string
-        best_solution_column_tree = p_tree_column
-        best_solution = p
+        # Evaluates this program against the set of scripts.
+        victories, losses, draws = self.evaluate(best_solution, br_set)
+
+        best_score = sum(victories) / len(victories)
 
         curr_temp = self.init_temp
-
         for i in range(2, self.n_SA_iterations + 2):
             start = time.time()
             # Make a copy of curr_p
-            mutated_tree_string = pickle.loads(pickle.dumps(curr_tree_string, -1))
-            mutated_tree_column = pickle.loads(pickle.dumps(curr_tree_column, -1))
+            mutated_tree_string = pickle.loads(pickle.dumps(best_solution_string_tree, -1))
+            mutated_tree_column = pickle.loads(pickle.dumps(best_solution_column_tree, -1))
             # Mutate it
             mutated_tree_string.mutate_tree()
             mutated_tree_column.mutate_tree()
             # Get the programs for each type of actions
-            mutated_curr_p_string = mutated_tree_string.generate_program()
-            mutated_curr_p_column = mutated_tree_column.generate_program()
+            mutated_p_string = mutated_tree_string.generate_program()
+            mutated_p_column = mutated_tree_column.generate_program()
             # Build the script
-            mutated_curr_p = self.generate_player(mutated_curr_p_string, mutated_curr_p_column, 'mutated_curr_' + str(i))
+            mutated_p = self.generate_player(mutated_p_string, mutated_p_column, 'mutated_' + str(i))
             # Evaluates the mutated program against p
-            victories_mut, losses_mut, draws_mut = self.evaluate(mutated_curr_p, p)
-            new_score = victories_mut
-            # if mutated_curr_p is better than p, then accept it
-            if new_score > score:
-                score = new_score
+            victories_mut, _, _ = self.evaluate(mutated_p, br_set)
+
+            new_score = sum(victories_mut) / len(victories_mut)
+
+            # Update score given the temperature parameters
+            updated_score_best, updated_score_mutated = self.update_score(best_score, new_score, curr_temp)
+            
+            if updated_score_mutated > updated_score_best:
+                best_score = new_score
                 # Copy the trees
-                curr_tree_string = mutated_tree_string 
-                curr_tree_column = mutated_tree_column
-                # Copy the programs
-                curr_p_string = mutated_curr_p_string
-                curr_p_column = mutated_curr_p_column
+                best_solution_string_tree = mutated_tree_string
+                best_solution_column_tree = mutated_tree_column
                 # Copy the script
-                curr_p = mutated_curr_p
-                # Keep track of the best solution
-                if new_score > best_score:
-                    best_score = new_score
-                    # Copy the trees
-                    best_solution_string_tree = mutated_tree_string
-                    best_solution_column_tree = mutated_tree_column
-                    # Copy the script
-                    best_solution = mutated_curr_p
-            # even if not better, there is a chance to accept it
-            else:
-                delta = math.exp(-(score-new_score)/curr_temp)
-                if(random.random() < delta):
-                    score = new_score
-                    # Copy the trees
-                    curr_tree_string = mutated_tree_string 
-                    curr_tree_column = mutated_tree_column
-                    # Copy the programs
-                    curr_p_string = mutated_curr_p_string
-                    curr_p_column = mutated_curr_p_column
-                    # Copy the script
-                    curr_p = mutated_curr_p
+                best_solution = mutated_p
             # update temperature according to schedule
             curr_temp = self.temperature_schedule(i)
             elapsed_time = time.time() - start
         return best_solution_string_tree, best_solution_column_tree, best_solution
 
-    def evaluate(self, first_player, second_player):
-        victories = 0
-        losses = 0
-        draws = 0
-        for i in range(self.n_games_evaluate):
-            game = Game(2, 4, 6, [2,12], 2, 2)
-            if i%2 == 0:
+    def update_score(self, score_best, score_mutated, curr_temp):
+        """ 
+        Update the score according to the current temperature. 
+        """
+        
+        new_score_best = score_best**(1 / curr_temp)
+        new_score_mutated = score_mutated**(1 / curr_temp)
+        return new_score_best, new_score_mutated
+
+    def evaluate(self, player, br_set):
+        victories_rate = []
+        losses_rate = []
+        draws_rate = []
+        for i in range(len(br_set)):
+            v = 0
+            l = 0
+            d = 0
+            for j in range(self.n_games_evaluate):
+                game = Game(2, 4, 6, [2,12], 2, 2)
+                if j%2 == 0:
+                        who_won = simplified_play_single_game(
+                                                            player, 
+                                                            br_set[i], 
+                                                            game, 
+                                                            self.max_game_rounds
+                                                        )
+                        if who_won == 1:
+                            v += 1
+                        elif who_won == 2:
+                            l += 1
+                        else:
+                            d += 1
+                else:
                     who_won = simplified_play_single_game(
-                                                        first_player, 
-                                                        second_player, 
+                                                        br_set[i], 
+                                                        player, 
                                                         game, 
                                                         self.max_game_rounds
                                                     )
-                    if who_won == 1:
-                        victories += 1
-                    elif who_won == 2:
-                        losses += 1
+                    if who_won == 2:
+                        v += 1
+                    elif who_won == 1:
+                        l += 1
                     else:
-                        draws += 1
-            else:
-                who_won = simplified_play_single_game(
-                                                    second_player, 
-                                                    first_player, 
-                                                    game, 
-                                                    self.max_game_rounds
-                                                )
-                if who_won == 2:
-                    victories += 1
-                elif who_won == 1:
-                    losses += 1
-                else:
-                    draws += 1
+                        d += 1
+            victories_rate.append(v / self.n_games_evaluate)
+            losses_rate.append(l / self.n_games_evaluate)
+            draws_rate.append(d / self.n_games_evaluate)
 
-        return victories, losses, draws
+        return victories_rate, losses_rate, draws_rate
 
     def temperature_schedule(self, iteration):
         """ Calculate the next temperature used for the score calculation. """
@@ -327,7 +319,7 @@ class BoostedSelfplaySimulatedAnnealing:
         script = Script(
                         program_string, 
                         program_column, 
-                        self.n_selfplay_iterations, 
+                        self.n_iterations, 
                         self.tree_max_nodes
                     )
         return self._string_to_object(script._generateTextScript(iteration))
@@ -432,14 +424,18 @@ class BoostedSelfplaySimulatedAnnealing:
         dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/' 
         filename = dir_path + self.filename
 
-        plt.plot(self.games_played_successful, self.victories, color='green', label='Victory')
-        plt.plot(self.games_played_successful, self.losses, color='red', label='Loss')
-        plt.plot(self.games_played_successful, self.draws, color='gray', label='Draw')
+        vic = [sum(self.victories[i])/len(self.victories[i]) for i in range(len(self.victories))]
+        loss = [sum(self.losses[i])/len(self.losses[i]) for i in range(len(self.losses))]
+        draw = [sum(self.draws[i])/len(self.draws[i]) for i in range(len(self.draws))]
+
+        plt.plot(self.games_played_successful, vic, color='green', label='Victory')
+        plt.plot(self.games_played_successful, loss, color='red', label='Loss')
+        plt.plot(self.games_played_successful, draw, color='gray', label='Draw')
         plt.legend(loc="best")
-        plt.title("Selfplay generated script against previous script")
+        plt.title("Selfplay generated script against br_set (average values)")
         plt.xlabel('Games played')
-        plt.ylabel('Number of games')
-        plt.savefig(filename + '_vs_previous_script.png')
+        plt.ylabel('Rate')
+        plt.savefig(filename + '_vs_br_set.png')
 
         plt.close()
 
@@ -447,7 +443,7 @@ class BoostedSelfplaySimulatedAnnealing:
         plt.plot(self.games_played_successful, self.losses_against_glenn, color='red', label='Loss')
         plt.plot(self.games_played_successful, self.draws_against_glenn, color='gray', label='Draw')
         plt.legend(loc="best")
-        plt.title("Boosted Selfplay SA - Games against Glenn")
+        plt.title("Boosted Fictitious Play - Games against Glenn")
         plt.xlabel('Games played')
         plt.ylabel('Number of games')
         plt.savefig(filename + '_vs_glenn.png')
@@ -463,7 +459,7 @@ class BoostedSelfplaySimulatedAnnealing:
             plt.plot(self.games_played_uct, losses, color='red', label='Loss')
             plt.plot(self.games_played_uct, draws, color='gray', label='Draw')
             plt.legend(loc="best")
-            plt.title("Boosted Selfplay SA - Games against UCT - " + str(self.uct_playouts[i]) + " playouts")
+            plt.title("Boosted Fictitious Play - Games against UCT - " + str(self.uct_playouts[i]) + " playouts")
             plt.xlabel('Games played')
             plt.ylabel('Number of games')
             plt.savefig(filename + '_vs_UCT_' + str(self.uct_playouts[i]) +'.png')
@@ -471,20 +467,20 @@ class BoostedSelfplaySimulatedAnnealing:
             plt.close()
 
 if __name__ == "__main__":
-    n_selfplay_iterations = 20
-    n_SA_iterations = 10
+    n_iterations = 20
+    n_SA_iterations = 50
     tree_max_nodes = 100
     d = 1
     init_temp = 1
     n_games_evaluate = 100
     n_games_glenn = 1000
-    n_games_uct = 5
+    n_games_uct = 3
     uct_playouts = [2, 3, 4]
-    eval_step = 1
+    eval_step = 2
     max_game_rounds = 500
 
-    boosted_selfplay_SA = BoostedSelfplaySimulatedAnnealing(
-                                        n_selfplay_iterations,
+    boosted_fictitious_play = BoostedFictitiousPlay(
+                                        n_iterations,
                                         n_SA_iterations,
                                         tree_max_nodes,
                                         d,
@@ -496,5 +492,5 @@ if __name__ == "__main__":
                                         eval_step,
                                         max_game_rounds
                                     )
-    boosted_selfplay_SA.selfplay()
+    boosted_fictitious_play.run()
 
