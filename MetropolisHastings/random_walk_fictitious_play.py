@@ -26,7 +26,8 @@ class RandomWalkFictitiousPlay:
     program playing against itself.
     """
     def __init__(self, n_iterations, tree_max_nodes, n_games_evaluate, 
-        n_games_glenn, n_games_uct, uct_playouts, eval_step, max_game_rounds):
+        n_games_glenn, n_games_uct, uct_playouts, eval_step, max_game_rounds,
+        iteration_run):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -49,7 +50,7 @@ class RandomWalkFictitiousPlay:
         self.filename = 'RWFP_' + str(self.n_iterations) + 'ite_' + \
         str(self.tree_max_nodes) + 'tree_' + str(self.n_games_evaluate) + 'eval_' + \
         str(self.n_games_glenn) + 'glenn' + str(self.n_games_uct) + \
-        'uct'
+        'uct_' + str(iteration_run) + 'run'
 
         if not os.path.exists(self.filename):
             os.makedirs(self.filename)
@@ -440,6 +441,7 @@ if __name__ == "__main__":
     max_game_rounds = 500
     uct_playouts = [2, 3, 4]
     eval_step = 1
+    iteration_run = 0
 
     random_walk_fp = RandomWalkFictitiousPlay(
                             n_iterations,
@@ -449,6 +451,7 @@ if __name__ == "__main__":
                             n_games_uct,
                             uct_playouts,
                             eval_step,
-                            max_game_rounds
+                            max_game_rounds,
+                            iteration_run
                         )
     random_walk_fp.run()

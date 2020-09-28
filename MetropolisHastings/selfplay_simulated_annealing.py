@@ -27,7 +27,7 @@ class SelfplaySimulatedAnnealing:
     """
     def __init__(self, n_selfplay_iterations, n_SA_iterations, 
         tree_max_nodes, d, init_temp, n_games_evaluate, n_games_glenn, 
-        n_games_uct, uct_playouts, eval_step, max_game_rounds):
+        n_games_uct, uct_playouts, eval_step, max_game_rounds, iteration_run):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -56,7 +56,8 @@ class SelfplaySimulatedAnnealing:
         self.filename = 'SASP_' + str(self.n_selfplay_iterations) + \
         'selfplay_ite_' + str(self.n_SA_iterations) + 'n_SA_ite_' + \
         str(self.tree_max_nodes) + 'tree_' + str(self.n_games_evaluate) + \
-        'eval_' + str(self.n_games_glenn) + 'glenn_' + str(self.n_games_uct) + 'uct'
+        'eval_' + str(self.n_games_glenn) + 'glenn_' + str(self.n_games_uct) + \
+        'uct_' + str(iteration_run) + 'run'
 
         if not os.path.exists(self.filename):
             os.makedirs(self.filename)
@@ -480,6 +481,7 @@ if __name__ == "__main__":
     uct_playouts = [2, 3, 4]
     eval_step = 1
     max_game_rounds = 500
+    iteration_run = 0
 
     selfplay_SA = SelfplaySimulatedAnnealing(
                                         n_selfplay_iterations,
@@ -492,7 +494,8 @@ if __name__ == "__main__":
                                         n_games_uct,
                                         uct_playouts,
                                         eval_step,
-                                        max_game_rounds
+                                        max_game_rounds,
+                                        iteration_run
                                     )
     selfplay_SA.selfplay()
 
