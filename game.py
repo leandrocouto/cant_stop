@@ -34,7 +34,7 @@ class Board:
             else:
                 height -= self.offset
 
-    def print_board(self, rows):
+    def print_board(self, rows, finished_columns):
         """
         Print the board. 
         The asterisk means that the current player
@@ -42,14 +42,24 @@ class Board:
         not chosen "n" action yet).
         """
 
+
+
         partial_completed_rows = [item[0] for item in rows]
+        completed_rows = [column_won[0] for column_won in finished_columns]
+        player_completed_rows = [column_won[1] for column_won in finished_columns]
         for x in range(self.column_range[0],self.column_range[1]+1):
             list_of_cells = self.board[x]
             print('{:3d}:'.format(x), end='')
-            for cell in list_of_cells:
-                print(cell.markers, end='')
-            if x in partial_completed_rows:
-                print('*', end='')
+            # Print the whole row with the player's id in case the player has 
+            # won that column
+            if x in completed_rows:
+                for cell in list_of_cells:
+                    print('[', player_completed_rows[completed_rows.index(x)], ']', sep='',end='')
+            else:
+                for cell in list_of_cells:
+                    print(cell.markers, end='')
+                if x in partial_completed_rows:
+                    print('*', end='')
             print()
 
     def check_board_equality(self, board_2):
@@ -113,8 +123,32 @@ class Game:
         self.neutral_positions = []
         self.actions_taken = [] 
     
+    def check_game_equality(self, game):
+        """ Check if self and 'game' represents the same state. """
+
+        return self.check_boardgame_equality(game) and \
+                self.player_turn == game.player_turn and \
+                self.n_neutral_markers == game.n_neutral_markers and \
+                sorted(self.neutral_positions) == sorted(game.neutral_positions)
+
+    def set_manual_board(self, manual_board, finished_columns, player_won_column):
+        """ Set a manual board in matrix form. """
+
+        self.finished_columns = finished_columns
+        self.player_won_column = player_won_column
+        height = self.initial_height
+        for x in range(self.column_range[0],self.column_range[1]+1):
+            list_of_cells = self.board_game.board[x]
+            list_of_cells_2 = manual_board[x-2]
+            for i in range(len(list_of_cells)):
+                list_of_cells[i].markers = list_of_cells_2[i]
+            if x < self.column_range[1]/2 +1:
+                height += self.offset
+            else:
+                height -= self.offset
+
     def check_boardgame_equality(self, game):
-        """ Check if self and 'game' represents the same state."""
+        """ Check if self board and 'game.board' represents the same board."""
 
         condition_1 = self.board_game.check_board_equality(game.board_game)
         condition_2 = sorted(self.finished_columns) \
@@ -126,7 +160,7 @@ class Game:
 
     
     def print_board(self):
-        self.board_game.print_board(self.player_won_column)
+        self.board_game.print_board(self.player_won_column, self.finished_columns)
 
     def clone(self):
         """Return a "deepcopy" of this game. Used for MCTS routines."""
@@ -220,9 +254,11 @@ class Game:
 
         for column_won in self.player_won_column:
             self.finished_columns.append((column_won[0], column_won[1]))
+        
             for cell in self.board_game.board[column_won[0]]:
                 cell.markers.clear()
-                cell.markers.append(self.player_turn)
+                #cell.markers.append(self.player_turn)
+    
 
         self.player_won_column.clear()
 
@@ -424,8 +460,8 @@ class Game:
                 won_columns_player_1 += 1
             else:
                 won_columns_player_2 += 1
-        # >= because the player can have 2 columns and win another 2 columns
-        # in one turn.
+        # >= instead of == because the player can have 2 columns and win 
+        # another 2 columns in one turn.
         if won_columns_player_1 >= 3:
             return 1, True
         elif  won_columns_player_2 >= 3:
