@@ -15,7 +15,7 @@ class DSL:
            self._grammar[self.start] = [r"\t \t if actions[0] in ['y','n'] : \n \t \t \t score_yes_no = score_str \n \t \t \t if score_yes_no < THRESHOLD : \n \t \t \t \t return 'y' \n \t \t \t else: \n \t \t \t \t return 'n'"]
         else:
             self._grammar[self.start] = [r"\t \t else: \n \t \t \t score_columns = np.zeros(len(actions)) \n \t \t \t  weights = [ WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS ] \n \t \t \t for i in range(len(actions)): \n \t \t \t \t score_columns[i] = score_num \n \t \t \t return actions[np.argmax(score_columns)]"]
-        
+        '''
         self._grammar['score_str']   = [
                                         "score_str OP score_str",
                                         "abs( score_str OP score_str )",
@@ -27,6 +27,21 @@ class DSL:
                                         "abs( score_num OP score_num )",
                                         "function_num_score",
                                         "THRESHOLD"
+                                        ]
+        '''
+        self._grammar['score_str']   = [
+                                        "score_str OP score_str",
+                                        "abs( score_str OP score_str )",
+                                        "score_str OP COLS",
+                                        "abs( score_str OP COLS )",
+                                        "function_str_score"
+                                        ]
+        self._grammar['score_num'] = [
+                                        "score_num OP score_num",
+                                        "abs( score_num OP score_num )",
+                                        "score_num OP COLS",
+                                        "abs( score_num OP COLS )",
+                                        "function_num_score"
                                         ]
         self._grammar['function_str_score'] = [# Strictly "string" actions
                                 'DSL.get_player_score(state)',

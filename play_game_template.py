@@ -1,4 +1,7 @@
 from game import Game
+from players.vanilla_uct_player import Vanilla_UCT
+from players.random_player import RandomPlayer
+from players.uct_player import UCTPlayer
 
 def play_single_game(player1, player2, game, max_game_length):
     """
@@ -177,6 +180,7 @@ def main():
         round = play_solitaire_single_game(script, game, 5000)
         rounds.append(round)
     print('Round average = ', sum(rounds) / len(rounds))
+    print('max = ', max(rounds))
     #print(rounds)
 
 if __name__ == "__main__":

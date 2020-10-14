@@ -1,5 +1,3 @@
-from Script import Script
-from DSL import DSL
 import random
 import codecs
 

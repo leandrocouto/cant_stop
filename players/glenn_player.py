@@ -1,7 +1,7 @@
-from players.rule_of_28 import Rule_of_28
+from players.rule_of_28_player import Rule_of_28_Player
 import numpy as np
 
-class Glenn_Player(Rule_of_28):
+class Glenn_Player(Rule_of_28_Player):
     """ 
     Heuristic proposed by the article 'A Generalized Heuristic for 
     Can’t Stop'.

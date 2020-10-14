@@ -4,17 +4,18 @@ import pickle
 import time
 import os
 import matplotlib.pyplot as plt
+import random
 sys.path.insert(0,'..')
 from MetropolisHastings.parse_tree import ParseTree
 from MetropolisHastings.DSL import DSL
 from game import Game
 from sketch import Sketch
-from fictitious_play import FictitiousPlay
+from simulated_annealing_selfplay import SimulatedAnnealingSelfplay
 from play_game_template import simplified_play_single_game
 from play_game_template import play_single_game
 from play_game_template import play_solitaire_single_game
 
-class BoostedFictitiousPlay(FictitiousPlay):
+class BoostedSimulatedAnnealingSelfplay(SimulatedAnnealingSelfplay):
     """
     Simulated Annealing but instead of keeping a score on how many actions this
     algorithm got it correctly (when compared to an oracle), the score is now
@@ -39,10 +40,11 @@ class BoostedFictitiousPlay(FictitiousPlay):
         theoretically last forever.
         """
 
-        super().__init__(algo_id, n_iterations, n_SA_iterations, tree_max_nodes, 
-                        d, init_temp, n_games_evaluate, n_games_glenn, 
-                        n_games_uct, n_games_solitaire, uct_playouts, eval_step, 
-                        max_game_rounds, iteration_run
+        super().__init__(algo_id, n_iterations, n_SA_iterations, 
+                        tree_max_nodes, d, init_temp, n_games_evaluate, 
+                        n_games_glenn, n_games_uct, n_games_solitaire, 
+                        uct_playouts, eval_step, max_game_rounds, 
+                        iteration_run
                         )
 
         self.filename = str(self.algo_id) + '_' + \
@@ -57,70 +59,95 @@ class BoostedFictitiousPlay(FictitiousPlay):
         if not os.path.exists(self.filename):
             os.makedirs(self.filename)
 
-    def simulated_annealing(self, p_tree_string, p_tree_column, br_set):
+    def simulated_annealing(self, p_tree_string, p_tree_column, p):
         
-        best_solution_string_tree = pickle.loads(pickle.dumps(p_tree_string, -1))
-        best_solution_column_tree = pickle.loads(pickle.dumps(p_tree_column, -1))
-        best_string = best_solution_string_tree.generate_program()
-        best_column = best_solution_column_tree.generate_program()
-        best_solution = self.generate_player(best_string, best_column, 'SA_best')
+        curr_tree_string = pickle.loads(pickle.dumps(p_tree_string, -1))
+        curr_tree_column = pickle.loads(pickle.dumps(p_tree_column, -1))
+        curr_p_string = curr_tree_string.generate_program()
+        curr_p_column = curr_tree_column.generate_program()
+        curr_p = self.generate_player(curr_p_string, curr_p_column, 'SA_curr')
 
-        # Evaluates this program against the set of scripts.
-        victories, losses, draws = self.evaluate(best_solution, br_set)
-
-        best_score = sum(victories) / len(victories)
+        # Evaluates this program against p.
+        victories, losses, draws = self.evaluate(curr_p, p)
+        score = victories
+        best_score = score
+        # Initially assumes that p is the best script of all
+        best_solution_string_tree = p_tree_string
+        best_solution_column_tree = p_tree_column
+        best_solution = p
 
         curr_temp = self.init_temp
+
         for i in range(2, self.n_SA_iterations + 2):
             start = time.time()
             # Make a copy of curr_p
-            mutated_tree_string = pickle.loads(pickle.dumps(best_solution_string_tree, -1))
-            mutated_tree_column = pickle.loads(pickle.dumps(best_solution_column_tree, -1))
+            mutated_tree_string = pickle.loads(pickle.dumps(curr_tree_string, -1))
+            mutated_tree_column = pickle.loads(pickle.dumps(curr_tree_column, -1))
             # Mutate it
             mutated_tree_string.mutate_tree()
             mutated_tree_column.mutate_tree()
             # Get the programs for each type of actions
-            mutated_p_string = mutated_tree_string.generate_program()
-            mutated_p_column = mutated_tree_column.generate_program()
+            mutated_curr_p_string = mutated_tree_string.generate_program()
+            mutated_curr_p_column = mutated_tree_column.generate_program()
             # Build the script
-            mutated_p = self.generate_player(mutated_p_string, mutated_p_column, 'mutated_' + str(i))
+            mutated_curr_p = self.generate_player(mutated_curr_p_string, mutated_curr_p_column, 'mutated_curr_' + str(i))
             # Evaluates the mutated program against p
-            victories_mut, _, _ = self.evaluate(mutated_p, br_set)
-
-            new_score = sum(victories_mut) / len(victories_mut)
-
-            # Update score given the temperature parameters
-            updated_score_best, updated_score_mutated = self.update_score(best_score, new_score, curr_temp)
-            
-            if updated_score_mutated > updated_score_best:
-                best_score = new_score
+            victories_mut, losses_mut, draws_mut = self.evaluate(mutated_curr_p, p)
+            new_score = victories_mut
+            # if mutated_curr_p is better than p, then accept it
+            if new_score > score:
+                score = new_score
                 # Copy the trees
-                best_solution_string_tree = mutated_tree_string
-                best_solution_column_tree = mutated_tree_column
+                curr_tree_string = mutated_tree_string 
+                curr_tree_column = mutated_tree_column
+                # Copy the programs
+                curr_p_string = mutated_curr_p_string
+                curr_p_column = mutated_curr_p_column
                 # Copy the script
-                best_solution = mutated_p
+                curr_p = mutated_curr_p
+                # Keep track of the best solution
+                if new_score > best_score:
+                    best_score = new_score
+                    # Copy the trees
+                    best_solution_string_tree = mutated_tree_string
+                    best_solution_column_tree = mutated_tree_column
+                    # Copy the script
+                    best_solution = mutated_curr_p
+            # even if not better, there is a chance to accept it
+            else:
+                delta = math.exp(-(score-new_score)/curr_temp)
+                if(random.random() < delta):
+                    score = new_score
+                    # Copy the trees
+                    curr_tree_string = mutated_tree_string 
+                    curr_tree_column = mutated_tree_column
+                    # Copy the programs
+                    curr_p_string = mutated_curr_p_string
+                    curr_p_column = mutated_curr_p_column
+                    # Copy the script
+                    curr_p = mutated_curr_p
             # update temperature according to schedule
             curr_temp = self.temperature_schedule(i)
             elapsed_time = time.time() - start
         return best_solution_string_tree, best_solution_column_tree, best_solution
 
 if __name__ == "__main__":
-    algo_id = 'BSAFP'
+    algo_id = 'BSASP'
     n_iterations = 20
-    n_SA_iterations = 50
+    n_SA_iterations = 10
     tree_max_nodes = 100
     d = 1
     init_temp = 1
     n_games_evaluate = 100
     n_games_glenn = 1000
-    n_games_uct = 3
+    n_games_uct = 5
     n_games_solitaire = 3
     uct_playouts = [2, 3, 4]
     eval_step = 1
     max_game_rounds = 500
     iteration_run = 0
 
-    boosted_fictitious_play = BoostedFictitiousPlay(
+    boosted_selfplay_SA = BoostedSimulatedAnnealingSelfplay(
                                         algo_id,
                                         n_iterations,
                                         n_SA_iterations,
@@ -136,5 +163,5 @@ if __name__ == "__main__":
                                         max_game_rounds,
                                         iteration_run
                                     )
-    boosted_fictitious_play.run()
+    boosted_SA_selfplay.run()
 

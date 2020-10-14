@@ -1,7 +1,7 @@
 import random
 import codecs
 
-class Script:
+class Sketch:
     def __init__(self, program_string, program_column, iterations, tree_max_nodes):
         self.program_string = program_string
         self.program_column = program_column
