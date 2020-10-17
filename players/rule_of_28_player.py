@@ -1,7 +1,7 @@
 from players.player import Player
 import numpy as np
 
-class Rule_of_28(Player):
+class Rule_of_28_Player(Player):
     """ 
     Heuristic proposed by the article 'A Generalized Heuristic for 
     Can’t Stop'.
@@ -82,12 +82,12 @@ class Rule_of_28(Player):
                     self.score += 3 * self.progress_value[chosen_action[0]]
             else:
                 for column in chosen_action:
+
                     # There's already a neutral marker in that column
                     if column in neutral:
                         self.score += self.progress_value[column]
                     else:
                         self.score += 2 * self.progress_value[column]
-
             return chosen_action
 
     def calculate_action_score(self, action, state):
