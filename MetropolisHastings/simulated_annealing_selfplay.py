@@ -26,7 +26,7 @@ class SimulatedAnnealingSelfplay(Algorithm):
     def __init__(self, algo_id, n_iterations, n_SA_iterations, 
         tree_max_nodes, d, init_temp, n_games_evaluate, n_games_glenn, 
         n_games_uct, n_games_solitaire, uct_playouts, eval_step, 
-        max_game_rounds, iteration_run):
+        max_game_rounds, iteration_run, yes_no_dsl, column_dsl):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -50,7 +50,7 @@ class SimulatedAnnealingSelfplay(Algorithm):
 
         super().__init__(tree_max_nodes, n_iterations, n_games_glenn, 
                             n_games_uct, n_games_solitaire, uct_playouts,
-                            max_game_rounds
+                            max_game_rounds, yes_no_dsl, column_dsl
                         )
 
         self.filename = str(self.algo_id) + '_' + \
@@ -68,8 +68,8 @@ class SimulatedAnnealingSelfplay(Algorithm):
     def run(self):
 
         full_run = time.time()
-        p_tree_string = ParseTree(DSL('S', True), self.tree_max_nodes)
-        p_tree_column = ParseTree(DSL('S', False), self.tree_max_nodes)
+        p_tree_string = ParseTree(self.yes_no_dsl, self.tree_max_nodes)
+        p_tree_column = ParseTree(self.column_dsl, self.tree_max_nodes)
 
         p_tree_string.build_tree(p_tree_string.root)
         p_tree_column.build_tree(p_tree_column.root)
@@ -207,8 +207,8 @@ class SimulatedAnnealingSelfplay(Algorithm):
     def simulated_annealing(self, p_tree_string, p_tree_column, p):
         
         # Builds an initially random program (curr)
-        curr_tree_string = ParseTree(DSL('S', True), self.tree_max_nodes)
-        curr_tree_column = ParseTree(DSL('S', False), self.tree_max_nodes)
+        curr_tree_string = ParseTree(self.yes_no_dsl, self.tree_max_nodes)
+        curr_tree_column = ParseTree(self.column_dsl, self.tree_max_nodes)
         curr_tree_string.build_tree(curr_tree_string.root)
         curr_tree_column.build_tree(curr_tree_column.root)
         curr_p_string = curr_tree_string.generate_program()
@@ -374,6 +374,11 @@ if __name__ == "__main__":
     max_game_rounds = 500
     iteration_run = 0
 
+    yes_no_dsl = DSL('S')
+    yes_no_dsl.set_type_action(True)
+    column_dsl = DSL('S')
+    column_dsl.set_type_action(False)
+
     selfplay_SA = SimulatedAnnealingSelfplay(
                                         algo_id,
                                         n_iterations,
@@ -388,7 +393,9 @@ if __name__ == "__main__":
                                         uct_playouts,
                                         eval_step,
                                         max_game_rounds,
-                                        iteration_run
+                                        iteration_run,
+                                        yes_no_dsl,
+                                        column_dsl
                                     )
     SA_selfplay.run()
 

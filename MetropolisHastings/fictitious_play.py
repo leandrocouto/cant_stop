@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 sys.path.insert(0,'..')
 from MetropolisHastings.parse_tree import ParseTree
 from MetropolisHastings.DSL import DSL
+from MetropolisHastings.two_weights_DSL import TwoWeightsDSL
+from MetropolisHastings.shared_weights_DSL import SharedWeightsDSL
 from game import Game
 from sketch import Sketch
 from algorithm import Algorithm
@@ -25,7 +27,7 @@ class FictitiousPlay(Algorithm):
     def __init__(self, algo_id, n_iterations, n_SA_iterations, tree_max_nodes, 
         d, init_temp, n_games_evaluate, n_games_glenn, n_games_uct, 
         n_games_solitaire, uct_playouts, eval_step, max_game_rounds, 
-        iteration_run):
+        iteration_run, yes_no_dsl, column_dsl):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -49,7 +51,7 @@ class FictitiousPlay(Algorithm):
 
         super().__init__(tree_max_nodes, n_iterations, n_games_glenn, 
                             n_games_uct, n_games_solitaire, uct_playouts,
-                            max_game_rounds
+                            max_game_rounds, yes_no_dsl, column_dsl
                         )
 
         self.filename = str(self.algo_id) + '_' + \
@@ -71,8 +73,8 @@ class FictitiousPlay(Algorithm):
     def run(self):
 
         full_run = time.time()
-        p_tree_string = ParseTree(DSL('S', True), self.tree_max_nodes)
-        p_tree_column = ParseTree(DSL('S', False), self.tree_max_nodes)
+        p_tree_string = ParseTree(self.yes_no_dsl, self.tree_max_nodes)
+        p_tree_column = ParseTree(self.column_dsl, self.tree_max_nodes)
 
         p_tree_string.build_tree(p_tree_string.root)
         p_tree_column.build_tree(p_tree_column.root)
@@ -217,8 +219,8 @@ class FictitiousPlay(Algorithm):
     def simulated_annealing(self, p_tree_string, p_tree_column, br_set):
         
         # Builds an initially random program
-        best_solution_string_tree = ParseTree(DSL('S', True), self.tree_max_nodes)
-        best_solution_column_tree = ParseTree(DSL('S', False), self.tree_max_nodes)
+        best_solution_string_tree = ParseTree(self.yes_no_dsl, self.tree_max_nodes)
+        best_solution_column_tree = ParseTree(self.column_dsl, self.tree_max_nodes)
         best_solution_string_tree.build_tree(best_solution_string_tree.root)
         best_solution_column_tree.build_tree(best_solution_column_tree.root)
         best_string = best_solution_string_tree.generate_program()
@@ -377,6 +379,11 @@ if __name__ == "__main__":
     max_game_rounds = 500
     iteration_run = 0
 
+    yes_no_dsl = DSL('S')
+    yes_no_dsl.set_type_action(True)
+    column_dsl = DSL('S')
+    column_dsl.set_type_action(False)
+
     fictitious_play = FictitiousPlay(
                                         algo_id,
                                         n_iterations,
@@ -391,7 +398,9 @@ if __name__ == "__main__":
                                         uct_playouts,
                                         eval_step,
                                         max_game_rounds,
-                                        iteration_run
+                                        iteration_run,
+                                        yes_no_dsl,
+                                        column_dsl
                                     )
     fictitious_play.run()
 

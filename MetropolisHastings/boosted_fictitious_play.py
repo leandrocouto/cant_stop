@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 sys.path.insert(0,'..')
 from MetropolisHastings.parse_tree import ParseTree
 from MetropolisHastings.DSL import DSL
+from MetropolisHastings.two_weights_DSL import TwoWeightsDSL
+from MetropolisHastings.shared_weights_DSL import SharedWeightsDSL
 from game import Game
 from sketch import Sketch
 from fictitious_play import FictitiousPlay
@@ -25,7 +27,7 @@ class BoostedFictitiousPlay(FictitiousPlay):
     def __init__(self, algo_id, n_iterations, n_SA_iterations, 
         tree_max_nodes, d, init_temp, n_games_evaluate, n_games_glenn, 
         n_games_uct, n_games_solitaire, uct_playouts, eval_step, 
-        max_game_rounds, iteration_run):
+        max_game_rounds, iteration_run, yes_no_dsl, column_dsl):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -42,7 +44,7 @@ class BoostedFictitiousPlay(FictitiousPlay):
         super().__init__(algo_id, n_iterations, n_SA_iterations, tree_max_nodes, 
                         d, init_temp, n_games_evaluate, n_games_glenn, 
                         n_games_uct, n_games_solitaire, uct_playouts, eval_step, 
-                        max_game_rounds, iteration_run
+                        max_game_rounds, iteration_run, yes_no_dsl, column_dsl
                         )
 
         self.filename = str(self.algo_id) + '_' + \
@@ -119,7 +121,23 @@ if __name__ == "__main__":
     eval_step = 1
     max_game_rounds = 500
     iteration_run = 0
-
+    '''
+    yes_no_dsl = DSL('S')
+    yes_no_dsl.set_type_action(True)
+    column_dsl = DSL('S')
+    column_dsl.set_type_action(False)
+    '''
+    '''
+    yes_no_dsl = TwoWeightsDSL('S')
+    yes_no_dsl.set_type_action(True)
+    column_dsl = TwoWeightsDSL('S')
+    column_dsl.set_type_action(False)
+    '''
+    yes_no_dsl = SharedWeightsDSL('S')
+    yes_no_dsl.set_type_action(True)
+    column_dsl = SharedWeightsDSL('S')
+    column_dsl.set_type_action(False)
+    
     boosted_fictitious_play = BoostedFictitiousPlay(
                                         algo_id,
                                         n_iterations,
@@ -134,7 +152,9 @@ if __name__ == "__main__":
                                         uct_playouts,
                                         eval_step,
                                         max_game_rounds,
-                                        iteration_run
+                                        iteration_run,
+                                        yes_no_dsl,
+                                        column_dsl
                                     )
     boosted_fictitious_play.run()
 

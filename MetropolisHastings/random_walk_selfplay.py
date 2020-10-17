@@ -23,7 +23,7 @@ class RandomWalkSelfplay(Algorithm):
     """
     def __init__(self, algo_id, n_iterations, tree_max_nodes, n_games, 
         n_games_glenn, n_games_uct, n_games_solitaire, uct_playouts, eval_step, 
-        max_game_rounds, iteration_run):
+        max_game_rounds, iteration_run, yes_no_dsl, column_dsl):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -41,7 +41,7 @@ class RandomWalkSelfplay(Algorithm):
 
         super().__init__(tree_max_nodes, n_iterations, n_games_glenn, 
                             n_games_uct, n_games_solitaire, uct_playouts,
-                            max_game_rounds
+                            max_game_rounds, yes_no_dsl, column_dsl
                         )
 
         self.filename = str(self.algo_id) + '_' + \
@@ -55,8 +55,8 @@ class RandomWalkSelfplay(Algorithm):
         if not os.path.exists(self.filename):
             os.makedirs(self.filename)
 
-        self.tree_string = ParseTree(DSL('S', True), self.tree_max_nodes)
-        self.tree_column = ParseTree(DSL('S', False), self.tree_max_nodes)
+        self.tree_string = ParseTree(self.yes_no_dsl, self.tree_max_nodes)
+        self.tree_column = ParseTree(self.column_dsl, self.tree_max_nodes)
 
     def run(self):
         """ Main routine of the SA algorithm. """
@@ -312,6 +312,11 @@ if __name__ == "__main__":
     max_game_rounds = 10000
     iteration_run = 0
 
+    yes_no_dsl = DSL('S')
+    yes_no_dsl.set_type_action(True)
+    column_dsl = DSL('S')
+    column_dsl.set_type_action(False)
+
     random_walk_selfplay = RandomWalkSelfplay(
                             algo_id,
                             n_iterations,
@@ -323,6 +328,8 @@ if __name__ == "__main__":
                             uct_playouts,
                             eval_step,
                             max_game_rounds,
-                            iteration_run
+                            iteration_run,
+                            yes_no_dsl,
+                            column_dsl
                         )
     random_walk_selfplay.run()
