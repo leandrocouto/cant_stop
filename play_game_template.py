@@ -142,6 +142,38 @@ def play_solitaire_single_game(player, game, max_game_length):
 
     return rounds
 
+def play_solitaire_single_game_for_uct(player, game, max_game_length):
+    """ Play a solitaire version of the Can't Stop game. """
+
+    is_over = False
+    rounds = 0
+
+    # Game loop
+    while not is_over:
+        moves = game.available_moves()
+        if game.is_player_busted(moves):
+            game.player_turn = 1
+            rounds += 1
+            continue
+        else:
+            chosen_play = player.get_action(game, [])
+            # Apply the chosen_play in the game
+            game.play(chosen_play)
+            if chosen_play == 'n':
+                rounds += 1
+            game.player_turn = 1
+
+        # if the game has reached its max number of plays, end the game
+        # and who_won receives 0, which means no players won.
+
+        if rounds > max_game_length:
+            who_won = 0
+            is_over = True
+        else:
+            who_won, is_over = game.is_finished()
+
+    return rounds
+
 
 def main():
     
@@ -169,18 +201,38 @@ def main():
     from players.uct_player import UCTPlayer
     from players.rule_of_28_player import Rule_of_28_Player
     from players.glenn_player import Glenn_Player
-    n_games = 10000
-    rounds = [] 
+    import pickle
+    import math
+    n_games = 100
+    n_simulations = 500
+    rounds = []
+    filename = 'solitaire_vanilla_' + str(n_simulations) + '.txt'
+    print('n_simulations = ', n_simulations)
     for i in range(n_games):
         game = Game(n_players, dice_number, dice_value, column_range, offset, 
                 initial_height)
         #script = Rule_of_28_Player()
-        script = Glenn_Player()
+        #script = Glenn_Player()
+        script = Vanilla_UCT(c = 1, n_simulations = n_simulations)
 
-        round = play_solitaire_single_game(script, game, 5000)
-        rounds.append(round)
-    print('Round average = ', sum(rounds) / len(rounds))
-    print('max = ', max(rounds))
+        #n_round = play_solitaire_single_game(script, game, 5000)
+        n_round = play_solitaire_single_game_for_uct(script, game, 10000)
+        rounds.append(n_round)
+        with open(filename, 'a') as f:
+            print('Iteration', i, '- Number of rounds = ', n_round, file=f)
+        with open('solitaire_vanilla_' + str(n_simulations) + '_data' , 'wb') as file:
+                    pickle.dump(rounds, file)
+
+    avg = sum(rounds) / len(rounds)
+    std_sum = 0
+    for i in range(len(rounds)):
+        std_sum += (rounds[i] - avg) * (rounds[i] - avg)
+
+    std_round = math.sqrt(std_sum / len(rounds)) 
+    with open(filename, 'a') as f:
+        print('Round average = ', avg, file=f)
+        print('Round std = ', std_round, file=f)
+        print('Max = ', max(rounds), file=f)
     #print(rounds)
 
 if __name__ == "__main__":
