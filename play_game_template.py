@@ -125,6 +125,7 @@ def play_solitaire_single_game(player, game, max_game_length):
             continue
         else:
             chosen_play = player.get_action(game)
+            #print('chosen_play = ', chosen_play)
             # Apply the chosen_play in the game
             game.play(chosen_play)
             if chosen_play == 'n':
@@ -132,13 +133,10 @@ def play_solitaire_single_game(player, game, max_game_length):
             game.player_turn = 1
 
         # if the game has reached its max number of plays, end the game
-        # and who_won receives 0, which means no players won.
-
         if rounds > max_game_length:
-            who_won = 0
             is_over = True
         else:
-            who_won, is_over = game.is_finished()
+            _, is_over = game.is_finished()
 
     return rounds
 
@@ -203,7 +201,7 @@ def main():
     from players.glenn_player import Glenn_Player
     import pickle
     import math
-    n_games = 100
+    n_games = 1
     n_simulations = 500
     rounds = []
     filename = 'solitaire_vanilla_' + str(n_simulations) + '.txt'
@@ -213,10 +211,10 @@ def main():
                 initial_height)
         #script = Rule_of_28_Player()
         #script = Glenn_Player()
-        script = Vanilla_UCT(c = 1, n_simulations = n_simulations)
+        #script = Vanilla_UCT(c = 1, n_simulations = n_simulations)
 
-        #n_round = play_solitaire_single_game(script, game, 5000)
-        n_round = play_solitaire_single_game_for_uct(script, game, 10000)
+        n_round = play_solitaire_single_game(script, game, 100)
+        #n_round = play_solitaire_single_game_for_uct(script, game, 10000)
         rounds.append(n_round)
         with open(filename, 'a') as f:
             print('Iteration', i, '- Number of rounds = ', n_round, file=f)

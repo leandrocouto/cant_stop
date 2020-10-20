@@ -27,7 +27,7 @@ class FictitiousPlay(Algorithm):
     def __init__(self, algo_id, n_iterations, n_SA_iterations, tree_max_nodes, 
         d, init_temp, n_games_evaluate, n_games_glenn, n_games_uct, 
         n_games_solitaire, uct_playouts, eval_step, max_game_rounds, 
-        iteration_run, yes_no_dsl, column_dsl):
+        iteration_run, yes_no_dsl, column_dsl, reg):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -51,7 +51,7 @@ class FictitiousPlay(Algorithm):
 
         super().__init__(tree_max_nodes, n_iterations, n_games_glenn, 
                             n_games_uct, n_games_solitaire, uct_playouts,
-                            max_game_rounds, yes_no_dsl, column_dsl
+                            max_game_rounds, yes_no_dsl, column_dsl, reg
                         )
 
         self.filename = str(self.algo_id) + '_' + \
@@ -266,6 +266,13 @@ class FictitiousPlay(Algorithm):
             elapsed_time = time.time() - start
         return best_solution_string_tree, best_solution_column_tree, best_solution
 
+    def accept_new_program(self, victories, losses, new_tree_string, new_tree_column):
+        # If regularization is used
+        if self.reg:
+            pass
+        else:
+            pass
+
     def update_score(self, score_best, score_mutated, curr_temp):
         """ 
         Update the score according to the current temperature. 
@@ -327,10 +334,12 @@ class FictitiousPlay(Algorithm):
         dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/' 
         filename = dir_path + self.filename
 
-        vic = [sum(self.victories[i])/len(self.victories[i]) for i in range(len(self.victories))]
-        loss = [sum(self.losses[i])/len(self.losses[i]) for i in range(len(self.losses))]
-        plt.plot(self.games_played_successful, vic, color='green', label='Victory')
-        plt.plot(self.games_played_successful, loss, color='red', label='Loss')
+        axes = plt.gca()
+        axes.set_ylim([0, 1])
+        y_victories = [sum(self.victories[i])/len(self.victories[i]) for i in range(len(self.victories))]
+        y_losses = [sum(self.losses[i])/len(self.losses[i]) for i in range(len(self.losses))]
+        plt.plot(self.games_played_successful, y_victories, color='green', label='Victory')
+        plt.plot(self.games_played_successful, y_losses, color='red', label='Loss')
         plt.legend(loc="best")
         plt.title(str(self.algo_id) + " - Generated script against br_set (average values)")
         plt.xlabel('Games played')
@@ -339,20 +348,25 @@ class FictitiousPlay(Algorithm):
         plt.close()
 
 
-        plt.plot(self.games_played_successful, self.victories_against_glenn, color='green')
+        axes = plt.gca()
+        axes.set_ylim([0, 1])
+        y_victories = [vic / self.n_games_glenn for vic in self.victories_against_glenn]
+        plt.plot(self.games_played_successful, y_victories, color='green')
         plt.title(str(self.algo_id) + " - Games against Glenn")
         plt.xlabel('Games played')
-        plt.ylabel('Number of victories')
+        plt.ylabel('Victory rate - ' + str(self.n_games_glenn) + ' games')
         plt.savefig(filename + '_vs_glenn.png')
         plt.close()
 
+        axes = plt.gca()
+        axes.set_ylim([0, 1])
         for i in range(len(self.uct_playouts)):
-            victories = [vic[i] for vic in self.victories_against_UCT]  
+            victories = [vic[i] / self.n_games_uct for vic in self.victories_against_UCT]  
             plt.plot(self.games_played_uct, victories, label=str(self.uct_playouts[i]) + " playouts")
         plt.legend(loc="best")
         plt.title(str(self.algo_id) + " - Games against UCT")
         plt.xlabel('Games played')
-        plt.ylabel('Number of victories')
+        plt.ylabel('Victory rate - ' + str(self.n_games_uct) + ' games')
         plt.savefig(filename + '_vs_UCT.png')
         plt.close()
 
@@ -365,8 +379,8 @@ class FictitiousPlay(Algorithm):
 
 if __name__ == "__main__":
     algo_id = 'SAFP'
-    n_iterations = 20
-    n_SA_iterations = 10
+    n_iterations = 10
+    n_SA_iterations = 20
     tree_max_nodes = 100
     d = 1
     init_temp = 1
@@ -378,6 +392,7 @@ if __name__ == "__main__":
     eval_step = 1
     max_game_rounds = 500
     iteration_run = 0
+    reg = False
 
     yes_no_dsl = DSL('S')
     yes_no_dsl.set_type_action(True)
@@ -400,7 +415,8 @@ if __name__ == "__main__":
                                         max_game_rounds,
                                         iteration_run,
                                         yes_no_dsl,
-                                        column_dsl
+                                        column_dsl,
+                                        reg
                                     )
     fictitious_play.run()
 

@@ -26,7 +26,7 @@ class SimulatedAnnealingSelfplay(Algorithm):
     def __init__(self, algo_id, n_iterations, n_SA_iterations, 
         tree_max_nodes, d, init_temp, n_games_evaluate, n_games_glenn, 
         n_games_uct, n_games_solitaire, uct_playouts, eval_step, 
-        max_game_rounds, iteration_run, yes_no_dsl, column_dsl):
+        max_game_rounds, iteration_run, yes_no_dsl, column_dsl, reg):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -50,7 +50,7 @@ class SimulatedAnnealingSelfplay(Algorithm):
 
         super().__init__(tree_max_nodes, n_iterations, n_games_glenn, 
                             n_games_uct, n_games_solitaire, uct_playouts,
-                            max_game_rounds, yes_no_dsl, column_dsl
+                            max_game_rounds, yes_no_dsl, column_dsl, reg
                         )
 
         self.filename = str(self.algo_id) + '_' + \
@@ -127,7 +127,7 @@ class SimulatedAnnealingSelfplay(Algorithm):
 
                 # Validate with Solitaire
                 start_solitaire = time.time()
-                avg_solitaire, std_solitaire = self.validate_solitaire(script_best_player)
+                avg_solitaire, std_solitaire = self.validate_solitaire(p)
                 self.avg_rounds_solitaire.append(avg_solitaire)
                 self.std_rounds_solitaire.append(std_solitaire)
                 elapsed_time_solitaire = time.time() - start_solitaire
@@ -280,6 +280,13 @@ class SimulatedAnnealingSelfplay(Algorithm):
             elapsed_time = time.time() - start
         return best_solution_string_tree, best_solution_column_tree, best_solution
 
+    def accept_new_program(self, victories, losses, new_tree_string, new_tree_column):
+        # If regularization is used
+        if self.reg:
+            pass
+        else:
+            pass
+
     def evaluate(self, first_player, second_player):
         victories = 0
         losses = 0
@@ -325,29 +332,38 @@ class SimulatedAnnealingSelfplay(Algorithm):
         dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/' 
         filename = dir_path + self.filename
 
-        plt.plot(self.games_played_successful, self.victories, color='green', label='Victory')
-        plt.plot(self.games_played_successful, self.losses, color='red', label='Loss')
+        axes = plt.gca()
+        axes.set_ylim([0, 1])
+        y_victories = [vic / self.n_games_evaluate for vic in self.victories]
+        y_losses = [loss / self.n_games_evaluate for loss in self.losses]
+        plt.plot(self.games_played_successful, y_victories, color='green', label='Victory')
+        plt.plot(self.games_played_successful, y_losses, color='red', label='Loss')
         plt.legend(loc="best")
         plt.title(str(self.algo_id) + " - Generated script against previous script")
         plt.xlabel('Games played')
-        plt.ylabel('Number of games')
+        plt.ylabel('Rate - ' + str(self.n_games_evaluate) + ' games')
         plt.savefig(filename + '_vs_previous_script.png')
         plt.close()
 
-        plt.plot(self.games_played_successful, self.victories_against_glenn, color='green')
+        axes = plt.gca()
+        axes.set_ylim([0, 1])
+        y_victories = [vic / self.n_games_glenn for vic in self.victories_against_glenn]
+        plt.plot(self.games_played_successful, y_victories, color='green')
         plt.title(str(self.algo_id) + " - Games against Glenn")
         plt.xlabel('Games played')
-        plt.ylabel('Number of victories')
+        plt.ylabel('Victory rate - ' + str(self.n_games_glenn) + ' games')
         plt.savefig(filename + '_vs_glenn.png')
         plt.close()
 
+        axes = plt.gca()
+        axes.set_ylim([0, 1])
         for i in range(len(self.uct_playouts)):
-            victories = [vic[i] for vic in self.victories_against_UCT]  
+            victories = [vic[i] / self.n_games_uct for vic in self.victories_against_UCT]  
             plt.plot(self.games_played_uct, victories, label=str(self.uct_playouts[i]) + " playouts")
         plt.legend(loc="best")
         plt.title(str(self.algo_id) + " - Games against UCT")
         plt.xlabel('Games played')
-        plt.ylabel('Number of victories')
+        plt.ylabel('Victory rate - ' + str(self.n_games_uct) + ' games')
         plt.savefig(filename + '_vs_UCT.png')
         plt.close()
 
@@ -373,6 +389,7 @@ if __name__ == "__main__":
     eval_step = 1
     max_game_rounds = 500
     iteration_run = 0
+    reg = False
 
     yes_no_dsl = DSL('S')
     yes_no_dsl.set_type_action(True)
@@ -395,7 +412,8 @@ if __name__ == "__main__":
                                         max_game_rounds,
                                         iteration_run,
                                         yes_no_dsl,
-                                        column_dsl
+                                        column_dsl,
+                                        reg
                                     )
-    SA_selfplay.run()
+    selfplay_SA.run()
 
