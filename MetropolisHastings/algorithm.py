@@ -5,6 +5,7 @@ import re
 import os
 sys.path.insert(0,'..')
 from game import Game
+from solitaire_game import SolitaireGame
 from sketch import Sketch
 from MetropolisHastings.DSL import DSL
 from MetropolisHastings.two_weights_DSL import TwoWeightsDSL
@@ -18,7 +19,8 @@ from play_game_template import play_solitaire_single_game
 class Algorithm(ABC):
 
     def __init__(self, tree_max_nodes, n_iterations, n_games_glenn, n_games_uct,
-        n_games_solitaire, uct_playouts, max_game_rounds, yes_no_dsl, column_dsl):
+        n_games_solitaire, uct_playouts, max_game_rounds, yes_no_dsl, column_dsl,
+        reg):
 
         self.tree_max_nodes = tree_max_nodes
         self.n_iterations = n_iterations
@@ -29,6 +31,7 @@ class Algorithm(ABC):
         self.max_game_rounds = max_game_rounds
         self.yes_no_dsl = yes_no_dsl
         self.column_dsl = column_dsl
+        self.reg = reg
 
         # For analysis
         self.victories = []
@@ -52,6 +55,16 @@ class Algorithm(ABC):
         # For analysis - Solitaire games
         self.avg_rounds_solitaire = []
         self.std_rounds_solitaire = []
+
+    @abstractmethod
+    def accept_new_program(self):
+        """ 
+        Check if the new synthesized program is better than the current best.
+        Possible regularization techniques must be implemented here.
+        Return True if the new program is accepted, False otherwise.
+        Concrete classes must implement this method.
+        """
+        pass
 
     def generate_player(self, program_string, program_column, iteration):
         """ Generate a Player object given the program string. """
@@ -164,7 +177,7 @@ class Algorithm(ABC):
         rounds = []
 
         for i in range(self.n_games_solitaire):
-            game = game = Game(2, 4, 6, [2,12], 2, 2)
+            game = game = SolitaireGame(4, 6, [2,12], 2, 2)
             rounds_played = play_solitaire_single_game(
                                                         current_script, 
                                                         game, 

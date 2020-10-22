@@ -27,7 +27,7 @@ class BoostedFictitiousPlay(FictitiousPlay):
     def __init__(self, algo_id, n_iterations, n_SA_iterations, 
         tree_max_nodes, d, init_temp, n_games_evaluate, n_games_glenn, 
         n_games_uct, n_games_solitaire, uct_playouts, eval_step, 
-        max_game_rounds, iteration_run, yes_no_dsl, column_dsl):
+        max_game_rounds, iteration_run, yes_no_dsl, column_dsl, reg):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -44,7 +44,8 @@ class BoostedFictitiousPlay(FictitiousPlay):
         super().__init__(algo_id, n_iterations, n_SA_iterations, tree_max_nodes, 
                         d, init_temp, n_games_evaluate, n_games_glenn, 
                         n_games_uct, n_games_solitaire, uct_playouts, eval_step, 
-                        max_game_rounds, iteration_run, yes_no_dsl, column_dsl
+                        max_game_rounds, iteration_run, yes_no_dsl, column_dsl,
+                        reg
                         )
 
         self.filename = str(self.algo_id) + '_' + \
@@ -109,7 +110,7 @@ class BoostedFictitiousPlay(FictitiousPlay):
 if __name__ == "__main__":
     algo_id = 'BSAFP'
     n_iterations = 20
-    n_SA_iterations = 50
+    n_SA_iterations = 10
     tree_max_nodes = 100
     d = 1
     init_temp = 1
@@ -121,22 +122,25 @@ if __name__ == "__main__":
     eval_step = 1
     max_game_rounds = 500
     iteration_run = 0
-    '''
+    reg = False
+    
     yes_no_dsl = DSL('S')
     yes_no_dsl.set_type_action(True)
     column_dsl = DSL('S')
     column_dsl.set_type_action(False)
-    '''
+    
     '''
     yes_no_dsl = TwoWeightsDSL('S')
     yes_no_dsl.set_type_action(True)
     column_dsl = TwoWeightsDSL('S')
     column_dsl.set_type_action(False)
     '''
+    '''
     yes_no_dsl = SharedWeightsDSL('S')
     yes_no_dsl.set_type_action(True)
     column_dsl = SharedWeightsDSL('S')
     column_dsl.set_type_action(False)
+    '''
     
     boosted_fictitious_play = BoostedFictitiousPlay(
                                         algo_id,
@@ -154,7 +158,8 @@ if __name__ == "__main__":
                                         max_game_rounds,
                                         iteration_run,
                                         yes_no_dsl,
-                                        column_dsl
+                                        column_dsl,
+                                        reg
                                     )
     boosted_fictitious_play.run()
 

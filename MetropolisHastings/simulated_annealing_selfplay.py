@@ -125,12 +125,14 @@ class SimulatedAnnealingSelfplay(Algorithm):
                     self.draws_against_UCT.append(d_uct)
                 elapsed_time_uct = time.time() - start_uct
 
+                '''
                 # Validate with Solitaire
                 start_solitaire = time.time()
                 avg_solitaire, std_solitaire = self.validate_solitaire(p)
                 self.avg_rounds_solitaire.append(avg_solitaire)
                 self.std_rounds_solitaire.append(std_solitaire)
                 elapsed_time_solitaire = time.time() - start_solitaire
+                '''
 
                 # Save data file
                 iteration_data = (
@@ -174,14 +176,15 @@ class SimulatedAnnealingSelfplay(Algorithm):
                         'V/L/D new script vs old = ', victories, losses, draws, 
                         'V/L/D against Glenn = ', v_glenn, l_glenn, d_glenn, 
                         'V/L/D against UCT', self.uct_playouts, 'playouts = ', v_uct, l_uct, d_uct, 
-                        'Avg and std in Solitaire = ', avg_solitaire, std_solitaire, 
+                        #'Avg and std in Solitaire = ', avg_solitaire, std_solitaire, 
                         'Games played = ', self.games_played,
                         file=f)
                     print('Iteration -', i, 'SA elapsed time = ', elapsed_time,
                         'Glenn elapsed time = ', elapsed_time_glenn, 
                         'UCT elapsed time = ', elapsed_time_uct, 
-                        'Solitaire elapsed time = ', elapsed_time_solitaire,
-                        'Total elapsed time = ', elapsed_time + elapsed_time_glenn + elapsed_time_uct + elapsed_time_solitaire, file=f)
+                        #'Solitaire elapsed time = ', elapsed_time_solitaire,
+                        #'Total elapsed time = ', elapsed_time + elapsed_time_glenn + elapsed_time_uct + elapsed_time_solitaire, file=f)
+                        'Total elapsed time = ', elapsed_time + elapsed_time_glenn + elapsed_time_uct, file=f)
 
             # The new script was not better, ignore this iteration
             else:
@@ -332,8 +335,6 @@ class SimulatedAnnealingSelfplay(Algorithm):
         dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/' 
         filename = dir_path + self.filename
 
-        axes = plt.gca()
-        axes.set_ylim([0, 1])
         y_victories = [vic / self.n_games_evaluate for vic in self.victories]
         y_losses = [loss / self.n_games_evaluate for loss in self.losses]
         plt.plot(self.games_played_successful, y_victories, color='green', label='Victory')
@@ -342,21 +343,25 @@ class SimulatedAnnealingSelfplay(Algorithm):
         plt.title(str(self.algo_id) + " - Generated script against previous script")
         plt.xlabel('Games played')
         plt.ylabel('Rate - ' + str(self.n_games_evaluate) + ' games')
+        plt.grid()
+        plt.yticks([x / 10.0 for x in range(0,11,1)])
+        axes = plt.gca()
+        axes.set_ylim([-0.05, 1.05])
         plt.savefig(filename + '_vs_previous_script.png')
         plt.close()
 
-        axes = plt.gca()
-        axes.set_ylim([0, 1])
         y_victories = [vic / self.n_games_glenn for vic in self.victories_against_glenn]
         plt.plot(self.games_played_successful, y_victories, color='green')
         plt.title(str(self.algo_id) + " - Games against Glenn")
         plt.xlabel('Games played')
         plt.ylabel('Victory rate - ' + str(self.n_games_glenn) + ' games')
+        plt.grid()
+        plt.yticks([x / 10.0 for x in range(0,11,1)])
+        axes = plt.gca()
+        axes.set_ylim([-0.05, 1.05])
         plt.savefig(filename + '_vs_glenn.png')
         plt.close()
 
-        axes = plt.gca()
-        axes.set_ylim([0, 1])
         for i in range(len(self.uct_playouts)):
             victories = [vic[i] / self.n_games_uct for vic in self.victories_against_UCT]  
             plt.plot(self.games_played_uct, victories, label=str(self.uct_playouts[i]) + " playouts")
@@ -364,15 +369,22 @@ class SimulatedAnnealingSelfplay(Algorithm):
         plt.title(str(self.algo_id) + " - Games against UCT")
         plt.xlabel('Games played')
         plt.ylabel('Victory rate - ' + str(self.n_games_uct) + ' games')
+        plt.grid()
+        plt.yticks([x / 10.0 for x in range(0,11,1)])
+        axes = plt.gca()
+        axes.set_ylim([-0.05, 1.05])
         plt.savefig(filename + '_vs_UCT.png')
         plt.close()
 
+        '''
         plt.errorbar(self.games_played_successful, self.avg_rounds_solitaire, yerr=self.std_rounds_solitaire, fmt='-')
         plt.title(str(self.algo_id) + " - Average rounds in Solitaire Can't Stop")
         plt.xlabel('Games played')
         plt.ylabel('Number of rounds')
+        plt.grid()
         plt.savefig(filename + '_solitaire.png')
         plt.close()
+        '''
 
 if __name__ == "__main__":
     algo_id = 'SASP'
