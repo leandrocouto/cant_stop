@@ -2,6 +2,17 @@ from game import Game
 from players.vanilla_uct_player import Vanilla_UCT
 from players.random_player import RandomPlayer
 from players.uct_player import UCTPlayer
+from players.single_player_uct_player import SinglePlayerUCTPlayer
+from solitaire_game import SolitaireGame
+from players.random_player import RandomPlayer
+from players.uct_player import UCTPlayer
+from players.rule_of_28_player import Rule_of_28_Player
+from players.solitaire_rule_of_28_player import Solitaire_Rule_of_28_Player
+from players.glenn_player import Glenn_Player
+from players.solitaire_glenn_player import Solitaire_Glenn_Player
+import pickle
+import math
+import time
 
 def play_single_game(player1, player2, game, max_game_length):
     """
@@ -114,64 +125,31 @@ def play_solitaire_single_game(player, game, max_game_length):
     """ Play a solitaire version of the Can't Stop game. """
 
     is_over = False
-    rounds = 0
-
+    i = -1
     # Game loop
     while not is_over:
+        i += 1
+        #print('Iteration', i)
         moves = game.available_moves()
         if game.is_player_busted(moves):
-            game.player_turn = 1
-            rounds += 1
+            #print('Busted.\n')
             continue
         else:
             chosen_play = player.get_action(game)
-            #print('chosen_play = ', chosen_play)
+            
+            #game.print_board()
+            #print('chosen_play = ', chosen_play, 'moves = ', moves)
+            #print()
             # Apply the chosen_play in the game
             game.play(chosen_play)
-            if chosen_play == 'n':
-                rounds += 1
-            game.player_turn = 1
 
         # if the game has reached its max number of plays, end the game
-        if rounds > max_game_length:
+        if game.n_rounds > max_game_length:
             is_over = True
         else:
-            _, is_over = game.is_finished()
+            is_over = game.is_finished()
 
-    return rounds
-
-def play_solitaire_single_game_for_uct(player, game, max_game_length):
-    """ Play a solitaire version of the Can't Stop game. """
-
-    is_over = False
-    rounds = 0
-
-    # Game loop
-    while not is_over:
-        moves = game.available_moves()
-        if game.is_player_busted(moves):
-            game.player_turn = 1
-            rounds += 1
-            continue
-        else:
-            chosen_play = player.get_action(game, [])
-            # Apply the chosen_play in the game
-            game.play(chosen_play)
-            if chosen_play == 'n':
-                rounds += 1
-            game.player_turn = 1
-
-        # if the game has reached its max number of plays, end the game
-        # and who_won receives 0, which means no players won.
-
-        if rounds > max_game_length:
-            who_won = 0
-            is_over = True
-        else:
-            who_won, is_over = game.is_finished()
-
-    return rounds
-
+    return game.n_rounds
 
 def main():
     
@@ -183,43 +161,29 @@ def main():
     dice_number = 4
     dice_value = 6 
     max_game_length = 500
-    '''
-    for i in range(10):
-        game = Game(n_players, dice_number, dice_value, column_range, offset, 
-                initial_height)
-        uct_vanilla_1 = Vanilla_UCT(c = 1, n_simulations = 10)
-        uct_vanilla_2 = Vanilla_UCT(c = 1, n_simulations = 100)
-        random_player = RandomPlayer()
 
-        who_won = play_single_game(uct_vanilla_1, uct_vanilla_2, game, 50)
-        print('Winner from game', i, '= ', who_won)
-    '''
-    from players.vanilla_uct_player import Vanilla_UCT
-    from players.random_player import RandomPlayer
-    from players.uct_player import UCTPlayer
-    from players.rule_of_28_player import Rule_of_28_Player
-    from players.glenn_player import Glenn_Player
-    import pickle
-    import math
-    n_games = 1
+    n_games = 1000
     n_simulations = 500
     rounds = []
-    filename = 'solitaire_vanilla_' + str(n_simulations) + '.txt'
-    print('n_simulations = ', n_simulations)
+    filename = 'solitaire_uct_' + str(n_simulations) + '.txt'
     for i in range(n_games):
-        game = Game(n_players, dice_number, dice_value, column_range, offset, 
+        game = SolitaireGame(dice_number, dice_value, column_range, offset, 
                 initial_height)
-        #script = Rule_of_28_Player()
-        #script = Glenn_Player()
+        #script = Solitaire_Rule_of_28_Player()
+        #script = Solitaire_Glenn_Player()
         #script = Vanilla_UCT(c = 1, n_simulations = n_simulations)
+        script = SinglePlayerUCTPlayer(c = 1, n_simulations = n_simulations)
+        #script = RandomPlayer()
 
+        start = time.time()
         n_round = play_solitaire_single_game(script, game, 100)
-        #n_round = play_solitaire_single_game_for_uct(script, game, 10000)
+        end = time.time() - start
+
         rounds.append(n_round)
         with open(filename, 'a') as f:
-            print('Iteration', i, '- Number of rounds = ', n_round, file=f)
-        with open('solitaire_vanilla_' + str(n_simulations) + '_data' , 'wb') as file:
-                    pickle.dump(rounds, file)
+            print('Iteration', i, '- Number of rounds = ', n_round, 'Time elapsed = ', end, file=f)
+        #with open('solitaire_vanilla_' + str(n_simulations) + 'random_data' , 'wb') as file:
+        #            pickle.dump(rounds, file)
 
     avg = sum(rounds) / len(rounds)
     std_sum = 0
