@@ -13,6 +13,8 @@ from algorithm import Algorithm
 from play_game_template import simplified_play_single_game
 from play_game_template import play_single_game
 from play_game_template import play_solitaire_single_game
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
 
 class RandomWalkSelfplay(Algorithm):
     """
@@ -24,7 +26,7 @@ class RandomWalkSelfplay(Algorithm):
     """
     def __init__(self, algo_id, n_iterations, tree_max_nodes, n_games, 
         n_games_glenn, n_games_uct, n_games_solitaire, uct_playouts, eval_step, 
-        max_game_rounds, iteration_run, yes_no_dsl, column_dsl):
+        max_game_rounds, iteration_run, yes_no_dsl, column_dsl, n_cores):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -42,7 +44,7 @@ class RandomWalkSelfplay(Algorithm):
 
         super().__init__(tree_max_nodes, n_iterations, n_games_glenn, 
                             n_games_uct, n_games_solitaire, uct_playouts,
-                            max_game_rounds, yes_no_dsl, column_dsl
+                            max_game_rounds, yes_no_dsl, column_dsl, n_cores
                         )
 
         self.filename = str(self.algo_id) + '_' + \
@@ -229,9 +231,65 @@ class RandomWalkSelfplay(Algorithm):
 
     def accept_new_program(self, victories, losses):
         return victories > losses
-    
+
+    '''
     def selfplay(self, mutated_player, current_player):
 
+        victories = 0
+        losses = 0
+        draws = 0
+        for i in range(self.n_games):
+            game = game = Game(2, 4, 6, [2,12], 2, 2)
+            if i%2 == 0:
+                    who_won = simplified_play_single_game(
+                                                        mutated_player, 
+                                                        current_player, 
+                                                        game, 
+                                                        self.max_game_rounds
+                                                    )
+                    if who_won == 1:
+                        victories += 1
+                    elif who_won == 2:
+                        losses += 1
+                    else:
+                        draws += 1
+            else:
+                who_won = simplified_play_single_game(
+                                                    current_player, 
+                                                    mutated_player, 
+                                                    game, 
+                                                    self.max_game_rounds
+                                                )
+                if who_won == 2:
+                    victories += 1
+                elif who_won == 1:
+                    losses += 1
+                else:
+                    draws += 1
+
+        return victories, losses, draws
+    '''
+    def helper(self, args):
+            return simplified_play_single_game(args[0], args[1], args[2], args[3])
+    def selfplay(self, mutated_player, current_player):
+
+        
+        # ProcessPoolExecutor() will take care of joining() and closing()
+        # the processes after they are finished.
+        with ProcessPoolExecutor(max_workers=self.n_cores) as executor:
+            # Specify which arguments will be used for each parallel call
+            args = (
+                    (mutated_player, current_player, Game(2, 4, 6, [2,12], 2, 2), self.max_game_rounds) 
+                    for _ in range(self.n_games)
+                    )
+            # data is a list of 2-tuples = (data_of_a_game, who_won) 
+            results = executor.map(self.helper, args)
+        print('results')
+        print(results)
+        exit()
+        data_of_all_games = []
+        for result in results:
+            data_of_all_games.append(result)
         victories = 0
         losses = 0
         draws = 0
@@ -334,6 +392,7 @@ if __name__ == "__main__":
     eval_step = 1
     max_game_rounds = 1000
     iteration_run = 0
+    n_cores = multiprocessing.cpu_count()
 
     yes_no_dsl = SharedWeightsDSL('S')
     yes_no_dsl.set_type_action(True)
@@ -353,6 +412,7 @@ if __name__ == "__main__":
                             max_game_rounds,
                             iteration_run,
                             yes_no_dsl,
-                            column_dsl
+                            column_dsl,
+                            n_cores
                         )
     random_walk_selfplay.run()
