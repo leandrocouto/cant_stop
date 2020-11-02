@@ -6,6 +6,7 @@ import matplotlib.pyplot as plt
 sys.path.insert(0,'..')
 from MetropolisHastings.parse_tree import ParseTree
 from MetropolisHastings.DSL import DSL
+from MetropolisHastings.shared_weights_DSL import SharedWeightsDSL
 from game import Game
 from sketch import Sketch
 from algorithm import Algorithm
@@ -23,8 +24,7 @@ class RandomWalkSelfplay(Algorithm):
     """
     def __init__(self, algo_id, n_iterations, tree_max_nodes, n_games, 
         n_games_glenn, n_games_uct, n_games_solitaire, uct_playouts, eval_step, 
-        max_game_rounds, iteration_run, yes_no_dsl, column_dsl, reg,
-        reg_partition):
+        max_game_rounds, iteration_run, yes_no_dsl, column_dsl):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -39,11 +39,10 @@ class RandomWalkSelfplay(Algorithm):
         self.n_games = n_games
         self.eval_step = eval_step
         self.iteration_run = iteration_run
-        self.reg_partition = reg_partition
 
         super().__init__(tree_max_nodes, n_iterations, n_games_glenn, 
                             n_games_uct, n_games_solitaire, uct_playouts,
-                            max_game_rounds, yes_no_dsl, column_dsl, reg
+                            max_game_rounds, yes_no_dsl, column_dsl
                         )
 
         self.filename = str(self.algo_id) + '_' + \
@@ -51,7 +50,6 @@ class RandomWalkSelfplay(Algorithm):
                         str(self.n_games) + 'selfplay_' + \
                         str(self.n_games_glenn) + 'glenn_' + \
                         str(self.n_games_uct) + 'uct_' + \
-                        str(self.n_games_solitaire) + 'solitaire_' + \
                         str(self.iteration_run) + 'run'
 
         if not os.path.exists(self.filename):
@@ -101,8 +99,7 @@ class RandomWalkSelfplay(Algorithm):
             self.games_played_all.append(self.games_played)
 
             # If the new synthesized program is better
-            if self.accept_new_program(victories, losses, new_tree_string, new_tree_column):
-            #if victories > losses:
+            if self.accept_new_program(victories, losses):
                 self.victories.append(victories)
                 self.losses.append(losses)
                 self.draws.append(draws)
@@ -230,19 +227,9 @@ class RandomWalkSelfplay(Algorithm):
 
         return best_program_string, best_program_column, script_best_player, self.tree_string, self.tree_column
 
-    def accept_new_program(self, victories, losses, new_tree_string, new_tree_column):
-        # If regularization is used
-        if self.reg:
-            current_tree_size = self.tree_string.current_id + self.tree_column.current_id
-            new_tree_size = new_tree_string.current_id + new_tree_column.current_id
-            current_score = losses / self.n_games
-            new_score = victories / self.n_games
-            return True
-            #exit()
-            #pass
-        else:
-            return victories > losses
-
+    def accept_new_program(self, victories, losses):
+        return victories > losses
+    
     def selfplay(self, mutated_player, current_player):
 
         victories = 0
@@ -340,19 +327,17 @@ if __name__ == "__main__":
     n_iterations = 50
     tree_max_nodes = 100
     n_games = 100
-    n_games_glenn = 100
+    n_games_glenn = 1000
     n_games_uct = 3
     n_games_solitaire = 1000
     uct_playouts = [2, 3, 4]
     eval_step = 1
     max_game_rounds = 1000
     iteration_run = 0
-    reg = False
-    reg_partition = 0.7
 
-    yes_no_dsl = DSL('S')
+    yes_no_dsl = SharedWeightsDSL('S')
     yes_no_dsl.set_type_action(True)
-    column_dsl = DSL('S')
+    column_dsl = SharedWeightsDSL('S')
     column_dsl.set_type_action(False)
 
     random_walk_selfplay = RandomWalkSelfplay(
@@ -368,8 +353,6 @@ if __name__ == "__main__":
                             max_game_rounds,
                             iteration_run,
                             yes_no_dsl,
-                            column_dsl,
-                            reg,
-                            reg_partition
+                            column_dsl
                         )
     random_walk_selfplay.run()

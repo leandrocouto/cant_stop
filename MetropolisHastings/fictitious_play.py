@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 sys.path.insert(0,'..')
 from MetropolisHastings.parse_tree import ParseTree
 from MetropolisHastings.DSL import DSL
-from MetropolisHastings.two_weights_DSL import TwoWeightsDSL
 from MetropolisHastings.shared_weights_DSL import SharedWeightsDSL
 from game import Game
 from sketch import Sketch
@@ -27,7 +26,7 @@ class FictitiousPlay(Algorithm):
     def __init__(self, algo_id, n_iterations, n_SA_iterations, tree_max_nodes, 
         d, init_temp, n_games_evaluate, n_games_glenn, n_games_uct, 
         n_games_solitaire, uct_playouts, eval_step, max_game_rounds, 
-        iteration_run, yes_no_dsl, column_dsl, reg):
+        iteration_run, yes_no_dsl, column_dsl):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -51,7 +50,7 @@ class FictitiousPlay(Algorithm):
 
         super().__init__(tree_max_nodes, n_iterations, n_games_glenn, 
                             n_games_uct, n_games_solitaire, uct_playouts,
-                            max_game_rounds, yes_no_dsl, column_dsl, reg
+                            max_game_rounds, yes_no_dsl, column_dsl
                         )
 
         self.filename = str(self.algo_id) + '_' + \
@@ -60,7 +59,6 @@ class FictitiousPlay(Algorithm):
                         str(self.n_games_evaluate) + 'eval_' + \
                         str(self.n_games_glenn) + 'glenn_' + \
                         str(self.n_games_uct) + 'uct_' + \
-                        str(self.n_games_solitaire) + 'solitaire_' + \
                         str(self.iteration_run) + 'run'
 
 
@@ -98,11 +96,12 @@ class FictitiousPlay(Algorithm):
             victories_br_p, losses_br_p, draws_br_p = self.evaluate(br_p, br_set)
             score_br_p = sum(victories_br_p) / len(victories_br_p)
 
-            self.games_played += 2 * self.n_SA_iterations * self.n_games_evaluate * len(br_set)
+            self.games_played += self.n_SA_iterations * self.n_games_evaluate * len(br_set)
             self.games_played_all.append(self.games_played)
             
             # if br_p is better, keep it
-            if score_br_p > score_p:
+            #if score_br_p > score_p:
+            if self.accept_new_program(score_br_p, score_p):
                 p_tree_string = br_tree_string
                 p_tree_column = br_tree_column
                 p = br_p
@@ -269,12 +268,8 @@ class FictitiousPlay(Algorithm):
             elapsed_time = time.time() - start
         return best_solution_string_tree, best_solution_column_tree, best_solution
 
-    def accept_new_program(self, victories, losses, new_tree_string, new_tree_column):
-        # If regularization is used
-        if self.reg:
-            pass
-        else:
-            pass
+    def accept_new_program(self, score_br_p, score_p):
+        return score_br_p > score_p
 
     def update_score(self, score_best, score_mutated, curr_temp):
         """ 
@@ -402,11 +397,10 @@ if __name__ == "__main__":
     eval_step = 1
     max_game_rounds = 500
     iteration_run = 0
-    reg = False
 
-    yes_no_dsl = DSL('S')
+    yes_no_dsl = SharedWeightsDSL('S')
     yes_no_dsl.set_type_action(True)
-    column_dsl = DSL('S')
+    column_dsl = SharedWeightsDSL('S')
     column_dsl.set_type_action(False)
 
     fictitious_play = FictitiousPlay(
@@ -425,8 +419,7 @@ if __name__ == "__main__":
                                         max_game_rounds,
                                         iteration_run,
                                         yes_no_dsl,
-                                        column_dsl,
-                                        reg
+                                        column_dsl
                                     )
     fictitious_play.run()
 

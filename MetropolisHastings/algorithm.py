@@ -19,8 +19,7 @@ from play_game_template import play_solitaire_single_game
 class Algorithm(ABC):
 
     def __init__(self, tree_max_nodes, n_iterations, n_games_glenn, n_games_uct,
-        n_games_solitaire, uct_playouts, max_game_rounds, yes_no_dsl, column_dsl,
-        reg):
+        n_games_solitaire, uct_playouts, max_game_rounds, yes_no_dsl, column_dsl):
 
         self.tree_max_nodes = tree_max_nodes
         self.n_iterations = n_iterations
@@ -31,7 +30,6 @@ class Algorithm(ABC):
         self.max_game_rounds = max_game_rounds
         self.yes_no_dsl = yes_no_dsl
         self.column_dsl = column_dsl
-        self.reg = reg
 
         # For analysis
         self.victories = []

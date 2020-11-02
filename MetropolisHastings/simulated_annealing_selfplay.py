@@ -8,6 +8,7 @@ import random
 sys.path.insert(0,'..')
 from MetropolisHastings.parse_tree import ParseTree
 from MetropolisHastings.DSL import DSL
+from MetropolisHastings.shared_weights_DSL import SharedWeightsDSL
 from game import Game
 from sketch import Sketch
 from algorithm import Algorithm
@@ -26,7 +27,7 @@ class SimulatedAnnealingSelfplay(Algorithm):
     def __init__(self, algo_id, n_iterations, n_SA_iterations, 
         tree_max_nodes, d, init_temp, n_games_evaluate, n_games_glenn, 
         n_games_uct, n_games_solitaire, uct_playouts, eval_step, 
-        max_game_rounds, iteration_run, yes_no_dsl, column_dsl, reg):
+        max_game_rounds, iteration_run, yes_no_dsl, column_dsl):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -50,7 +51,7 @@ class SimulatedAnnealingSelfplay(Algorithm):
 
         super().__init__(tree_max_nodes, n_iterations, n_games_glenn, 
                             n_games_uct, n_games_solitaire, uct_playouts,
-                            max_game_rounds, yes_no_dsl, column_dsl, reg
+                            max_game_rounds, yes_no_dsl, column_dsl
                         )
 
         self.filename = str(self.algo_id) + '_' + \
@@ -59,7 +60,6 @@ class SimulatedAnnealingSelfplay(Algorithm):
                         str(self.n_games_evaluate) + 'eval_' + \
                         str(self.n_games_glenn) + 'glenn_' + \
                         str(self.n_games_uct) + 'uct_' + \
-                        str(self.n_games_solitaire) + 'solitaire_' + \
                         str(self.iteration_run) + 'run'
 
         if not os.path.exists(self.filename):
@@ -94,7 +94,7 @@ class SimulatedAnnealingSelfplay(Algorithm):
             victories, losses, draws = self.evaluate(br_p, p)
 
             # if br_p is better, keep it
-            if victories > losses:
+            if self.accept_new_program(victories, losses):
                 p_tree_string = br_tree_string
                 p_tree_column = br_tree_column
                 p = br_p
@@ -283,12 +283,8 @@ class SimulatedAnnealingSelfplay(Algorithm):
             elapsed_time = time.time() - start
         return best_solution_string_tree, best_solution_column_tree, best_solution
 
-    def accept_new_program(self, victories, losses, new_tree_string, new_tree_column):
-        # If regularization is used
-        if self.reg:
-            pass
-        else:
-            pass
+    def accept_new_program(self, victories, losses):
+        return victories > losses
 
     def evaluate(self, first_player, second_player):
         victories = 0
@@ -401,11 +397,10 @@ if __name__ == "__main__":
     eval_step = 1
     max_game_rounds = 500
     iteration_run = 0
-    reg = False
 
-    yes_no_dsl = DSL('S')
+    yes_no_dsl = SharedWeightsDSL('S')
     yes_no_dsl.set_type_action(True)
-    column_dsl = DSL('S')
+    column_dsl = SharedWeightsDSL('S')
     column_dsl.set_type_action(False)
 
     selfplay_SA = SimulatedAnnealingSelfplay(
@@ -424,8 +419,7 @@ if __name__ == "__main__":
                                         max_game_rounds,
                                         iteration_run,
                                         yes_no_dsl,
-                                        column_dsl,
-                                        reg
+                                        column_dsl
                                     )
     selfplay_SA.run()
 
