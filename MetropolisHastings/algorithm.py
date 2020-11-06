@@ -6,8 +6,10 @@ import os
 sys.path.insert(0,'..')
 from game import Game
 from solitaire_game import SolitaireGame
-from sketch import Sketch
+#from sketch import Sketch
+from experimental_sketch import Sketch
 from MetropolisHastings.DSL import DSL
+from MetropolisHastings.experimental_DSL import ExperimentalDSL
 from MetropolisHastings.two_weights_DSL import TwoWeightsDSL
 from MetropolisHastings.shared_weights_DSL import SharedWeightsDSL
 from players.glenn_player import Glenn_Player
@@ -19,7 +21,8 @@ from play_game_template import play_solitaire_single_game
 class Algorithm(ABC):
 
     def __init__(self, tree_max_nodes, n_iterations, n_games_glenn, n_games_uct,
-        n_games_solitaire, uct_playouts, max_game_rounds, yes_no_dsl, column_dsl):
+        n_games_solitaire, uct_playouts, max_game_rounds, yes_no_dsl, column_dsl,
+        n_cores):
 
         self.tree_max_nodes = tree_max_nodes
         self.n_iterations = n_iterations
@@ -30,6 +33,7 @@ class Algorithm(ABC):
         self.max_game_rounds = max_game_rounds
         self.yes_no_dsl = yes_no_dsl
         self.column_dsl = column_dsl
+        self.n_cores = n_cores
 
         # For analysis
         self.victories = []
@@ -77,10 +81,12 @@ class Algorithm(ABC):
 
     def _string_to_object(self, str_class, *args, **kwargs):
         """ Transform a program written inside str_class to an object. """
-
+        '''
         exec(str_class)
         class_name = re.search("class (.*):", str_class).group(1).partition("(")[0]
         return locals()[class_name](*args, **kwargs)
+        '''
+        return compile(str_class, 'sumstring', 'exec')
 
     def validate_against_glenn(self, current_script):
         """ Validate current script against Glenn's heuristic player. """
