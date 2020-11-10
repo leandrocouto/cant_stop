@@ -16,6 +16,8 @@ import pickle
 import math
 import time
 import re
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
 
 def play_single_game(player1, player2, game, max_game_length):
     """
@@ -85,63 +87,6 @@ def play_single_game(player1, player2, game, max_game_length):
 
     return who_won
 
-
-def simplified_play_single_game_parallel(current_program_string, 
-    current_program_column, mutated_program_string, mutated_program_column, 
-    game, max_game_length, iteration):
-    """
-    Play a single game between player1 and player2 for parallel calls, that's
-    why the dynamic instantiation happens here, because dynamic objects cannot
-    be pickled and therefore cannot be passed as parameters for parallel calls.
-
-    Return 1 if player1 won, 2 if player2 won or if the game reached the max
-    number of iterations, it returns 0 representing a draw.
-    In this method, it is not stored what the other player played in previous
-    rounds (this info is used in UCTPlayer players in order to maintain the 
-    UCT tree between plays).
-    """
-
-    is_over = False
-    rounds = 0
-    
-    # Dynamically instantiation of the players 
-    script_1 = Sketch(current_program_string, current_program_column, iteration, max_game_length)
-    script_2 = Sketch(mutated_program_string, mutated_program_column, iteration, max_game_length)
-
-    script_1_code = script_1._generateTextScript(iteration)
-    exec(script_1_code)
-    player1 = locals()[re.search("class (.*):", script_1_code).group(1).partition("(")[0]]()
-
-    script_2_code = script_2._generateTextScript(iteration)
-    exec(script_2_code)
-    player2 = locals()[re.search("class (.*):", script_2_code).group(1).partition("(")[0]]()
-
-    while not is_over:
-        rounds += 1
-        moves = game.available_moves()
-        if game.is_player_busted(moves):
-            continue
-        else:
-            if game.player_turn == 1:
-                chosen_play = player1.get_action(game)
-            else:
-                chosen_play = player2.get_action(game)
-
-            # Apply the chosen_play in the game
-            game.play(chosen_play)
-
-        # if the game has reached its max number of plays, end the game
-        # and who_won receives 0, which means no players won.
-
-        if rounds > max_game_length:
-            who_won = 0
-            is_over = True
-        else:
-            who_won, is_over = game.is_finished()
-
-    return who_won
-
-
 def simplified_play_single_game(player1, player2, game, max_game_length):
     """
     Play a single game between player1 and player2.
@@ -193,14 +138,9 @@ def play_solitaire_single_game(player, game, max_game_length):
         #print('Iteration', i)
         moves = game.available_moves()
         if game.is_player_busted(moves):
-            #print('Busted.\n')
             continue
         else:
             chosen_play = player.get_action(game)
-            
-            #game.print_board()
-            #print('chosen_play = ', chosen_play, 'moves = ', moves)
-            #print()
             # Apply the chosen_play in the game
             game.play(chosen_play)
 

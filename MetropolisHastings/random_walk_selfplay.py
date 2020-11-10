@@ -12,9 +12,8 @@ from game import Game
 from sketch import Sketch
 #from experimental_sketch import Sketch
 from algorithm import Algorithm
-from play_game_template import simplified_play_single_game, simplified_play_single_game_parallel
+from play_game_template import simplified_play_single_game_parallel_two_scripts, play_single_game_parallel_one_script, simplified_play_single_game
 from play_game_template import play_single_game
-from play_game_template import play_solitaire_single_game
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
 
@@ -83,47 +82,32 @@ class RandomWalkSelfplay(Algorithm):
             current_program_string = self.tree_string.generate_program()
             current_program_column = self.tree_column.generate_program()
             
-            print('current_program')
-            print(current_program_string)
-            print(current_program_column)
-            print()
-
-            #exit()
             mutated_program_string = new_tree_string.generate_program()
             mutated_program_column = new_tree_column.generate_program()
 
-            print('mutated_program')
-            print(mutated_program_string)
-            print(mutated_program_column)
-            script_best_player = self.generate_player(
-                                                current_program_string, 
-                                                current_program_column,
-                                                i
-                                                )
-            script_mutated_player = self.generate_player(
-                                                mutated_program_string,
-                                                mutated_program_column,
-                                                i
-                                                )
+            best_script = Sketch(
+                                current_program_string, 
+                                current_program_column, 
+                                i, 
+                                self.tree_max_nodes,
+                                self.filename
+                            ) 
 
-            #a = time.time()
-            #victories, losses, draws = self.selfplay(script_mutated_player, script_best_player)
+            mutated_script = Sketch(
+                                mutated_program_string, 
+                                mutated_program_column, 
+                                i, 
+                                self.tree_max_nodes,
+                                self.filename
+                            ) 
+
+            script_best_player = best_script.generate_player('best')
+            script_mutated_player = mutated_script.generate_player('mutated')
+            a = time.time()
             victories, losses, draws = self.selfplay(script_mutated_player, script_best_player)
-            #b = time.time() - a
-            #print('tempo selfplay antigo = ', b)
-            #c = time.time()
-            '''
-            victories, losses, draws = self.selfplay(
-                                                    mutated_program_string, 
-                                                    mutated_program_column, 
-                                                    current_program_string, 
-                                                    current_program_column,
-                                                    i
-                                                    )
-            '''
-            #d = time.time() - c
-            #print('tempo selfplay novo = ', d)
-            #exit()
+            b = time.time() - a
+            print('tempo b = ', b)
+            exit()
 
             self.games_played += self.n_games
             self.games_played_all.append(self.games_played)
@@ -136,19 +120,13 @@ class RandomWalkSelfplay(Algorithm):
 
                 self.games_played_successful.append(self.games_played)
 
+                # Assign the mutated tree as the best one
                 self.tree_string = new_tree_string
                 self.tree_column = new_tree_column
-                best_program_string = self.tree_string.generate_program()
-                best_program_column = self.tree_column.generate_program()
-                script_best_player = self.generate_player(
-                                                        best_program_string,
-                                                        best_program_column,
-                                                        i
-                                                        )
 
                 # Validade against Glenn's heuristic
                 start_glenn = time.time()
-                v_glenn, l_glenn, d_glenn = self.validate_against_glenn(script_best_player)
+                v_glenn, l_glenn, d_glenn = self.validate_against_glenn(script_mutated_player)
                 self.victories_against_glenn.append(v_glenn)
                 self.losses_against_glenn.append(l_glenn)
                 self.draws_against_glenn.append(d_glenn)
@@ -162,7 +140,7 @@ class RandomWalkSelfplay(Algorithm):
                 # Only play games against UCT every eval_step successful iterations
                 if len(self.victories_against_glenn) % self.eval_step == 0:
                     self.games_played_uct.append(self.games_played)
-                    v_uct, l_uct, d_uct = self.validate_against_UCT(script_best_player)
+                    v_uct, l_uct, d_uct = self.validate_against_UCT(script_mutated_player)
                     self.victories_against_UCT.append(v_uct)
                     self.losses_against_UCT.append(l_uct)
                     self.draws_against_UCT.append(d_uct)
@@ -195,20 +173,15 @@ class RandomWalkSelfplay(Algorithm):
                 with open(folder + 'datafile_iteration_' + str(i) , 'wb') as file:
                     pickle.dump(iteration_data, file)
                 # Save current script
-                dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/data/' 
-                script = Sketch(
-                                best_program_string, 
-                                best_program_column, 
-                                self.n_iterations, 
-                                self.tree_max_nodes
-                            )      
-                script.save_file_custom(dir_path, self.filename + '_iteration_' + str(i))
+                dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/data/'      
+                mutated_script.save_file_custom(dir_path, self.filename + '_iteration_' + str(i))
 
                 # Generate the graphs with current data
                 self.generate_report()
 
                 with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
                     print('Iteration -', i, 'New program accepted - ', 
+                        'V/L/D Selfplay = ', victories, losses, draws, 
                         'V/L/D against Glenn = ', v_glenn, l_glenn, d_glenn, 
                         'V/L/D against UCT', self.uct_playouts, 'playouts = ', v_uct, l_uct, d_uct,
                         'Games played = ', self.games_played,
@@ -220,25 +193,25 @@ class RandomWalkSelfplay(Algorithm):
             else:
                 elapsed_time = time.time() - start
                 with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
-                    print('Iteration -', i, '- Elapsed time: ', elapsed_time, 'Games played = ', self.games_played, file=f)
+                    print('Iteration -', i, '- Elapsed time: ', elapsed_time, 
+                            'V/L/D Selfplay = ', victories, losses, draws,
+                            'Games played = ', self.games_played, file=f)
         
         best_program_string = self.tree_string.generate_program()
         best_program_column = self.tree_column.generate_program()
-        script_best_player = self.generate_player(
-                                                best_program_string,
-                                                best_program_column,
-                                                i
-                                                )
+
+        best_script = Sketch(
+                                best_program_string, 
+                                best_program_column, 
+                                self.n_iterations, 
+                                self.tree_max_nodes,
+                                self.filename
+                            ) 
+        script_best_player = best_script.generate_player('best_final')
 
         # Save the best script
-        dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/'
-        script = Sketch(
-                        best_program_string, 
-                        best_program_column, 
-                        self.n_iterations, 
-                        self.tree_max_nodes
-                    )      
-        script.save_file_custom(dir_path, self.filename + '_best_script')
+        dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/'      
+        best_script.save_file_custom(dir_path, self.filename + '_best_script')
 
         full_run_elapsed_time = time.time() - full_run
         with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
@@ -249,54 +222,10 @@ class RandomWalkSelfplay(Algorithm):
     def accept_new_program(self, victories, losses):
         return victories > losses
 
-    '''
-    def selfplay(self, mutated_player, current_player):
-
-        victories = 0
-        losses = 0
-        draws = 0
-        for i in range(self.n_games):
-            game = game = Game(2, 4, 6, [2,12], 2, 2)
-            if i%2 == 0:
-                    who_won = simplified_play_single_game(
-                                                        mutated_player, 
-                                                        current_player, 
-                                                        game, 
-                                                        self.max_game_rounds
-                                                    )
-                    if who_won == 1:
-                        victories += 1
-                    elif who_won == 2:
-                        losses += 1
-                    else:
-                        draws += 1
-            else:
-                who_won = simplified_play_single_game(
-                                                    current_player, 
-                                                    mutated_player, 
-                                                    game, 
-                                                    self.max_game_rounds
-                                                )
-                if who_won == 2:
-                    victories += 1
-                elif who_won == 1:
-                    losses += 1
-                else:
-                    draws += 1
-
-        return victories, losses, draws
-    '''
-    
-    def helper2(self, args):
-        return simplified_play_single_game_parallel(
-                                                    args[0], args[1], args[2], 
-                                                    args[3], args[4], args[5], 
-                                                    args[6]
-                                                    )
-
     def helper(self, args):
         return simplified_play_single_game(args[0], args[1], args[2], args[3])
-    def selfplay(self, mutated_player, current_player):
+
+    def selfplay(self, script_mutated_player, script_best_player):
 
         
         # First with the current script as first player, then the opposite
@@ -307,7 +236,8 @@ class RandomWalkSelfplay(Algorithm):
             # Specify which arguments will be used for each parallel call
             args_1 = (
                         (
-                        current_player, mutated_player, 
+                        script_mutated_player, 
+                        script_best_player, 
                         Game(2, 4, 6, [2,12], 2, 2), 
                         self.max_game_rounds
                         ) 
@@ -320,7 +250,8 @@ class RandomWalkSelfplay(Algorithm):
             # Specify which arguments will be used for each parallel call
             args_2 = (
                         (
-                        mutated_player, current_player,  
+                         script_best_player,
+                         script_mutated_player, 
                         Game(2, 4, 6, [2,12], 2, 2), 
                         self.max_game_rounds
                         ) 
@@ -334,87 +265,21 @@ class RandomWalkSelfplay(Algorithm):
 
         for result in results_1:
             if result == 1:
-                losses += 1
-            elif result == 2:
                 victories += 1
+            elif result == 2:
+                losses += 1
             else:
                 draws += 1 
 
-        print('victories = ', victories, 'losses = ', losses, 'draws = ',draws)
         for result in results_2:
             if result == 1:
-                victories += 1
-            elif result == 2:
                 losses += 1
+            elif result == 2:
+                victories += 1
             else:
                 draws += 1 
-        print('victories = ', victories, 'losses = ', losses, 'draws = ',draws)
-        print()
-        exit()
+
         return victories, losses, draws
-
-    def selfplay2(self, current_program_string, current_program_column, 
-        mutated_program_string, mutated_program_column, iteration):
-
-        
-        # First with the current script as first player, then the opposite
-
-        # ProcessPoolExecutor() will take care of joining() and closing()
-        # the processes after they are finished.
-        with ProcessPoolExecutor(max_workers=self.n_cores) as executor:
-            # Specify which arguments will be used for each parallel call
-            args_1 = (
-                        (
-                        current_program_string, current_program_column, 
-                        mutated_program_string, mutated_program_column, 
-                        Game(2, 4, 6, [2,12], 2, 2), 
-                        self.max_game_rounds,
-                        iteration
-                        ) 
-                    for _ in range(self.n_games // 2)
-                    )
-            results_1 = executor.map(self.helper, args_1)
-
-        # Current script is now the second player
-        with ProcessPoolExecutor(max_workers=self.n_cores) as executor:
-            # Specify which arguments will be used for each parallel call
-            args_2 = (
-                        (
-                        mutated_program_string, mutated_program_column,
-                        current_program_string, current_program_column,  
-                        Game(2, 4, 6, [2,12], 2, 2), 
-                        self.max_game_rounds, 
-                        iteration
-                        ) 
-                    for _ in range(self.n_games // 2)
-                    )
-            results_2 = executor.map(self.helper, args_2)
-
-        victories = 0
-        losses = 0
-        draws = 0
-
-        for result in results_1:
-            if result == 1:
-                losses += 1
-            elif result == 2:
-                victories += 1
-            else:
-                draws += 1 
-
-        print('victories = ', victories, 'losses = ', losses, 'draws = ',draws)
-        for result in results_2:
-            if result == 1:
-                victories += 1
-            elif result == 2:
-                losses += 1
-            else:
-                draws += 1 
-        print('victories = ', victories, 'losses = ', losses, 'draws = ',draws)
-        print()
-        exit()
-        return victories, losses, draws
-    
 
     def generate_report(self):
         
@@ -462,30 +327,20 @@ class RandomWalkSelfplay(Algorithm):
         plt.savefig(filename + '_vs_UCT.png')
         plt.close()
 
-        '''
-        plt.errorbar(self.games_played_successful, self.avg_rounds_solitaire, yerr=self.std_rounds_solitaire, fmt='-')
-        plt.title(str(self.algo_id) + " - Average rounds in Solitaire Can't Stop")
-        plt.xlabel('Games played')
-        plt.ylabel('Number of rounds')
-        plt.grid()
-        plt.savefig(filename + '_solitaire.png')
-        plt.close()
-        '''
-
 if __name__ == "__main__":
     algo_id = 'RWSP'
     n_iterations = 100
     tree_max_nodes = 100
-    n_games = 100
-    n_games_glenn = 1000
-    n_games_uct = 3
+    n_games = 10000
+    n_games_glenn = 100
+    n_games_uct = 5
     n_games_solitaire = 1000
     uct_playouts = [2, 3, 4]
     eval_step = 1
     max_game_rounds = 1000
     iteration_run = 0
-    print('multiprocessing.cpu_count() = ', multiprocessing.cpu_count())
-    n_cores = 4#multiprocessing.cpu_count()
+    #print('multiprocessing.cpu_count() = ', multiprocessing.cpu_count())
+    n_cores = 1#multiprocessing.cpu_count()
 
     
     yes_no_dsl = SharedWeightsDSL('S')

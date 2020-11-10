@@ -14,9 +14,11 @@ from MetropolisHastings.two_weights_DSL import TwoWeightsDSL
 from MetropolisHastings.shared_weights_DSL import SharedWeightsDSL
 from players.glenn_player import Glenn_Player
 from players.vanilla_uct_player import Vanilla_UCT
-from play_game_template import simplified_play_single_game
+from play_game_template import simplified_play_single_game, simplified_play_single_game_parallel_one_script, play_single_game_parallel_one_script
 from play_game_template import play_single_game
 from play_game_template import play_solitaire_single_game
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
 
 class Algorithm(ABC):
 
@@ -68,28 +70,10 @@ class Algorithm(ABC):
         """
         pass
 
-    def generate_player(self, program_string, program_column, iteration):
-        """ Generate a Player object given the program string. """
+    def helper_glenn(self, args):
+        return simplified_play_single_game(args[0], args[1], args[2], args[3])
 
-        script = Sketch(
-                        program_string, 
-                        program_column, 
-                        self.n_iterations, 
-                        self.tree_max_nodes
-                    )
-        return self._string_to_object(script._generateTextScript(iteration))
-
-    def _string_to_object(self, str_class, *args, **kwargs):
-        """ Transform a program written inside str_class to an object. """
-        '''
-        exec(str_class)
-        class_name = re.search("class (.*):", str_class).group(1).partition("(")[0]
-        return locals()[class_name](*args, **kwargs)
-        '''
-        return compile(str_class, 'sumstring', 'exec')
-
-    def validate_against_glenn(self, current_script):
-        """ Validate current script against Glenn's heuristic player. """
+    def validate_against_glenn(self, script):
 
         glenn = Glenn_Player()
 
@@ -97,39 +81,53 @@ class Algorithm(ABC):
         losses = 0
         draws = 0
 
-        for i in range(self.n_games_glenn):
-            game = game = Game(2, 4, 6, [2,12], 2, 2)
-            if i%2 == 0:
-                    who_won = simplified_play_single_game(
-                                                        current_script, 
-                                                        glenn, 
-                                                        game, 
-                                                        self.max_game_rounds
-                                                    )
-                    if who_won == 1:
-                        victories += 1
-                    elif who_won == 2:
-                        losses += 1
-                    else:
-                        draws += 1
-            else:
-                who_won = simplified_play_single_game(
-                                                    glenn, 
-                                                    current_script, 
-                                                    game, 
-                                                    self.max_game_rounds
-                                                )
-                if who_won == 2:
-                    victories += 1
-                elif who_won == 1:
-                    losses += 1
-                else:
-                    draws += 1
+        # First with the current script as first player, then the opposite
 
+        # ProcessPoolExecutor() will take care of joining() and closing()
+        # the processes after they are finished.
+        with ProcessPoolExecutor(max_workers=self.n_cores) as executor:
+            # Specify which arguments will be used for each parallel call
+            args_1 = (
+                        (
+                        script, glenn, Game(2, 4, 6, [2,12], 2, 2), 
+                        self.max_game_rounds
+                        ) 
+                    for _ in range(self.n_games_glenn // 2)
+                    )
+            results_1 = executor.map(self.helper_glenn, args_1)
+
+        # Current script is now the second player
+        with ProcessPoolExecutor(max_workers=self.n_cores) as executor:
+            # Specify which arguments will be used for each parallel call
+            args_2 = (
+                        (
+                        glenn, script, Game(2, 4, 6, [2,12], 2, 2), 
+                        self.max_game_rounds
+                        ) 
+                    for _ in range(self.n_games_glenn // 2)
+                    )
+            results_2 = executor.map(self.helper_glenn, args_2)
+
+        for result in results_1:
+            if result == 1:
+                victories += 1
+            elif result == 2:
+                losses += 1
+            else:
+                draws += 1 
+
+        for result in results_2:
+            if result == 1:
+                losses += 1
+            elif result == 2:
+                victories += 1
+            else:
+                draws += 1 
         return victories, losses, draws
 
-    def validate_against_UCT(self, current_script):
-        """ Validate current script against UCT. """
+    def helper_uct(self, args):
+        return play_single_game(args[0], args[1], args[2], args[3])
+    def validate_against_UCT(self, script):
 
         victories = []
         losses = []
@@ -139,36 +137,50 @@ class Algorithm(ABC):
             v = 0
             l = 0
             d = 0
-            for j in range(self.n_games_uct):
-                game = game = Game(2, 4, 6, [2,12], 2, 2)
-                uct = Vanilla_UCT(c = 1, n_simulations = self.uct_playouts[i])
-                if j%2 == 0:
-                        who_won = play_single_game(
-                                                    current_script, 
-                                                    uct, 
-                                                    game, 
-                                                    self.max_game_rounds
-                                                    )
-                        if who_won == 1:
-                            v += 1
-                        elif who_won == 2:
-                            l += 1
-                        else:
-                            d += 1
+
+            uct = Vanilla_UCT(c = 1, n_simulations = self.uct_playouts[i])
+            # ProcessPoolExecutor() will take care of joining() and closing()
+            # the processes after they are finished.
+            with ProcessPoolExecutor(max_workers=self.n_cores) as executor:
+                # Specify which arguments will be used for each parallel call
+                args_1 = (
+                            (
+                            script, uct, Game(2, 4, 6, [2,12], 2, 2), 
+                            self.max_game_rounds
+                            ) 
+                        for _ in range(self.n_games_uct // 2)
+                        )
+                results_1 = executor.map(self.helper_uct, args_1)
+
+            uct = Vanilla_UCT(c = 1, n_simulations = self.uct_playouts[i])
+            # Current script is now the second player
+            with ProcessPoolExecutor(max_workers=self.n_cores) as executor:
+                # Specify which arguments will be used for each parallel call
+                args_2 = (
+                            (
+                            uct, script, Game(2, 4, 6, [2,12], 2, 2), 
+                            self.max_game_rounds
+                            )  
+                        for _ in range(self.n_games_uct // 2)
+                        )
+                results_2 = executor.map(self.helper_uct, args_2)
+
+            for result in results_1:
+                if result == 1:
+                    v += 1
+                elif result == 2:
+                    l += 1
                 else:
-                    who_won = play_single_game(
-                                                uct, 
-                                                current_script, 
-                                                game, 
-                                                self.max_game_rounds
-                                                )
-                    if who_won == 2:
-                        v += 1
-                    elif who_won == 1:
-                        l += 1
-                    else:
-                        d += 1
-            
+                    d += 1 
+
+            for result in results_2:
+                if result == 1:
+                    l += 1
+                elif result == 2:
+                    v += 1
+                else:
+                    d += 1
+
             victories.append(v)
             losses.append(l)
             draws.append(d)
