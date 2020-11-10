@@ -7,12 +7,12 @@ sys.path.insert(0,'..')
 from MetropolisHastings.parse_tree import ParseTree
 from MetropolisHastings.DSL import DSL
 from MetropolisHastings.shared_weights_DSL import SharedWeightsDSL
-from MetropolisHastings.experimental_DSL import ExperimentalDSL
+#from MetropolisHastings.experimental_DSL import ExperimentalDSL
 from game import Game
 from sketch import Sketch
 #from experimental_sketch import Sketch
 from algorithm import Algorithm
-from play_game_template import simplified_play_single_game_parallel_two_scripts, play_single_game_parallel_one_script, simplified_play_single_game
+from play_game_template import simplified_play_single_game
 from play_game_template import play_single_game
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
