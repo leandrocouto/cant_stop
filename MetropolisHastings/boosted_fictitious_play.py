@@ -14,6 +14,8 @@ from fictitious_play import FictitiousPlay
 from play_game_template import simplified_play_single_game
 from play_game_template import play_single_game
 from play_game_template import play_solitaire_single_game
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
 
 class BoostedFictitiousPlay(FictitiousPlay):
     """
@@ -52,7 +54,6 @@ class BoostedFictitiousPlay(FictitiousPlay):
                         str(self.n_games_evaluate) + 'eval_' + \
                         str(self.n_games_glenn) + 'glenn_' + \
                         str(self.n_games_uct) + 'uct_' + \
-                        #str(self.n_games_solitaire) + 'solitaire_' + \
                         str(self.iteration_run) + 'run'
 
         if not os.path.exists(self.filename):
@@ -107,8 +108,8 @@ class BoostedFictitiousPlay(FictitiousPlay):
 
 if __name__ == "__main__":
     algo_id = 'BSAFP'
-    n_iterations = 20
-    n_SA_iterations = 10
+    n_iterations = 5
+    n_SA_iterations = 20
     tree_max_nodes = 100
     d = 1
     init_temp = 1
@@ -121,23 +122,11 @@ if __name__ == "__main__":
     max_game_rounds = 500
     iteration_run = 0
     
-    yes_no_dsl = DSL('S')
-    yes_no_dsl.set_type_action(True)
-    column_dsl = DSL('S')
-    column_dsl.set_type_action(False)
-    
-    '''
-    yes_no_dsl = TwoWeightsDSL('S')
-    yes_no_dsl.set_type_action(True)
-    column_dsl = TwoWeightsDSL('S')
-    column_dsl.set_type_action(False)
-    '''
-    '''
     yes_no_dsl = SharedWeightsDSL('S')
     yes_no_dsl.set_type_action(True)
     column_dsl = SharedWeightsDSL('S')
     column_dsl.set_type_action(False)
-    '''
+    
     
     boosted_fictitious_play = BoostedFictitiousPlay(
                                         algo_id,

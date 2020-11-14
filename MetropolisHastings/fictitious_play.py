@@ -11,9 +11,11 @@ from MetropolisHastings.shared_weights_DSL import SharedWeightsDSL
 from game import Game
 from sketch import Sketch
 from algorithm import Algorithm
-from play_game_template import simplified_play_single_game
+from play_game_template import simplified_play_single_game, simplified_play_single_game_parallel_two_scripts
 from play_game_template import play_single_game
 from play_game_template import play_solitaire_single_game
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
 
 class FictitiousPlay(Algorithm):
     """
@@ -81,8 +83,10 @@ class FictitiousPlay(Algorithm):
         p_program_column = p_tree_column.generate_program()
 
         p = self.generate_player(p_program_string, p_program_column, 'p')
-
+        import copy
         br_set = [p]
+        #br_set = [copy.deepcopy(p) for i in range(5)]
+        #br_set = [(copy.deepcopy(p_program_string), copy.deepcopy(p_program_column)) for i in range(5)]
 
         for i in range(self.n_iterations):
             start = time.time()
@@ -100,7 +104,6 @@ class FictitiousPlay(Algorithm):
             self.games_played_all.append(self.games_played)
             
             # if br_p is better, keep it
-            #if score_br_p > score_p:
             if self.accept_new_program(score_br_p, score_p):
                 p_tree_string = br_tree_string
                 p_tree_column = br_tree_column
@@ -133,15 +136,6 @@ class FictitiousPlay(Algorithm):
                     self.losses_against_UCT.append(l_uct)
                     self.draws_against_UCT.append(d_uct)
                 elapsed_time_uct = time.time() - start_uct
-
-                '''
-                # Validate with Solitaire
-                start_solitaire = time.time()
-                avg_solitaire, std_solitaire = self.validate_solitaire(p)
-                self.avg_rounds_solitaire.append(avg_solitaire)
-                self.std_rounds_solitaire.append(std_solitaire)
-                elapsed_time_solitaire = time.time() - start_solitaire
-                '''
 
                 # Save data file
                 iteration_data = (
@@ -178,6 +172,7 @@ class FictitiousPlay(Algorithm):
                                 self.tree_max_nodes
                             )      
                 script.save_file_custom(dir_path, self.filename + '_iteration_' + str(i))
+                
 
                 # Generate the graphs with current data
                 self.generate_report()
@@ -186,15 +181,12 @@ class FictitiousPlay(Algorithm):
                     print('Iteration -', i, 'New program accepted - V/L/D new script vs old = ',
                         victories_br_p, losses_br_p, draws_br_p, 
                         'V/L/D against Glenn = ', v_glenn, l_glenn, d_glenn, 
-                        'V/L/D against UCT', self.uct_playouts, 'playouts = ', v_uct, l_uct, d_uct, 
-                        #'Avg and std in Solitaire = ', avg_solitaire, std_solitaire, 
+                        'V/L/D against UCT', self.uct_playouts, 'playouts = ', v_uct, l_uct, d_uct,
                         'Games played = ', self.games_played,
                         file=f)
                     print('Iteration -', i, 'SA elapsed time = ', elapsed_time,
                         'Glenn elapsed time = ', elapsed_time_glenn, 
-                        'UCT elapsed time = ', elapsed_time_uct, 
-                        #'Solitaire elapsed time = ', elapsed_time_solitaire,
-                        #'Total elapsed time = ', elapsed_time + elapsed_time_glenn + elapsed_time_uct + elapsed_time_solitaire, file=f)
+                        'UCT elapsed time = ', elapsed_time_uct,
                         'Total elapsed time = ', elapsed_time + elapsed_time_glenn + elapsed_time_uct, file=f)
 
             # The new script was not better, ignore this iteration
@@ -211,6 +203,7 @@ class FictitiousPlay(Algorithm):
                         self.tree_max_nodes
                     )      
         script.save_file_custom(dir_path, self.filename + '_best_script')
+        
 
         full_run_elapsed_time = time.time() - full_run
         with open(self.filename + '/' + 'log_' + self.filename + '.txt', 'a') as f:
@@ -373,18 +366,9 @@ class FictitiousPlay(Algorithm):
         plt.savefig(filename + '_vs_UCT.png')
         plt.close()
 
-        '''
-        plt.errorbar(self.games_played_successful, self.avg_rounds_solitaire, yerr=self.std_rounds_solitaire, fmt='-')
-        plt.title(str(self.algo_id) + " - Average rounds in Solitaire Can't Stop")
-        plt.xlabel('Games played')
-        plt.ylabel('Number of rounds')
-        plt.savefig(filename + '_solitaire.png')
-        plt.close()
-        '''
-
 if __name__ == "__main__":
     algo_id = 'SAFP'
-    n_iterations = 10
+    n_iterations = 3
     n_SA_iterations = 20
     tree_max_nodes = 100
     d = 1

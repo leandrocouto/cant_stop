@@ -125,15 +125,6 @@ class SimulatedAnnealingSelfplay(Algorithm):
                     self.draws_against_UCT.append(d_uct)
                 elapsed_time_uct = time.time() - start_uct
 
-                '''
-                # Validate with Solitaire
-                start_solitaire = time.time()
-                avg_solitaire, std_solitaire = self.validate_solitaire(p)
-                self.avg_rounds_solitaire.append(avg_solitaire)
-                self.std_rounds_solitaire.append(std_solitaire)
-                elapsed_time_solitaire = time.time() - start_solitaire
-                '''
-
                 # Save data file
                 iteration_data = (
                                     self.victories,
@@ -371,16 +362,6 @@ class SimulatedAnnealingSelfplay(Algorithm):
         axes.set_ylim([-0.05, 1.05])
         plt.savefig(filename + '_vs_UCT.png')
         plt.close()
-
-        '''
-        plt.errorbar(self.games_played_successful, self.avg_rounds_solitaire, yerr=self.std_rounds_solitaire, fmt='-')
-        plt.title(str(self.algo_id) + " - Average rounds in Solitaire Can't Stop")
-        plt.xlabel('Games played')
-        plt.ylabel('Number of rounds')
-        plt.grid()
-        plt.savefig(filename + '_solitaire.png')
-        plt.close()
-        '''
 
 if __name__ == "__main__":
     algo_id = 'SASP'

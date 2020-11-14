@@ -14,6 +14,8 @@ from algorithm import Algorithm
 from play_game_template import simplified_play_single_game
 from play_game_template import play_single_game
 from play_game_template import play_solitaire_single_game
+from concurrent.futures import ProcessPoolExecutor
+import multiprocessing
 
 class RandomWalkFictitiousPlay(Algorithm):
     """
@@ -102,7 +104,6 @@ class RandomWalkFictitiousPlay(Algorithm):
             self.games_played_all.append(self.games_played)
 
             # If the new synthesized program is better against br_p
-            #if mutated_score > best_score:
             if self.accept_new_program(mutated_score, best_score):
                 self.victories.append(victories_mut)
                 self.losses.append(losses_mut)
@@ -142,15 +143,6 @@ class RandomWalkFictitiousPlay(Algorithm):
                     self.losses_against_UCT.append(l_uct)
                     self.draws_against_UCT.append(d_uct)
                 elapsed_time_uct = time.time() - start_uct
-
-                '''
-                # Validate with Solitaire
-                start_solitaire = time.time()
-                avg_solitaire, std_solitaire = self.validate_solitaire(script_best_player)
-                self.avg_rounds_solitaire.append(avg_solitaire)
-                self.std_rounds_solitaire.append(std_solitaire)
-                elapsed_time_solitaire = time.time() - start_solitaire
-                '''
 
                 elapsed_time = time.time() - start
 
@@ -196,14 +188,12 @@ class RandomWalkFictitiousPlay(Algorithm):
                     print('Iteration -', i, 'New program accepted - ',
                         'V/L/D against br_set = ', victories_mut, losses_mut, draws_mut,
                         'V/L/D against Glenn = ', v_glenn, l_glenn, d_glenn, 
-                        'V/L/D against UCT', self.uct_playouts, 'playouts = ', v_uct, l_uct, d_uct, 
-                        #'Avg and std in Solitaire = ', avg_solitaire, std_solitaire, 
+                        'V/L/D against UCT', self.uct_playouts, 'playouts = ', v_uct, l_uct, d_uct,
                         'Games played = ', self.games_played,
                         file=f)
                     print('Iteration -', i, 
                         'Glenn elapsed time = ', elapsed_time_glenn, 
                         'UCT elapsed time = ', elapsed_time_uct, 
-                        #'Solitaire elapsed time = ', elapsed_time_solitaire,
                         'Total elapsed time = ', elapsed_time, file=f)
             # The new script was not better, ignore this iteration
             else:
@@ -237,7 +227,7 @@ class RandomWalkFictitiousPlay(Algorithm):
 
     def accept_new_program(self, mutated_score, best_score):
         return mutated_score > best_score
-
+        
     def evaluate(self, player, br_set):
         victories_rate = []
         losses_rate = []
@@ -326,18 +316,9 @@ class RandomWalkFictitiousPlay(Algorithm):
         plt.savefig(filename + '_vs_UCT.png')
         plt.close()
 
-        '''
-        plt.errorbar(self.games_played_successful, self.avg_rounds_solitaire, yerr=self.std_rounds_solitaire, fmt='-')
-        plt.title(str(self.algo_id) + " - Average rounds in Solitaire Can't Stop")
-        plt.xlabel('Games played')
-        plt.ylabel('Number of rounds')
-        plt.savefig(filename + '_solitaire.png')
-        plt.close()
-        '''
-
 if __name__ == "__main__":
     algo_id = 'RWFP'
-    n_iterations = 50
+    n_iterations = 10
     tree_max_nodes = 100
     n_games_evaluate = 100
     n_games_glenn = 1000
