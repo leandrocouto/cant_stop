@@ -27,7 +27,7 @@ class BoostedSimulatedAnnealingSelfplay(SimulatedAnnealingSelfplay):
     def __init__(self, algo_id, n_iterations, n_SA_iterations, 
         tree_max_nodes, d, init_temp, n_games_evaluate, n_games_glenn, 
         n_games_uct, n_games_solitaire, uct_playouts, eval_step, 
-        max_game_rounds, iteration_run, yes_no_dsl, column_dsl):
+        max_game_rounds, iteration_run, yes_no_dsl, column_dsl, validate):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -45,7 +45,7 @@ class BoostedSimulatedAnnealingSelfplay(SimulatedAnnealingSelfplay):
                         tree_max_nodes, d, init_temp, n_games_evaluate, 
                         n_games_glenn, n_games_uct, n_games_solitaire, 
                         uct_playouts, eval_step, max_game_rounds, 
-                        iteration_run, yes_no_dsl, column_dsl
+                        iteration_run, yes_no_dsl, column_dsl, validate
                         )
 
         self.filename = str(self.algo_id) + '_' + \
@@ -146,6 +146,7 @@ if __name__ == "__main__":
     eval_step = 1
     max_game_rounds = 500
     iteration_run = 0
+    validate = False
 
     yes_no_dsl = SharedWeightsDSL('S')
     yes_no_dsl.set_type_action(True)
@@ -168,7 +169,8 @@ if __name__ == "__main__":
                                         max_game_rounds,
                                         iteration_run,
                                         yes_no_dsl,
-                                        column_dsl
+                                        column_dsl,
+                                        validate
                                     )
     boosted_selfplay_SA.run()
 

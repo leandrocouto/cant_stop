@@ -27,7 +27,7 @@ class RandomWalkSelfplay(Algorithm):
     """
     def __init__(self, algo_id, n_iterations, tree_max_nodes, n_games, 
         n_games_glenn, n_games_uct, n_games_solitaire, uct_playouts, eval_step, 
-        max_game_rounds, iteration_run, yes_no_dsl, column_dsl):
+        max_game_rounds, iteration_run, yes_no_dsl, column_dsl, validate):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -45,7 +45,7 @@ class RandomWalkSelfplay(Algorithm):
 
         super().__init__(tree_max_nodes, n_iterations, n_games_glenn, 
                             n_games_uct, n_games_solitaire, uct_playouts,
-                            max_game_rounds, yes_no_dsl, column_dsl
+                            max_game_rounds, yes_no_dsl, column_dsl, validate
                         )
 
         self.filename = str(self.algo_id) + '_' + \
@@ -116,11 +116,15 @@ class RandomWalkSelfplay(Algorithm):
                 self.tree_column = new_tree_column
 
                 # Validade against Glenn's heuristic
+                v_glenn = None
+                l_glenn = None
+                d_glenn = None
                 start_glenn = time.time()
-                v_glenn, l_glenn, d_glenn = self.validate_against_glenn(script_mutated_player)
-                self.victories_against_glenn.append(v_glenn)
-                self.losses_against_glenn.append(l_glenn)
-                self.draws_against_glenn.append(d_glenn)
+                if self.validate:
+                    v_glenn, l_glenn, d_glenn = self.validate_against_glenn(script_mutated_player)
+                    self.victories_against_glenn.append(v_glenn)
+                    self.losses_against_glenn.append(l_glenn)
+                    self.draws_against_glenn.append(d_glenn)
                 elapsed_time_glenn = time.time() - start_glenn
 
                 # Validade against UCT
@@ -128,13 +132,14 @@ class RandomWalkSelfplay(Algorithm):
                 l_uct = None 
                 d_uct = None
                 start_uct = time.time()
-                # Only play games against UCT every eval_step successful iterations
-                if len(self.victories_against_glenn) % self.eval_step == 0:
-                    self.games_played_uct.append(self.games_played)
-                    v_uct, l_uct, d_uct = self.validate_against_UCT(script_mutated_player)
-                    self.victories_against_UCT.append(v_uct)
-                    self.losses_against_UCT.append(l_uct)
-                    self.draws_against_UCT.append(d_uct)
+                if self.validate:
+                    # Only play games against UCT every eval_step successful iterations
+                    if len(self.victories_against_glenn) % self.eval_step == 0:
+                        self.games_played_uct.append(self.games_played)
+                        v_uct, l_uct, d_uct = self.validate_against_UCT(script_mutated_player)
+                        self.victories_against_UCT.append(v_uct)
+                        self.losses_against_UCT.append(l_uct)
+                        self.draws_against_UCT.append(d_uct)
                 elapsed_time_uct = time.time() - start_uct
 
                 elapsed_time = time.time() - start
@@ -269,31 +274,32 @@ class RandomWalkSelfplay(Algorithm):
         plt.savefig(filename + '_vs_previous_script.png')
         plt.close()
 
-        y_victories = [vic / self.n_games_glenn for vic in self.victories_against_glenn]
-        plt.plot(self.games_played_successful, y_victories, color='green')
-        plt.title(str(self.algo_id) + " - Games against Glenn")
-        plt.xlabel('Games played')
-        plt.ylabel('Victory rate - ' + str(self.n_games_glenn) + ' games')
-        plt.grid()
-        plt.yticks([x / 10.0 for x in range(0,11,1)])
-        axes = plt.gca()
-        axes.set_ylim([-0.05, 1.05])
-        plt.savefig(filename + '_vs_glenn.png')
-        plt.close()
+        if self.validate:
+            y_victories = [vic / self.n_games_glenn for vic in self.victories_against_glenn]
+            plt.plot(self.games_played_successful, y_victories, color='green')
+            plt.title(str(self.algo_id) + " - Games against Glenn")
+            plt.xlabel('Games played')
+            plt.ylabel('Victory rate - ' + str(self.n_games_glenn) + ' games')
+            plt.grid()
+            plt.yticks([x / 10.0 for x in range(0,11,1)])
+            axes = plt.gca()
+            axes.set_ylim([-0.05, 1.05])
+            plt.savefig(filename + '_vs_glenn.png')
+            plt.close()
 
-        for i in range(len(self.uct_playouts)):
-            victories = [vic[i] / self.n_games_uct for vic in self.victories_against_UCT]  
-            plt.plot(self.games_played_uct, victories, label=str(self.uct_playouts[i]) + " playouts")
-        plt.legend(loc="best")
-        plt.title(str(self.algo_id) + " - Games against UCT")
-        plt.xlabel('Games played')
-        plt.ylabel('Victory rate - ' + str(self.n_games_uct) + ' games')
-        plt.grid()
-        plt.yticks([x / 10.0 for x in range(0,11,1)])
-        axes = plt.gca()
-        axes.set_ylim([-0.05, 1.05])
-        plt.savefig(filename + '_vs_UCT.png')
-        plt.close()
+            for i in range(len(self.uct_playouts)):
+                victories = [vic[i] / self.n_games_uct for vic in self.victories_against_UCT]  
+                plt.plot(self.games_played_uct, victories, label=str(self.uct_playouts[i]) + " playouts")
+            plt.legend(loc="best")
+            plt.title(str(self.algo_id) + " - Games against UCT")
+            plt.xlabel('Games played')
+            plt.ylabel('Victory rate - ' + str(self.n_games_uct) + ' games')
+            plt.grid()
+            plt.yticks([x / 10.0 for x in range(0,11,1)])
+            axes = plt.gca()
+            axes.set_ylim([-0.05, 1.05])
+            plt.savefig(filename + '_vs_UCT.png')
+            plt.close()
 
 if __name__ == "__main__":
     algo_id = 'RWSP'
@@ -307,6 +313,7 @@ if __name__ == "__main__":
     eval_step = 1
     max_game_rounds = 1000
     iteration_run = 0
+    validate = False
 
     
     yes_no_dsl = SharedWeightsDSL('S')
@@ -327,6 +334,7 @@ if __name__ == "__main__":
                             max_game_rounds,
                             iteration_run,
                             yes_no_dsl,
-                            column_dsl
+                            column_dsl,
+                            validate
                         )
     random_walk_selfplay.run()
