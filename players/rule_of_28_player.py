@@ -8,7 +8,9 @@ class Rule_of_28_Player(Player):
     """
 
     def __init__(self):
-        self.score = 0
+        # Incremental score for the player. If it reaches self.threshold, 
+        # chooses the 'n' action, chooses 'y' otherwise.
+        # Columns weights used for each type of action
         self.progress_value = [0, 0, 6, 5, 4, 3, 2, 1, 2, 3, 4, 5, 6]
         self.move_value = [0, 0, 1, 2, 3, 4, 5, 6, 5, 4, 3, 2, 1]
         # Difficulty score
@@ -21,106 +23,43 @@ class Rule_of_28_Player(Player):
 
     def get_action(self, state):
         actions = state.available_moves()
-        
         if actions == ['y', 'n']:
-            available_columns = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-            for neutral in state.neutral_positions:
-                available_columns.remove(neutral[0])
-            for finished in state.finished_columns:
-                if finished[0] in available_columns:
-                    available_columns.remove(finished[0])
-            # Check if the player will win the game if they choose 'n'
-            clone_state = state.clone()
-            clone_state.play('n')
-            won_columns = 0
-            for won_column in clone_state.finished_columns:
-                if state.player_turn == won_column[1]:
-                    won_columns += 1
-            #This means if the player stop playing now, they will win the game
-            if won_columns == 3:
+            # If the player stops playing now, they will win the game, therefore
+            # stop playing
+            if self.will_player_win_after_n(state):
                 return 'n'
-            elif state.n_neutral_markers != 3 and len(available_columns) > 0:
+            # If there are available columns and neutral markers, continue playing
+            elif self.are_there_available_columns_to_play(state):
                 return 'y'
             else:
+                # Calculate score
+                score = self.calculate_score(state)
                 # Difficulty score
-                neutral = [n[0] for n in state.neutral_positions]
-                # If all neutral markers are in odd columns
-                if all([x % 2 != 0 for x in neutral]):
-                    self.score += self.odds
-                # If all neutral markers are in even columns
-                if all([x % 2 == 0 for x in neutral]):
-                    self.score += self.evens
-                # If all neutral markers are is "low" columns
-                if all([x <= 7 for x in neutral]):
-                    self.score += self.lows
-                # If all neutral markers are is "high" columns
-                if all([x >= 7 for x in neutral]):
-                    self.score += self.highs
-
-                if self.score >= self.threshold:
-                    # Reset to zero the score for next player's round
-                    self.score = 0
+                score += self.calculate_difficulty_score(state)
+                # If the current score surpasses the threshold, stop playing
+                if score >= self.threshold:
+                    # Reset the score to zero for next player's round
                     return 'n'
                 else:
                     return 'y'
         else:
+            # Calculate a score for each available action
             scores = np.zeros(len(actions))
             for i in range(len(scores)):
                 scores[i] = self.calculate_action_score(actions[i], state)
 
-            index_chosen_action = np.argmax(scores)
-            chosen_action = actions[index_chosen_action]
-
-            # Incrementally adds the score that will be used in the yes/no action
-            neutral = [n[0] for n in state.neutral_positions]
-            # Special case: doubled action (e.g.: (6,6))
-            if len(chosen_action) == 2 and chosen_action[0] == chosen_action[1]:
-                # There's already a neutral marker in that column
-                if chosen_action in neutral:
-                    self.score += 2 * self.progress_value[chosen_action[0]]
-                else:
-                    self.score += 3 * self.progress_value[chosen_action[0]]
-            else:
-                for column in chosen_action:
-
-                    # There's already a neutral marker in that column
-                    if column in neutral:
-                        self.score += self.progress_value[column]
-                    else:
-                        self.score += 2 * self.progress_value[column]
+            chosen_action = actions[np.argmax(scores)]
             return chosen_action
 
-    def calculate_action_score(self, action, state):
-
-        neutral_positions = state.neutral_positions
+    def calculate_score(self, state):
         score = 0
-        # Special case: double action (e.g.: (6,6))
-        if len(action) == 2 and action[0] == action[1]:
-            advance = 2
-            is_new_neutral = True
-            for neutral in neutral_positions:
-                if neutral[0] == action:
-                    is_new_neutral = False
-            if is_new_neutral:
-                markers = 1
-            else:
-                markers = 0
-            score = advance * (self.move_value[action[0]]) - self.marker * markers
-            return score
-        else:
-            for a in action:
-                advance = 1
-                is_new_neutral = True
-                for neutral in neutral_positions:
-                    if neutral[0] == action:
-                        is_new_neutral = False
-                if is_new_neutral:
-                    markers = 1
-                else:
-                    markers = 0
-                score += advance * (self.move_value[a]) - self.marker * markers
-
-            return score
+        neutrals = [col[0] for col in state.neutral_positions]
+        for col in neutrals:
+            advance = self.number_cells_advanced_this_round_for_col(state, col)
+            # +1 because whenever a neutral marker is used, the weight of that
+            # column is summed
+            score += (advance + 1) * self.progress_value[col]
+        return score
 
     def number_cells_advanced_this_round_for_col(self, state, column):
         """
@@ -152,3 +91,120 @@ class Rule_of_28_Player(Player):
                 if won_column[0] == column:
                     counter += len(list_of_cells) - previously_conquered
         return counter
+
+    def get_available_columns(self, state):
+        """ Return a list of all available columns. """
+
+        # List containing all columns, remove from it the columns that are
+        # available given the current board
+        available_columns = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        for neutral in state.neutral_positions:
+            available_columns.remove(neutral[0])
+        for finished in state.finished_columns:
+            if finished[0] in available_columns:
+                available_columns.remove(finished[0])
+
+        return available_columns
+
+    def will_player_win_after_n(self, state):
+        """ 
+        Return a boolean in regards to if the player will win the game or not 
+        if they choose to stop playing the current round (i.e.: choose the 
+        'n' action). 
+        """
+        clone_state = state.clone()
+        clone_state.play('n')
+        won_columns = 0
+        for won_column in clone_state.finished_columns:
+            if state.player_turn == won_column[1]:
+                won_columns += 1
+        #This means if the player stop playing now, they will win the game
+        if won_columns == 3:
+            return True
+        else:
+            return False
+
+    def are_there_available_columns_to_play(self, state):
+        """
+        Return a booleanin regards to if there available columns for the player
+        to choose. That is, if the does not yet have all three neutral markers
+        used AND there are available columns that are not finished/won yet.
+        """
+        available_columns = self.get_available_columns(state)
+        return state.n_neutral_markers != 3 and len(available_columns) > 0
+
+    def calculate_difficulty_score(self, state):
+        """
+        Add an integer to the current score given the peculiarities of the
+        neutral marker positions on the board.
+        """
+        difficulty_score = 0
+
+        neutral = [n[0] for n in state.neutral_positions]
+        # If all neutral markers are in odd columns
+        if all([x % 2 != 0 for x in neutral]):
+            difficulty_score += self.odds
+        # If all neutral markers are in even columns
+        if all([x % 2 == 0 for x in neutral]):
+            difficulty_score += self.evens
+        # If all neutral markers are is "low" columns
+        if all([x <= 7 for x in neutral]):
+            difficulty_score += self.lows
+        # If all neutral markers are is "high" columns
+        if all([x >= 7 for x in neutral]):
+            difficulty_score += self.highs
+
+        return difficulty_score
+
+    def is_action_doubled(self, action):
+        """ Boolean representing if action is doubled (i.e.: (5,5)) or not. """
+
+        return len(action) == 2 and action[0] == action[1]
+
+    def calculate_action_score(self, action, state):
+        """ 
+        Formula taken from the Glenn's paper.
+        Given the move_value weights for each column, and the advance of 
+        "action" in that column (i.e.: 1 for (6,), 2 for (6,6) or (6,5)), the
+        score for each column in action is:
+
+        score = advance * move_value[action] - self.marker * markers
+
+        where self.marker is a constant and markers is 1 the action will place
+        a new neutral in that column, and 0 otherwise.
+
+        If action has two columns (ex: (5,6)), the formula above is summed for
+        each column (5 and 6).
+        """
+
+        neutral_positions = state.neutral_positions
+        score = 0
+        # Special case: double action (e.g.: (6,6))
+        if len(action) == 2 and action[0] == action[1]:
+            # only doubled actions have an advance of 2
+            advance = 2
+            is_new_neutral = True
+            for neutral in neutral_positions:
+                if neutral[0] == action:
+                    is_new_neutral = False
+            if is_new_neutral:
+                markers = 1
+            else:
+                markers = 0
+            score = advance * (self.move_value[action[0]]) - self.marker * markers
+            return score
+        else:
+            # Iterate over all columns in action
+            for column in action:
+                advance = 1
+                is_new_neutral = True
+                for neutral in neutral_positions:
+                    if neutral[0] == action:
+                        is_new_neutral = False
+                if is_new_neutral:
+                    markers = 1
+                else:
+                    markers = 0
+                score += advance * (self.move_value[column]) - self.marker * markers
+
+            return score

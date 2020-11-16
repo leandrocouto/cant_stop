@@ -4,29 +4,31 @@ class DSL:
     domain.
     """
     def __init__(self, start):
-        
+        '''
+        - string_action is a boolean. True if it is a y/n action, False if it 
+          is a column action.
+        '''
         self.start = start
         
         self._grammar = {}
-        
+
         self._grammar['score_str']   = [
                                         "score_str OP score_str",
                                         "abs( score_str OP score_str )",
-                                        "score_str OP COLS",
-                                        "abs( score_str OP COLS )",
-                                        "function_str_score"
+                                        "function_str_score",
+                                        "THRESHOLD"
                                         ]
         self._grammar['score_num'] = [
                                         "score_num OP score_num",
                                         "abs( score_num OP score_num )",
-                                        "score_num OP COLS",
-                                        "abs( score_num OP COLS )",
-                                        "function_num_score"
+                                        "function_num_score",
+                                        "THRESHOLD"
                                         ]
         self._grammar['function_str_score'] = [# Strictly "string" actions
                                 'DSL.get_player_score(state)',
                                 'DSL.get_opponent_score(state)',
-                                'DSL.number_cells_advanced_this_round(state)'
+                                'DSL.number_cells_advanced_this_round(state)',
+                                'DSL.get_weight_of_neutral_columns(state, weights)'
                                 ]
         self._grammar['function_num_score'] = [# Strictly "numeric" actions
                                 'DSL.advance_in_action_col(actions[i])',
@@ -51,10 +53,10 @@ class DSL:
           is a column action.
         '''
         if string_action:
-           self._grammar[self.start] = [r"\t \t if actions[0] in ['y','n'] : \n \t \t \t score_yes_no = score_str \n \t \t \t if score_yes_no < THRESHOLD : \n \t \t \t \t return 'y' \n \t \t \t else: \n \t \t \t \t return 'n'"]
+           self._grammar[self.start] = [r"\t \t weights = [ WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS ] \n \t \t if actions[0] in ['y','n'] : \n \t \t \t score_yes_no = score_str \n \t \t \t if score_yes_no < THRESHOLD : \n \t \t \t \t return 'y' \n \t \t \t else: \n \t \t \t \t return 'n'"]
         else:
-            self._grammar[self.start] = [r"\t \t else: \n \t \t \t score_columns = np.zeros(len(actions)) \n \t \t \t  weights = [ WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS , WEIGHTS ] \n \t \t \t for i in range(len(actions)): \n \t \t \t \t score_columns[i] = score_num \n \t \t \t return actions[np.argmax(score_columns)]"]
-
+            self._grammar[self.start] = [r"\t \t else: \n \t \t \t score_columns = np.zeros(len(actions)) \n \t \t \t for i in range(len(actions)): \n \t \t \t \t score_columns[i] = score_num \n \t \t \t return actions[np.argmax(score_columns)]"]
+     
         self.quickly_finish = {
                                 self.start :self._grammar[self.start],
                                 'score_str' :['function_str_score', 'THRESHOLD'],
@@ -66,6 +68,20 @@ class DSL:
                                 'COLS' :self._grammar['COLS'],
                                 'WEIGHTS' :self._grammar['WEIGHTS']
                             }
+
+    @staticmethod
+    def get_weight_of_neutral_columns(state, weights):
+        """
+        Return the sum of the weights of the columns where there is a neutral
+        marker placed.
+        """
+        neutral_positions = [n[0] for n in state.neutral_positions]
+        weight_sum = 0
+        for neutral in neutral_positions:
+            # Interporlated formula to find the array index given the column
+            # y = 5-|x-7|
+            weight_sum += weights[5 - abs(neutral - 7)]
+        return weight_sum
 
     @staticmethod
     def get_weight_for_action_columns(action, weights):

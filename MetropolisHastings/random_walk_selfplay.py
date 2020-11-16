@@ -6,16 +6,11 @@ import matplotlib.pyplot as plt
 sys.path.insert(0,'..')
 from MetropolisHastings.parse_tree import ParseTree
 from MetropolisHastings.DSL import DSL
-from MetropolisHastings.shared_weights_DSL import SharedWeightsDSL
-#from MetropolisHastings.experimental_DSL import ExperimentalDSL
 from game import Game
 from sketch import Sketch
-#from experimental_sketch import Sketch
 from algorithm import Algorithm
-from play_game_template import simplified_play_single_game, simplified_play_single_game_parallel_two_scripts
+from play_game_template import simplified_play_single_game
 from play_game_template import play_single_game
-from concurrent.futures import ProcessPoolExecutor
-import multiprocessing
 
 class RandomWalkSelfplay(Algorithm):
     """
@@ -73,7 +68,6 @@ class RandomWalkSelfplay(Algorithm):
 
         # Main loop
         for i in range(self.n_iterations):
-            print('iteracao - ', i)
             start = time.time()
             # Make a copy of the tree for future mutation
             new_tree_string = pickle.loads(pickle.dumps(self.tree_string, -1))
@@ -324,9 +318,9 @@ if __name__ == "__main__":
     scripts_to_collect = [100, 200, 500, 1000, 1500, 2000, 5000]
 
     
-    yes_no_dsl = SharedWeightsDSL('S')
+    yes_no_dsl = DSL('S')
     yes_no_dsl.set_type_action(True)
-    column_dsl = SharedWeightsDSL('S')
+    column_dsl = DSL('S')
     column_dsl.set_type_action(False)
     
     random_walk_selfplay = RandomWalkSelfplay(

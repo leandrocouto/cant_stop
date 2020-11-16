@@ -5,19 +5,12 @@ import re
 import os
 sys.path.insert(0,'..')
 from game import Game
-from solitaire_game import SolitaireGame
 from sketch import Sketch
-#from experimental_sketch import Sketch
 from MetropolisHastings.DSL import DSL
-#from MetropolisHastings.experimental_DSL import ExperimentalDSL
-from MetropolisHastings.two_weights_DSL import TwoWeightsDSL
-from MetropolisHastings.shared_weights_DSL import SharedWeightsDSL
 from players.glenn_player import Glenn_Player
 from players.vanilla_uct_player import Vanilla_UCT
 from play_game_template import simplified_play_single_game 
 from play_game_template import play_single_game
-from concurrent.futures import ProcessPoolExecutor
-import multiprocessing
 
 class Algorithm(ABC):
 

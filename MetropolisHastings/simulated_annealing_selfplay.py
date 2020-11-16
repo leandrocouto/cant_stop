@@ -8,13 +8,11 @@ import random
 sys.path.insert(0,'..')
 from MetropolisHastings.parse_tree import ParseTree
 from MetropolisHastings.DSL import DSL
-from MetropolisHastings.shared_weights_DSL import SharedWeightsDSL
 from game import Game
 from sketch import Sketch
 from algorithm import Algorithm
 from play_game_template import simplified_play_single_game
 from play_game_template import play_single_game
-from play_game_template import play_solitaire_single_game
 
 class SimulatedAnnealingSelfplay(Algorithm):
     """
@@ -392,9 +390,9 @@ if __name__ == "__main__":
     validate = False
     scripts_to_collect = [100, 200, 500, 1000, 1500, 2000, 5000]
 
-    yes_no_dsl = SharedWeightsDSL('S')
+    yes_no_dsl = DSL('S')
     yes_no_dsl.set_type_action(True)
-    column_dsl = SharedWeightsDSL('S')
+    column_dsl = DSL('S')
     column_dsl.set_type_action(False)
 
     selfplay_SA = SimulatedAnnealingSelfplay(
