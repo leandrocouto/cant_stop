@@ -23,7 +23,7 @@ class Algorithm(ABC):
 
     def __init__(self, tree_max_nodes, n_iterations, n_games_glenn, n_games_uct,
         n_games_solitaire, uct_playouts, max_game_rounds, yes_no_dsl, column_dsl,
-        validate):
+        validate, scripts_to_collect):
 
         self.tree_max_nodes = tree_max_nodes
         self.n_iterations = n_iterations
@@ -35,6 +35,7 @@ class Algorithm(ABC):
         self.yes_no_dsl = yes_no_dsl
         self.column_dsl = column_dsl
         self.validate = validate
+        self.scripts_to_collect = scripts_to_collect
 
         # For analysis
         self.victories = []
@@ -86,6 +87,19 @@ class Algorithm(ABC):
                         self.tree_max_nodes
                     )
         return self._string_to_object(script.generate_text(iteration))
+
+    def save_checkpoint_script(self, program_string, program_column):
+        """ Save the script according to the number of games played. """
+
+        scripts_folder = self.filename + '/scripts/' 
+        if not os.path.exists(scripts_folder):
+            os.makedirs(scripts_folder)
+        # Save current script
+        dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/scripts/' 
+        script = Sketch(program_string, program_column, self.n_iterations, self.tree_max_nodes)
+        sufix = str(self.scripts_to_collect[0]) + '_actual_' + str(self.games_played)
+        script.save_file_custom(dir_path, 'Script_step_' + sufix)
+        self.scripts_to_collect.pop(0)
 
     def validate_against_glenn(self, script):
         """ Validate current script against Glenn's heuristic player. """

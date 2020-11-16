@@ -27,7 +27,8 @@ class SimulatedAnnealingSelfplay(Algorithm):
     def __init__(self, algo_id, n_iterations, n_SA_iterations, 
         tree_max_nodes, d, init_temp, n_games_evaluate, n_games_glenn, 
         n_games_uct, n_games_solitaire, uct_playouts, eval_step, 
-        max_game_rounds, iteration_run, yes_no_dsl, column_dsl, validate):
+        max_game_rounds, iteration_run, yes_no_dsl, column_dsl, validate,
+        scripts_to_collect):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -51,7 +52,8 @@ class SimulatedAnnealingSelfplay(Algorithm):
 
         super().__init__(tree_max_nodes, n_iterations, n_games_glenn, 
                             n_games_uct, n_games_solitaire, uct_playouts,
-                            max_game_rounds, yes_no_dsl, column_dsl, validate
+                            max_game_rounds, yes_no_dsl, column_dsl, validate,
+                            scripts_to_collect
                         )
 
         self.filename = str(self.algo_id) + '_' + \
@@ -103,6 +105,12 @@ class SimulatedAnnealingSelfplay(Algorithm):
                 self.draws.append(draws)
 
                 self.games_played_successful.append(self.games_played)
+
+                br_program_string = br_tree_string.generate_program()
+                br_program_column = br_tree_column.generate_program()
+                # Save checkpoint based on number of games played
+                if self.scripts_to_collect and self.games_played >= self.scripts_to_collect[0]:
+                    self.save_checkpoint_script(br_program_string, br_program_column)
 
                 # Validade against Glenn's heuristic
                 start_glenn = time.time()
@@ -368,7 +376,7 @@ class SimulatedAnnealingSelfplay(Algorithm):
 
 if __name__ == "__main__":
     algo_id = 'SASP'
-    n_iterations = 20
+    n_iterations = 10
     n_SA_iterations = 10
     tree_max_nodes = 100
     d = 1
@@ -382,6 +390,7 @@ if __name__ == "__main__":
     max_game_rounds = 500
     iteration_run = 0
     validate = False
+    scripts_to_collect = [100, 200, 500, 1000, 1500, 2000, 5000]
 
     yes_no_dsl = SharedWeightsDSL('S')
     yes_no_dsl.set_type_action(True)
@@ -405,7 +414,8 @@ if __name__ == "__main__":
                                         iteration_run,
                                         yes_no_dsl,
                                         column_dsl,
-                                        validate
+                                        validate,
+                                        scripts_to_collect
                                     )
     selfplay_SA.run()
 

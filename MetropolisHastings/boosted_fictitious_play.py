@@ -28,7 +28,8 @@ class BoostedFictitiousPlay(FictitiousPlay):
     def __init__(self, algo_id, n_iterations, n_SA_iterations, 
         tree_max_nodes, d, init_temp, n_games_evaluate, n_games_glenn, 
         n_games_uct, n_games_solitaire, uct_playouts, eval_step, 
-        max_game_rounds, iteration_run, yes_no_dsl, column_dsl, validate):
+        max_game_rounds, iteration_run, yes_no_dsl, column_dsl, validate,
+        scripts_to_collect):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -46,7 +47,7 @@ class BoostedFictitiousPlay(FictitiousPlay):
                         d, init_temp, n_games_evaluate, n_games_glenn, 
                         n_games_uct, n_games_solitaire, uct_playouts, eval_step, 
                         max_game_rounds, iteration_run, yes_no_dsl, column_dsl,
-                        validate
+                        validate, scripts_to_collect
                         )
 
         self.filename = str(self.algo_id) + '_' + \
@@ -123,6 +124,7 @@ if __name__ == "__main__":
     max_game_rounds = 500
     iteration_run = 0
     validate = False
+    scripts_to_collect = [100, 200, 500, 1000, 1500, 2000, 5000]
     
     yes_no_dsl = SharedWeightsDSL('S')
     yes_no_dsl.set_type_action(True)
@@ -147,7 +149,8 @@ if __name__ == "__main__":
                                         iteration_run,
                                         yes_no_dsl,
                                         column_dsl,
-                                        validate
+                                        validate,
+                                        scripts_to_collect
                                     )
     boosted_fictitious_play.run()
 

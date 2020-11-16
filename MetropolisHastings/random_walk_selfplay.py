@@ -27,7 +27,8 @@ class RandomWalkSelfplay(Algorithm):
     """
     def __init__(self, algo_id, n_iterations, tree_max_nodes, n_games, 
         n_games_glenn, n_games_uct, n_games_solitaire, uct_playouts, eval_step, 
-        max_game_rounds, iteration_run, yes_no_dsl, column_dsl, validate):
+        max_game_rounds, iteration_run, yes_no_dsl, column_dsl, validate,
+        scrips_to_collect):
         """
         Metropolis Hastings with temperature schedule. This allows the 
         algorithm to explore more the space search.
@@ -45,7 +46,8 @@ class RandomWalkSelfplay(Algorithm):
 
         super().__init__(tree_max_nodes, n_iterations, n_games_glenn, 
                             n_games_uct, n_games_solitaire, uct_playouts,
-                            max_game_rounds, yes_no_dsl, column_dsl, validate
+                            max_game_rounds, yes_no_dsl, column_dsl, validate,
+                            scrips_to_collect
                         )
 
         self.filename = str(self.algo_id) + '_' + \
@@ -110,6 +112,11 @@ class RandomWalkSelfplay(Algorithm):
                 self.draws.append(draws)
 
                 self.games_played_successful.append(self.games_played)
+
+                # Save checkpoint based on number of games played
+                if self.scripts_to_collect and self.games_played >= self.scripts_to_collect[0]:
+                    self.save_checkpoint_script(mutated_program_string, mutated_program_column)
+
 
                 # Assign the mutated tree as the best one
                 self.tree_string = new_tree_string
@@ -314,6 +321,7 @@ if __name__ == "__main__":
     max_game_rounds = 1000
     iteration_run = 0
     validate = False
+    scripts_to_collect = [100, 200, 500, 1000, 1500, 2000, 5000]
 
     
     yes_no_dsl = SharedWeightsDSL('S')
@@ -335,6 +343,7 @@ if __name__ == "__main__":
                             iteration_run,
                             yes_no_dsl,
                             column_dsl,
-                            validate
+                            validate,
+                            scripts_to_collect
                         )
     random_walk_selfplay.run()
