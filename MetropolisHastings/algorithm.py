@@ -5,8 +5,10 @@ import re
 import os
 sys.path.insert(0,'..')
 from game import Game
-from sketch import Sketch
-from MetropolisHastings.DSL import DSL
+#from sketch import Sketch
+#from MetropolisHastings.DSL import DSL
+from MetropolisHastings.experimental_DSL import ExperimentalDSL
+from experimental_sketch import Sketch
 from players.glenn_player import Glenn_Player
 from players.vanilla_uct_player import Vanilla_UCT
 from play_game_template import simplified_play_single_game 

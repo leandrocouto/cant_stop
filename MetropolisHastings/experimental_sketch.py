@@ -9,7 +9,7 @@ class Sketch:
         self.tree_max_nodes = tree_max_nodes
         self._py = r'''
 from players.player import Player
-
+from MetropolisHastings.experimental_DSL import ExperimentalDSL
 
 class Script_{0}(Player):
 \tdef get_action(self, state):
@@ -18,8 +18,8 @@ class Script_{0}(Player):
 '''
         
         self.program = r'''{0}'''
-    def _generateTextScript(self, file_name):
-        py = self._py.format(file_name)
+    def generate_text(self, name):
+        py = self._py.format(name)
         py += self.program.format(self.program_string)
         py += self.program.format('\n')
         py += self.program.format(self.program_column)
@@ -27,6 +27,6 @@ class Script_{0}(Player):
         return py
 
     def save_file_custom(self, path, file_name):
-        py = self._generateTextScript(file_name)
+        py = self.generate_text(file_name)
         with open(path + 'Script_'+ file_name + '.py', 'w') as f:
             f.write(py)
