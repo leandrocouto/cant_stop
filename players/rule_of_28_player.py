@@ -2,10 +2,6 @@ from players.player import Player
 import numpy as np
 
 class Rule_of_28_Player(Player):
-    """ 
-    Heuristic proposed by the article 'A Generalized Heuristic for 
-    Can’t Stop'.
-    """
 
     def __init__(self):
         # Incremental score for the player. If it reaches self.threshold, 
@@ -21,6 +17,12 @@ class Rule_of_28_Player(Player):
         self.marker = 6
         self.threshold = 28
 
+    # yes no td junto
+    # if self.are_there_available_columns_to_play(state) and not self.will_player_win_after_n(state) )
+    # OR  self.calculate_score(state) + self.calculate_difficulty_score(state) < threshold:
+    #   return 'y'
+    # else: 
+    #   return 'n'
     def get_action(self, state):
         actions = state.available_moves()
         if actions == ['y', 'n']:
@@ -43,11 +45,11 @@ class Rule_of_28_Player(Player):
                 else:
                     return 'y'
         else:
-            # Calculate a score for each available action
             scores = np.zeros(len(actions))
             for i in range(len(scores)):
-                scores[i] = self.calculate_action_score(actions[i], state)
-
+                # Iterate over all columns in action
+                for column in actions[i]:
+                    scores[i] += self.advance(actions[i]) * self.move_value[column] - self.marker * self.is_new_neutral(column, state)
             chosen_action = actions[np.argmax(scores)]
             return chosen_action
 
@@ -156,11 +158,7 @@ class Rule_of_28_Player(Player):
 
         return difficulty_score
 
-    def is_action_doubled(self, action):
-        """ Boolean representing if action is doubled (i.e.: (5,5)) or not. """
-
-        return len(action) == 2 and action[0] == action[1]
-
+    
     def calculate_action_score(self, action, state):
         """ 
         Formula taken from the Glenn's paper.
@@ -177,34 +175,28 @@ class Rule_of_28_Player(Player):
         each column (5 and 6).
         """
 
-        neutral_positions = state.neutral_positions
         score = 0
-        # Special case: double action (e.g.: (6,6))
-        if len(action) == 2 and action[0] == action[1]:
-            # only doubled actions have an advance of 2
-            advance = 2
-            is_new_neutral = True
-            for neutral in neutral_positions:
-                if neutral[0] == action:
-                    is_new_neutral = False
-            if is_new_neutral:
-                markers = 1
-            else:
-                markers = 0
-            score = advance * (self.move_value[action[0]]) - self.marker * markers
-            return score
-        else:
-            # Iterate over all columns in action
-            for column in action:
-                advance = 1
-                is_new_neutral = True
-                for neutral in neutral_positions:
-                    if neutral[0] == action:
-                        is_new_neutral = False
-                if is_new_neutral:
-                    markers = 1
-                else:
-                    markers = 0
-                score += advance * (self.move_value[column]) - self.marker * markers
+        # Iterate over all columns in action
+        for column in action:
+            score += self.advance(action) * self.move_value[column] - self.marker * self.is_new_neutral(column, state)
 
-            return score
+        return score
+    
+    def is_new_neutral(self, action, state):
+        # Return a boolean representing if action will place a new neutral. """
+        is_new_neutral = True
+        for neutral in state.neutral_positions:
+            if neutral[0] == action:
+                is_new_neutral = False
+
+        return is_new_neutral
+
+    def advance(self, action):
+        """ Return how many cells this action will advance for each column. """
+
+        # Special case: doubled action (e.g. (6,6))
+        if len(action) == 2 and action[0] == action[1]:
+            return 2
+        # All other cases will advance only one cell per column
+        else:
+            return 1
