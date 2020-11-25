@@ -2,11 +2,14 @@ from game import Game
 from players.vanilla_uct_player import Vanilla_UCT
 from players.uct_player import UCTPlayer
 from players.glenn_player import Glenn_Player
-from sketch import Sketch
+#from sketch import Sketch
 import pickle
 import math
 import time
 import re
+
+from MetropolisHastings.experimental_DSL import ExperimentalDSL
+from experimental_sketch import Sketch
 
 def play_single_game(player1, player2, game, max_game_length):
     """
@@ -314,7 +317,6 @@ def simplified_play_single_game(player1, player2, game, max_game_length):
                 chosen_play = player1.get_action(game)
             else:
                 chosen_play = player2.get_action(game)
-
             # Apply the chosen_play in the game
             game.play(chosen_play)
 

@@ -6,9 +6,11 @@ import os
 import matplotlib.pyplot as plt
 sys.path.insert(0,'..')
 from MetropolisHastings.parse_tree import ParseTree
-from MetropolisHastings.DSL import DSL
 from game import Game
-from sketch import Sketch
+#from MetropolisHastings.DSL import DSL
+#from sketch import Sketch
+from MetropolisHastings.experimental_DSL import ExperimentalDSL
+from experimental_sketch import Sketch
 from algorithm import Algorithm
 from play_game_template import simplified_play_single_game
 from play_game_template import play_single_game
@@ -73,8 +75,10 @@ class FictitiousPlay(Algorithm):
         p_tree_string = ParseTree(self.yes_no_dsl, self.tree_max_nodes)
         p_tree_column = ParseTree(self.column_dsl, self.tree_max_nodes)
 
-        p_tree_string.build_tree(p_tree_string.root)
-        p_tree_column.build_tree(p_tree_column.root)
+        #p_tree_string.build_tree(p_tree_string.root)
+        #p_tree_column.build_tree(p_tree_column.root)
+        p_tree_string.build_glenn_tree(True)
+        p_tree_column.build_glenn_tree(False)
 
         p_program_string = p_tree_string.generate_program()
         p_program_column = p_tree_column.generate_program()
@@ -82,8 +86,6 @@ class FictitiousPlay(Algorithm):
         p = self.generate_player(p_program_string, p_program_column, 'p')
         import copy
         br_set = [p]
-        #br_set = [copy.deepcopy(p) for i in range(5)]
-        #br_set = [(copy.deepcopy(p_program_string), copy.deepcopy(p_program_column)) for i in range(5)]
 
         for i in range(self.n_iterations):
             start = time.time()
@@ -224,8 +226,10 @@ class FictitiousPlay(Algorithm):
         # Builds an initially random program
         best_solution_string_tree = ParseTree(self.yes_no_dsl, self.tree_max_nodes)
         best_solution_column_tree = ParseTree(self.column_dsl, self.tree_max_nodes)
-        best_solution_string_tree.build_tree(best_solution_string_tree.root)
-        best_solution_column_tree.build_tree(best_solution_column_tree.root)
+        #best_solution_string_tree.build_tree(best_solution_string_tree.root)
+        #best_solution_column_tree.build_tree(best_solution_column_tree.root)
+        best_solution_string_tree.build_glenn_tree(True)
+        best_solution_column_tree.build_glenn_tree(False)
         best_string = best_solution_string_tree.generate_program()
         best_column = best_solution_column_tree.generate_program()
         best_solution = self.generate_player(best_string, best_column, 'SA_best')
@@ -390,12 +394,18 @@ if __name__ == "__main__":
     eval_step = 1
     max_game_rounds = 500
     iteration_run = 0
-    validate = False
+    validate = True
     scripts_to_collect = [100, 200, 500, 1000, 1500, 2000, 5000]
 
+    '''
     yes_no_dsl = DSL('S')
     yes_no_dsl.set_type_action(True)
     column_dsl = DSL('S')
+    column_dsl.set_type_action(False)
+    '''
+    yes_no_dsl = ExperimentalDSL('S')
+    yes_no_dsl.set_type_action(True)
+    column_dsl = ExperimentalDSL('S')
     column_dsl.set_type_action(False)
 
     fictitious_play = FictitiousPlay(

@@ -7,9 +7,11 @@ import matplotlib.pyplot as plt
 import random
 sys.path.insert(0,'..')
 from MetropolisHastings.parse_tree import ParseTree
-from MetropolisHastings.DSL import DSL
 from game import Game
-from sketch import Sketch
+#from MetropolisHastings.DSL import DSL
+#from sketch import Sketch
+from MetropolisHastings.experimental_DSL import ExperimentalDSL
+from experimental_sketch import Sketch
 from simulated_annealing_selfplay import SimulatedAnnealingSelfplay
 from play_game_template import simplified_play_single_game
 from play_game_template import play_single_game
@@ -146,12 +148,18 @@ if __name__ == "__main__":
     eval_step = 1
     max_game_rounds = 500
     iteration_run = 0
-    validate = False
+    validate = True
     scripts_to_collect = [100, 200, 500, 1000, 1500, 2000, 5000]
 
+    '''
     yes_no_dsl = DSL('S')
     yes_no_dsl.set_type_action(True)
     column_dsl = DSL('S')
+    column_dsl.set_type_action(False)
+    '''
+    yes_no_dsl = ExperimentalDSL('S')
+    yes_no_dsl.set_type_action(True)
+    column_dsl = ExperimentalDSL('S')
     column_dsl.set_type_action(False)
 
     boosted_selfplay_SA = BoostedSimulatedAnnealingSelfplay(

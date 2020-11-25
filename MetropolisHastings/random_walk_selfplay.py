@@ -5,9 +5,11 @@ import os
 import matplotlib.pyplot as plt
 sys.path.insert(0,'..')
 from MetropolisHastings.parse_tree import ParseTree
-from MetropolisHastings.DSL import DSL
 from game import Game
-from sketch import Sketch
+from MetropolisHastings.experimental_DSL import ExperimentalDSL
+from experimental_sketch import Sketch
+#from MetropolisHastings.DSL import DSL
+#from sketch import Sketch
 from algorithm import Algorithm
 from play_game_template import simplified_play_single_game
 from play_game_template import play_single_game
@@ -63,9 +65,20 @@ class RandomWalkSelfplay(Algorithm):
 
         full_run = time.time()
 
-        self.tree_string.build_tree(self.tree_string.root)
-        self.tree_column.build_tree(self.tree_column.root)
+        self.tree_string.build_glenn_tree(True)
+        self.tree_column.build_glenn_tree(False)
+        #self.tree_string.build_tree(self.tree_string.root)
+        #self.tree_column.build_tree(self.tree_column.root)
 
+        #print('tree')
+        #self.tree_string.print_tree(self.tree_string.root, '  ')
+        #current_program_string = self.tree_string.generate_program()
+        #current_program_column = self.tree_column.generate_program()
+        #print('current_program_string')
+        #print(current_program_string)
+        #print('current_program_column')
+        #print(current_program_column)
+        #exit()
         # Main loop
         for i in range(self.n_iterations):
             start = time.time()
@@ -78,6 +91,31 @@ class RandomWalkSelfplay(Algorithm):
 
             current_program_string = self.tree_string.generate_program()
             current_program_column = self.tree_column.generate_program()
+
+            #print('current_program_string')
+            #print(current_program_string)
+            #print('current_program_column')
+            #print(current_program_column)
+
+            #print('tree current')
+            #self.tree_string.print_tree(self.tree_string.root, '  ')
+            #exit()
+            '''
+            folder = self.filename + '/data/' 
+            if not os.path.exists(folder):
+                os.makedirs(folder)
+            dir_path = os.path.dirname(os.path.realpath(__file__)) + '/' + self.filename + '/data/' 
+            script = Sketch(
+                            current_program_string, 
+                            current_program_column, 
+                            self.n_iterations, 
+                            self.tree_max_nodes
+                        )      
+            script.save_file_custom(dir_path, self.filename + '_myglennnnnn')
+            
+            exit()
+            '''
+
             script_best_player = self.generate_player(
                                                         current_program_string,
                                                         current_program_column,
@@ -86,6 +124,16 @@ class RandomWalkSelfplay(Algorithm):
 
             mutated_program_string = new_tree_string.generate_program()
             mutated_program_column = new_tree_column.generate_program()
+
+            #print('mutated_program_string')
+            #print(mutated_program_string)
+            #print('mutated_program_column')
+            #print(mutated_program_column)
+
+            #print('tree mutated')
+            #new_tree_string.print_tree(new_tree_string.root, '  ')
+            #exit()
+
             script_mutated_player = self.generate_player(
                                                         mutated_program_string,
                                                         mutated_program_column,
@@ -304,23 +352,28 @@ class RandomWalkSelfplay(Algorithm):
 
 if __name__ == "__main__":
     algo_id = 'RWSP'
-    n_iterations = 50
-    tree_max_nodes = 100
-    n_games = 100
+    n_iterations = 200
+    tree_max_nodes = 150
+    n_games = 1000
     n_games_glenn = 1000
     n_games_uct = 5
     n_games_solitaire = 1000
     uct_playouts = [2, 3, 4]
-    eval_step = 1
+    eval_step = 5
     max_game_rounds = 1000
     iteration_run = 0
-    validate = False
+    validate = True
     scripts_to_collect = [100, 200, 500, 1000, 1500, 2000, 5000]
-
-    
+    '''
     yes_no_dsl = DSL('S')
     yes_no_dsl.set_type_action(True)
     column_dsl = DSL('S')
+    column_dsl.set_type_action(False)
+    '''
+    
+    yes_no_dsl = ExperimentalDSL('S')
+    yes_no_dsl.set_type_action(True)
+    column_dsl = ExperimentalDSL('S')
     column_dsl.set_type_action(False)
     
     random_walk_selfplay = RandomWalkSelfplay(

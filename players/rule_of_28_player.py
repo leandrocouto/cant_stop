@@ -17,12 +17,6 @@ class Rule_of_28_Player(Player):
         self.marker = 6
         self.threshold = 28
 
-    # yes no td junto
-    # if self.are_there_available_columns_to_play(state) and not self.will_player_win_after_n(state) )
-    # OR  self.calculate_score(state) + self.calculate_difficulty_score(state) < threshold:
-    #   return 'y'
-    # else: 
-    #   return 'n'
     def get_action(self, state):
         actions = state.available_moves()
         if actions == ['y', 'n']:

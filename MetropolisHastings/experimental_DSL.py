@@ -10,8 +10,8 @@ class ExperimentalDSL:
         self._grammar = {}
         
         self._grammar['header'] = [
-                                    r"progress_value=[0,0, INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS ]" +
-                                    r"\n\t\tmove_value=[0,0, INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS ]" +
+                                    r"progress_value=[ INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS ]" +
+                                    r"\n\t\tmove_value=[ INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS , INTEGERS ]" +
                                     r"\n\t\todds= INTEGERS " +
                                     r"\n\t\tevens= INTEGERS " +
                                     r"\n\t\thighs= INTEGERS " +
@@ -35,7 +35,7 @@ class ExperimentalDSL:
         self._grammar['bool_template'] = [
                                     "bool_exp",
                                     "bool_exp BOOL_OP bool_exp",
-                                    "bool_exp BOOL_OP bool_template"
+                                    "( bool_template ) BOOL_OP ( bool_template )"
         ]
 
         self._grammar['bool_exp'] = [
@@ -74,8 +74,8 @@ class ExperimentalDSL:
                                         "lows",
                                         "marker",
                                         "threshold",
-                                        'move_value[column]',
-                                        'progress_value[column]',
+                                        'move_value[5-abs(column-7)]',
+                                        'progress_value[5-abs(column-7)]',
                                         ]
         self._grammar['vector'] = [
                                     'move_value',
@@ -93,13 +93,13 @@ class ExperimentalDSL:
                                 'ExperimentalDSL.number_cells_advanced_this_round(state)',
                                 ]
         self._grammar['functions_col'] = [# Strictly "numeric" actions
-                                'ExperimentalDSL.is_new_neutral(actions[i], state)',
+                                'ExperimentalDSL.is_new_neutral(column, state)',
                                 'ExperimentalDSL.advance(actions[i])',
                                 ]
         self._grammar['OP'] = ['+', '-', '*']
         self._grammar['BOOL_OP'] = ['and', 'or', 'and not', 'or not']
         self._grammar['COMP_OP'] = ['>', '<', '>=', '<=']
-        self._grammar['INTEGERS'] = [str(i) for i in range(1, 40)]
+        self._grammar['INTEGERS'] = [str(i) for i in range(1, 20)]
         # Used in the parse tree to finish expanding hanging nodes
         self.finishable_nodes = ['header', 'body_if', 'body_else', 'bool_template', 
                                 'bool_exp', 'variable', 'expression_col', 'variable_col',
@@ -222,7 +222,9 @@ class ExperimentalDSL:
             advance = ExperimentalDSL.number_cells_advanced_this_round_for_col(state, col)
             # +1 because whenever a neutral marker is used, the weight of that
             # column is summed
-            score += (advance + 1) * progress_value[col]
+            # Interporlated formula to find the array index given the column
+            # y = 5-|x-7|
+            score += (advance + 1) * progress_value[5 - abs(col - 7)]
         return score
 
     @staticmethod
