@@ -1,5 +1,6 @@
 import random
 import codecs
+import pickle
 
 class Node:
     def __init__(self, node_id, value, is_terminal, parent):
@@ -12,7 +13,7 @@ class Node:
 class ParseTree:
     """ Parse Tree implementation given the self.dsl given. """
     
-    def __init__(self, dsl, max_nodes):
+    def __init__(self, dsl, max_nodes, k):
         """
         - dsl is the domain specific language used to create this parse tree.
         - max_nodes is a relaxed max number of nodes this tree can hold.
@@ -28,37 +29,30 @@ class ParseTree:
                         )
         self.max_nodes = max_nodes
         self.current_id = 0
+        self.novelty = 0
+        self.k = k
+        self.k_pairing = []
+        self.k_pairing_values = []
 
-    def build_tree(self, start_node):
-        """ Build the parse tree according to the self.dsl rules. """
+    def __lt__(self, other):
+        """ Sort by the novelty attribute. If equal, randomize the order. """
+        #return self.novelty > other.novelty
+        return (self.novelty, random.random()) > (other.novelty, random.random())
 
-        if self.current_id > self.max_nodes:
-            self._finish_tree(self.root)
-            return
-        else:
-            self._expand_children(
-                                start_node, 
-                                self.dsl._grammar[start_node.value]
-                                )
+    def update_k_pairing(self):
+        self.k_pairing = []
+        self.k_pairing_values = []
+        node_list = self.get_all_traversal_list_of_nodes()
+        for i in range(len(node_list) - self.k + 1):
+            self.k_pairing.append([node_list[j] for j in range(i, i+self.k)])
+            self.k_pairing_values.append([node_list[j].value for j in range(i, i+self.k)])
 
-            # It does not expand in order, so the tree is able to grow not only
-            # in the children's ordering
-            index_to_expand = [i for i in range(len(start_node.children))]
-            random.shuffle(index_to_expand)
-
-            for i in range(len(index_to_expand)):
-                if not start_node.children[i].is_terminal:
-                    self.build_tree(start_node.children[i])
-
-    def _expand_children(self, parent_node, dsl_entry):
+    def expand_specific_node(self, node, dsl_entry):
         """
-        Expand the children of 'parent_node'. Since it is a parse tree, in 
-        this implementation we choose randomly which child is chosen for a 
-        given node.
+        Expand only one child of 'node' that is not inside the
+        already_expanded list.
         """
-
-        dsl_children_chosen = random.choice(dsl_entry)
-        children = self._tokenize_dsl_entry(dsl_children_chosen)
+        children = self._tokenize_dsl_entry(dsl_entry)
         for child in children:
             is_terminal = self._is_terminal(child)
             node_id = self.current_id + 1
@@ -67,9 +61,11 @@ class ParseTree:
                             node_id = node_id, 
                             value = child, 
                             is_terminal = is_terminal, 
-                            parent = parent_node.value
+                            parent = node.value
                             )
-            parent_node.children.append(child_node)
+            node.children.append(child_node)
+        # Update the k-pairings
+        self.update_k_pairing()
 
     def _expand_children_finish_tree(self, parent_node):
         """
@@ -162,6 +158,156 @@ class ParseTree:
                 list_of_nodes.append((child, child.parent))
             self._get_traversal_list_of_nodes(child, list_of_nodes)
 
+    def get_all_traversal_list_of_nodes(self):
+        """
+        Add to list_of_nodes the program given by the tree when traversing
+        the tree in a preorder manner.
+        """
+        list_of_nodes = []
+        self._get_all_traversal_list_of_nodes(self.root, list_of_nodes)
+        return list_of_nodes
+
+    def _get_all_traversal_list_of_nodes(self, node, list_of_nodes):
+        """ Helper method for self.get_all_traversal_list_of_nodes. """
+
+        list_of_nodes.append(node)
+        for child in node.children:
+            # Only the values from terminal nodes are relevant for the program
+            # synthesis (using a parse tree)
+            self._get_all_traversal_list_of_nodes(child, list_of_nodes)
+
+    def get_tree_leaves(self):
+        """ Return a list of leaves (Node objects) of self. """
+
+        leaves = []
+        self._get_tree_leaves(self.root, leaves)
+        return leaves
+
+    def _get_tree_leaves(self, node, leaves):
+        """ Helper method for self.get_tree_leaves. """
+
+        if not node.children:
+            leaves.append(node)
+        for child in node.children:
+            self._get_tree_leaves(child, leaves)
+
+    
+
+    def find_node(self, index):
+        """ Return the tree node with the corresponding id. """
+
+        return self._find_node(self.root, index)
+
+    def _find_node(self, node, index):
+        """ Helper method for self.find_node. """
+
+        if node.node_id == index:
+            return node
+        else:
+            for child_node in node.children:
+                found_node = self._find_node(child_node, index)
+                if found_node:
+                    return found_node
+        return None
+
+    def print_tree(self):
+        """ Prints the tree in a simplistic manner. Used for debugging. """
+        self._print_tree(self.root, '  ')
+
+    def _print_tree(self, node, indentation):
+        """ Helper method for self.print_tree. """
+
+        #For root
+        if indentation == '  ':
+            print(
+                node.value, 
+                ', id = ', node.node_id, 
+                ', node parent = ', node.parent
+                )
+        else:
+            print(
+                indentation, 
+                node.value, 
+                ', id = ', node.node_id, 
+                ', node parent = ', node.parent
+                )
+        for child in node.children:
+            self._print_tree(child, indentation + '    ')
+
+    def clone_tree(self):
+        return pickle.loads(pickle.dumps(self, -1))
+
+    '''
+    def build_tree(self, start_node):
+        """ Build the parse tree according to the self.dsl rules. """
+
+        if self.current_id > self.max_nodes:
+            return
+        else:
+            self._expand_children(
+                                start_node, 
+                                self.dsl._grammar[start_node.value]
+                                )
+
+            # It does not expand in order, so the tree is able to grow not only
+            # in the children's ordering
+            index_to_expand = [i for i in range(len(start_node.children))]
+            random.shuffle(index_to_expand)
+
+            for i in range(len(index_to_expand)):
+                if not start_node.children[i].is_terminal:
+                    self.build_tree(start_node.children[i])
+
+    def build_and_finish_tree(self, start_node):
+        """ Build the parse tree according to the self.dsl rules. """
+
+        if self.current_id > self.max_nodes:
+            self._finish_tree(self.root)
+            return
+        else:
+            self._expand_children(
+                                start_node, 
+                                self.dsl._grammar[start_node.value]
+                                )
+
+            # It does not expand in order, so the tree is able to grow not only
+            # in the children's ordering
+            index_to_expand = [i for i in range(len(start_node.children))]
+            random.shuffle(index_to_expand)
+
+            for i in range(len(index_to_expand)):
+                if not start_node.children[i].is_terminal:
+                    self.build_and_finish_tree(start_node.children[i])
+    
+    def _expand_children(self, parent_node, dsl_entry):
+        """
+        Expand the children of 'parent_node'. Since it is a parse tree, in 
+        this implementation we choose randomly which child is chosen for a 
+        given node.
+        """
+
+        dsl_children_chosen = random.choice(dsl_entry)
+        children = self._tokenize_dsl_entry(dsl_children_chosen)
+        for child in children:
+            is_terminal = self._is_terminal(child)
+            node_id = self.current_id + 1
+            self.current_id += 1
+            child_node = Node(
+                            node_id = node_id, 
+                            value = child, 
+                            is_terminal = is_terminal, 
+                            parent = parent_node.value
+                            )
+            parent_node.children.append(child_node)
+
+    def _update_nodes_ids(self, node):
+        """ Update all tree nodes' ids. Used after a tree mutation. """
+
+        node.node_id = self.current_id
+        self.current_id += 1
+        for child_node in node.children:
+            self._update_nodes_ids(child_node)
+
     def mutate_tree(self):
         """ Mutate a single node of the tree. """
 
@@ -192,7 +338,7 @@ class ParseTree:
 
         # Build the tree again from this node (randomly as if it was creating
         # a whole new tree)
-        self.build_tree(node_to_mutate)
+        self.build_and_finish_tree(node_to_mutate)
 
         # Finish the tree with possible unfinished nodes (given the max_nodes
         # field)
@@ -203,42 +349,4 @@ class ParseTree:
         self.current_id = 0
         self._update_nodes_ids(self.root)
 
-    def find_node(self, node, index):
-        """ Return the tree node with the corresponding id. """
-
-        if node.node_id == index:
-            return node
-        else:
-            for child_node in node.children:
-                found_node = self.find_node(child_node, index)
-                if found_node:
-                    return found_node
-        return None
-
-    def _update_nodes_ids(self, node):
-        """ Update all tree nodes' ids. Used after a tree mutation. """
-
-        node.node_id = self.current_id
-        self.current_id += 1
-        for child_node in node.children:
-            self._update_nodes_ids(child_node)
-
-    def print_tree(self, node, indentation):
-        """ Prints the tree in a simplistic manner. Used for debugging. """
-
-        #For root
-        if indentation == '  ':
-            print(
-                node.value, 
-                ', id = ', node.node_id, 
-                ', node parent = ', node.parent
-                )
-        else:
-            print(
-                indentation, 
-                node.value, 
-                ', id = ', node.node_id, 
-                ', node parent = ', node.parent
-                )
-        for child in node.children:
-            self.print_tree(child, indentation + '    ')
+    '''

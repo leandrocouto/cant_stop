@@ -8,13 +8,29 @@ class DSL:
         self.start = 'S'
         
         self._grammar = {}
+       	
+       	self._grammar[self.start] = [r"\n\t\t statement"]
 
         self._grammar['statement']   = [
-                                        r"\n\t\t\t statement \n\t\t\t statement",
-                                        r"\n\t\t\t assign_expr"
-                                        r"\n\t\t\t if_expr \n\t\t\t\t",
-                                        #r"\n\t\t\t for_expr \n\t\t\t\t",
-                                        r"\n\t\t\t return ret_expr"
+                                        r"statement \n\t\t statement",
+                                        r"assign_expr \n\t\t",
+                                        r"if_expr",
+                                        #r"for_expr \n\t\t",
+                                        r"return ret_expr \n\t\t"
+                                        ]
+
+        self._grammar['statement_1']   = [
+                                        r"statement_1 \n\t\t\t statement_1",
+                                        r"assign_expr \n\t\t\t",
+                                        r"if_expr_1",
+                                        #r"for_expr \n\t\t\t",
+                                        r"return ret_expr \n\t\t\t"
+                                        ]
+
+        self._grammar['statement_2']   = [
+                                        r"statement_2 \n\t\t\t\t statement_2",
+                                        r"assign_expr \n\t\t\t\t",
+                                        r"return ret_expr \n\t\t\t\t"
                                         ]
 
         self._grammar['assign_expr'] = [
@@ -32,14 +48,20 @@ class DSL:
 
         self._grammar['math_term'] = [
                                         "INTEGERS",
-                                        "variable_col",
-                                        "functions_col",
+                                        "variable",
+                                        "functions_num",
                                         ]
 
         self._grammar['if_expr'] = [
-                                    "if bool_template : \n\t\t\t\t\t statement",
-                                    "if bool_template : \n\t\t\t\t statement \n\t\t\t\t elif bool_template : \n\t\t\t\t\t statement \n\t\t\t\t else: \n\t\t\t\t\t statement",
-                                    "if bool_template : \n\t\t\t\t statement \n\t\t\t\t else: \n\t\t\t\t\t statement"
+                                    r"if bool_template : \n\t\t\t statement_1",
+                                    r"if bool_template : \n\t\t\t statement_1 \n\t\t elif bool_template : \n\t\t\t statement_1 \n\t\t else: \n\t\t\t statement_1",
+                                    r"if bool_template : \n\t\t\t statement_1 \n\t\t else: \n\t\t\t statement_1"
+        ]
+
+        self._grammar['if_expr_1'] = [
+                                    r"if bool_template : \n\t\t\t\t statement_2",
+                                    r"if bool_template : \n\t\t\t\t statement_2 \n\t\t\t elif bool_template : \n\t\t\t\t statement_2 \n\t\t\t else: \n\t\t\t\t statement_2",
+                                    r"if bool_template : \n\t\t\t\t statement_2 \n\t\t\t else: \n\t\t\t\t statement_2"
         ]
 
         self._grammar['bool_template'] = [
@@ -50,15 +72,15 @@ class DSL:
 
         self._grammar['bool_expr'] = [
                                     "functions_bool",
-                                    "functions_yes_no COMP_OP INTEGERS",
-                                    "functions_yes_no COMP_OP variable",
-                                    "functions_yes_no OP functions_yes_no COMP_OP INTEGERS",
-                                    "functions_yes_no OP functions_yes_no COMP_OP variable"
+                                    "functions_num COMP_OP INTEGERS",
+                                    "functions_num COMP_OP variable",
+                                    "functions_num OP functions_num COMP_OP INTEGERS",
+                                    "functions_num OP functions_num COMP_OP variable"
         ]
         
         self._grammar['for_expr'] = [
-                                    "for iterable_for_variable in range(len( vector )): \n\t\t\t\t\t statement",
-                                    "for foreach_variable in vector : \n\t\t\t\t\t statement",
+                                    r"for iterable_for_variable in range(len( vector )): \n\t\t statement",
+                                    r"for foreach_variable in vector : \n\t\t statement",
         ]
 
         self._grammar['iterable_for_variable'] = [
@@ -88,10 +110,10 @@ class DSL:
                                 ]
 
         self._grammar['functions_bool'] = [
-                                        'ExperimentalDSL.will_player_win_after_n(state)',
-                                        'ExperimentalDSL.are_there_available_columns_to_play(state)'
+                                        'DSL.will_player_win_after_n(state)',
+                                        'DSL.are_there_available_columns_to_play(state)'
                                     ]
-        self._grammar['functions_yes_no'] = [# Strictly "string" actions
+        self._grammar['functions_num'] = [# Strictly "string" actions
                                 'DSL.calculate_score(state, vector )',
                                 'DSL.calculate_difficulty_score(state, INTEGERS , INTEGERS , INTEGERS , INTEGERS )',
                                 'DSL.get_player_total_advance(state)',
@@ -103,33 +125,24 @@ class DSL:
         self._grammar['COMP_OP'] = ['>', '<', '>=', '<=']
         self._grammar['INTEGERS'] = [str(i) for i in range(1, 20)]
         # Used in the parse tree to finish expanding hanging nodes
-        self.finishable_nodes = ['statement', 'assign_expr', 'math_expr', 'math_term', 
-                                'if_expr', 'bool_template', 'bool_expr', 'for_expr',
+        self.finishable_nodes = ['statement', 'statement_1','statement_2', 'assign_expr', 'math_expr', 'math_term', 
+                                'if_expr', 'if_expr_1', 'bool_template', 'bool_expr', 'for_expr',
                                 'iterable_for_variable', 'foreach_variable', 'variable', 
-                                'vector', 'functions_bool', 'functions_yes_no', 'OP',
-                                'BOOL_OP', 'COMP_OP', 'INTEGERS']
+                                'vector', 'ret_expr', 'functions_bool', 'functions_num', 
+                                'OP', 'BOOL_OP', 'COMP_OP', 'INTEGERS']
 
         # Dictionary to "quickly" finish the tree.
         # Needed for the tree to not surpass the max node limit.
-        self.quickly_finish = {}
-
-    def set_type_action(self, string_action):
-        '''
-        - string_action is a boolean. True if it is a y/n action, False if it 
-          is a column action.
-        '''
-        if string_action:
-            self._grammar[self.start] = [r"\t \t statement"]
-        else:
-            self._grammar[self.start] = [r"\n \t \t body_else"]
-            
         self.quickly_finish = {
                                 self.start :self._grammar[self.start],
-                                'statement' :self._grammar['statement'],
+                                'statement' : [r"assign_expr \n\t\t\t", r"return ret_expr \n\t\t\t"],
+                                'statement_1' : [r"assign_expr \n\t\t\t\t", r"return ret_expr \n\t\t\t\t"],
+                                'statement_2' : [r"assign_expr \n\t\t\t\t\t", r"return ret_expr \n\t\t\t\t\t"],
                                 'assign_expr' :self._grammar['assign_expr'],
-                                'math_expr' :self._grammar['math_expr'],
+                                'math_expr' : ["math_term"],
                                 'math_term' :self._grammar['math_term'],
                                 'if_expr' :self._grammar['if_expr'],
+                                'if_expr_1' :self._grammar['if_expr_1'],
                                 'bool_template' :self._grammar['bool_template'],
                                 'bool_expr' :self._grammar['bool_expr'],
                                 'for_expr' :self._grammar['for_expr'],
@@ -137,13 +150,18 @@ class DSL:
                                 'foreach_variable' :self._grammar['foreach_variable'],
                                 'variable' :self._grammar['variable'],
                                 'vector' :self._grammar['vector'],
+                                'ret_expr' :self._grammar['ret_expr'],
                                 'functions_bool' :self._grammar['functions_bool'],
-                                'functions_yes_no' :self._grammar['functions_yes_no'],
+                                'functions_num' :self._grammar['functions_num'],
                                 'OP' :self._grammar['OP'],
                                 'BOOL_OP' :self._grammar['BOOL_OP'],
                                 'COMP_OP' :self._grammar['COMP_OP'],
                                 'INTEGERS' :self._grammar['INTEGERS'],
                             }
+
+    @staticmethod
+    def indent(integer):
+    	return '\n' + integer * '\t'
 
     @staticmethod
     def get_player_total_advance(state):
