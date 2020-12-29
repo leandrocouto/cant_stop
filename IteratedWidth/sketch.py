@@ -20,7 +20,6 @@ class Script(Player):
         py = self._py
         py += self.program.format(self.program_string)
         py = codecs.decode(py, 'unicode_escape')
-        print(py)
         return py
 
     def save_file_custom(self, path, file_name):
