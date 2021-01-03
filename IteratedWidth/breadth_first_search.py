@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 sys.path.insert(0,'..')
 from IteratedWidth.parse_tree import ParseTree
 from IteratedWidth.DSL import DSL
+from IteratedWidth.toy_DSL import ToyDSL
 from IteratedWidth.sketch import Sketch
 
 class BFS:
@@ -60,9 +61,10 @@ class BFS:
 
 if __name__ == "__main__":
     tree_max_nodes = 50
-    n_expansions = 10000
-    k = 10
-    tree = ParseTree(DSL(), tree_max_nodes, k, False)
+    n_expansions = 100000
+    k = 10 
+    #tree = ParseTree(DSL(), tree_max_nodes, k, False)
+    tree = ParseTree(ToyDSL(), tree_max_nodes, k, False)
     BFS = BFS(tree, n_expansions)
     start = time.time()
     open_list = BFS.run()

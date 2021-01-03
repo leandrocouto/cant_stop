@@ -46,6 +46,13 @@ class ParseTree:
             return self.program == other.program
         return False
 
+    def is_finished(self):
+        """ Check if the current tree is complete (no non-terminal nodes). """
+        for word in self.program:
+            if word in self.dsl.finishable_nodes:
+                return False
+        return True
+    
     def build_random_tree(self, start_node):
         """ Build the parse tree according to the self.dsl rules. """
 
