@@ -10,6 +10,11 @@ from IteratedWidth.sketch import Sketch
 
 class IteratedWidth:
     def __init__(self, tree, n_expansions, k):
+        """
+          - OPEN is a list of states discovered but not yet expanded.
+          - CLOSED is a list that includes all states in OPEN and states that
+            have already been expanded.
+        """
         self.OPEN = []
         self.CLOSED = []
         self.initial_state = tree
@@ -21,33 +26,30 @@ class IteratedWidth:
 
     def run(self):
         """ Main routine of the IW algorithm. """
-
+        open_history = []
         self.OPEN.append(self.initial_state)
+        self.CLOSED.append(self.initial_state)
         for i in range(self.n_expansions):
             # State to be expanded - First of the list (Breadth-first search)
             novel_state = self.OPEN.pop(0)
-            # Since novel_state will be expanded, add it to the CLOSED list.
-            self.CLOSED.append(novel_state)
             children = self.expand_children(novel_state)
-            # Add expanded children to OPEN
+            # Add expanded children to OPEN/CLOSED
             for state in children:
-                # If state has already been seen, ignore it
+                # Prune states that have already been seen
                 if state in self.CLOSED:
                     continue
-                if state in self.OPEN:
-                    continue
-                # Do not add to OPEN (prune) states that do not have a novelty
-                # of at least self.k
+                # Prune states that do not have a novelty of at least self.k
                 if state.novelty != -1:
                     self.OPEN.append(state)
+                    self.CLOSED.append(state)
                     # Add all k-pairs from state into all_k_pairs
                     self.update_k_pairs(state)
+            open_history.append((i, len(self.OPEN)))
             print('After expansion - i = ', i, 'len OPEN = ', len(self.OPEN), 'len CLOSED = ', len(self.CLOSED))
             if not self.OPEN:
                 print('No more nodes in OPEN')
-                return self.OPEN
-        print('len closed = ', len(self.CLOSED))
-        return self.OPEN
+                return self.CLOSED, open_history
+        return self.CLOSED, open_history
 
     def update_k_pairs(self, state):
         """ Add 1->k-pairs from state to all_k_pairs avoiding duplicates."""
@@ -93,22 +95,47 @@ class IteratedWidth:
 
 if __name__ == "__main__":
     tree_max_nodes = 50
-    n_expansions = 100000
-    k = 20
-
+    n_expansions = 1000
+    k = 15
+    
     #tree = ParseTree(DSL(), tree_max_nodes, k, True)
     tree = ParseTree(ToyDSL(), tree_max_nodes, k, True)
     IW = IteratedWidth(tree, n_expansions, k)
     start = time.time()
-    open_list = IW.run()
+    closed_list, _ = IW.run()
     elapsed_time = time.time() - start
     print('Elapsed time = ', elapsed_time)
-    print('len = ', len(open_list))
+    print('len = ', len(closed_list))
+    print('closed')
+    for state in closed_list:
+        if state.is_finished():
+            print(state.generate_program())
+    
     '''
-    for j in range(len(open_list)):
-        print('Program - ', j, 'Novelty = ', open_list[j].novelty)
-        print(open_list[j].generate_program())
-        open_list[j].print_tree()
-        print()
+    all_open_history = []
+    for i in range(1, k):
+        #tree = ParseTree(DSL(), tree_max_nodes, k, True)
+        tree = ParseTree(ToyDSL(), tree_max_nodes, i, True)
+        IW = IteratedWidth(tree, n_expansions, i)
+        start = time.time()
+        closed_list, open_history = IW.run()
+        all_open_history.append(open_history)
+        elapsed_time = time.time() - start
+        print('Elapsed time = ', elapsed_time)
+        print('len = ', len(closed_list))
+
+    for i in range(len(all_open_history)):
+        curr_open_history = all_open_history[i]
+        x = [data[0] for data in curr_open_history]
+        y = [data[1] for data in curr_open_history]
+        print('y = ', y)
+        plt.plot(x, y, label = "k = " + str(i+1))
+    plt.title("OPEN list size per expansion")
+    plt.xlabel('Number of expansions')
+    plt.ylabel('OPEN list size')
+    plt.grid()
+    plt.legend()
+    plt.savefig('IW_over_k.png')
+    plt.close()
     '''
     
