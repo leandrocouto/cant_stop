@@ -19,25 +19,24 @@ class BFS:
         """ Main routine of the BFS algorithm. """
 
         self.OPEN.append(self.initial_state)
+        self.CLOSED.append(self.initial_state)
         for i in range(self.n_expansions):
             print('i = ', i, 'len OPEN = ', len(self.OPEN), 'len CLOSED = ', len(self.CLOSED))
             # State to be expanded - First of the list (Breadth-first search)
             state = self.OPEN.pop(0)
-            # Since state will be expanded, add it to the CLOSED list.
-            self.CLOSED.append(state)
             children = self.expand_children(state)
             # Add expanded children to OPEN
             for state in children:
                 # If state has already been seen, ignore it
                 if state in self.CLOSED:
                     continue
-                if state in self.OPEN:
-                    continue
                 self.OPEN.append(state)
+                self.CLOSED.append(state)
             if not self.OPEN:
                 print('No more nodes in OPEN')
-                return self.OPEN
-        return self.OPEN
+                return self.CLOSED
+
+        return self.CLOSED
 
     def expand_children(self, state):
         """ Expand all children of state. """
