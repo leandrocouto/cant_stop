@@ -48,7 +48,7 @@ class ParseTree:
 
     def is_finished(self):
         """ Check if the current tree is complete (no non-terminal nodes). """
-        for word in self.program:
+        for word in self.program.split():
             if word in self.dsl.finishable_nodes:
                 return False
         return True
@@ -150,6 +150,14 @@ class ParseTree:
                             parent = parent_node.value
                             )
             parent_node.children.append(child_node)
+
+    def finish_tree_randomly(self):
+        """ 
+        Finish expanding nodes that possibly didn't finish fully expanding.
+        This can happen if the max number of tree nodes is reached.
+        """
+
+        self._finish_tree(self.root)
 
     def _finish_tree(self, start_node):
         """ 
@@ -300,5 +308,50 @@ class ParseTree:
         for child in node.children:
             self._print_tree(child, indentation + '    ')
 
+    def _update_nodes_ids(self, node):
+        """ Update all tree nodes' ids. Used after a tree mutation. """
+
+        node.node_id = self.current_id
+        self.current_id += 1
+        for child_node in node.children:
+            self._update_nodes_ids(child_node)
+
+    def mutate_tree(self):
+        """ Mutate a single node of the tree. """
+
+        while True:
+            index_node = random.randint(0, self.current_id)
+            node_to_mutate = self.find_node(index_node)
+            if node_to_mutate == None:
+                self.print_tree()
+                raise Exception('Node randomly selected does not exist.' + \
+                    ' Index sampled = ' + str(index_node) + \
+                    ' Tree is printed above.')
+            if not node_to_mutate.is_terminal:
+                break
+
+        # delete its children and mutate it with new values
+        node_to_mutate.children = []
+
+        # Update the nodes ids. This is needed because when mutating a single 
+        # node it is possible to create many other nodes (and not just one).
+        # So a single id swap is not possible. This also prevents id "holes"
+        # for the next mutation, this way every index sampled will be in the
+        # tree.
+        self.current_id = 0
+        self._update_nodes_ids(self.root)
+        # Build the tree again from this node (randomly as if it was creating
+        # a whole new tree)
+        self.build_random_tree(node_to_mutate)
+        # Finish the tree with possible unfinished nodes (given the max_nodes
+        # field)
+        self.finish_tree_randomly()
+        # Updating again after (possibly) finishing expanding possibly not
+        # expanded nodes.
+        self.current_id = 0
+        self._update_nodes_ids(self.root)
+
     def clone(self):
+        """ Return a 'deepcopy' copy of self. """
+
         return pickle.loads(pickle.dumps(self, -1))
