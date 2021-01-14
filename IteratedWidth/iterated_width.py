@@ -9,7 +9,7 @@ from IteratedWidth.toy_DSL import ToyDSL
 from IteratedWidth.sketch import Sketch
 
 class IteratedWidth:
-    def __init__(self, tree, n_expansions, k):
+    def __init__(self, tree, n_states, k):
         """
           - OPEN is a list of states discovered but not yet expanded.
           - CLOSED is a list that includes all states in OPEN and states that
@@ -18,7 +18,7 @@ class IteratedWidth:
         self.OPEN = []
         self.CLOSED = []
         self.initial_state = tree
-        self.n_expansions = n_expansions
+        self.n_states = n_states
         self.k = k
         self.all_k_pairs = {}
         for i in range(1, self.k+1):
@@ -29,7 +29,8 @@ class IteratedWidth:
         open_history = []
         self.OPEN.append(self.initial_state)
         self.CLOSED.append(self.initial_state)
-        for i in range(self.n_expansions):
+        i = 0
+        while len(self.CLOSED) < self.n_states:
             # State to be expanded - First of the list (Breadth-first search)
             novel_state = self.OPEN.pop(0)
             children = self.expand_children(novel_state)
@@ -46,6 +47,7 @@ class IteratedWidth:
                     self.update_k_pairs(state)
             open_history.append((i, len(self.OPEN)))
             print('After expansion - i = ', i, 'len OPEN = ', len(self.OPEN), 'len CLOSED = ', len(self.CLOSED))
+            i += 1
             if not self.OPEN:
                 print('No more nodes in OPEN')
                 return self.CLOSED, open_history
@@ -95,12 +97,12 @@ class IteratedWidth:
 
 if __name__ == "__main__":
     tree_max_nodes = 50
-    n_expansions = 1000
+    n_states = 1000
     k = 15
     
     #tree = ParseTree(DSL(), tree_max_nodes, k, True)
     tree = ParseTree(ToyDSL(), tree_max_nodes, k, True)
-    IW = IteratedWidth(tree, n_expansions, k)
+    IW = IteratedWidth(tree, n_states, k)
     start = time.time()
     closed_list, _ = IW.run()
     elapsed_time = time.time() - start
@@ -116,7 +118,7 @@ if __name__ == "__main__":
     for i in range(1, k):
         #tree = ParseTree(DSL(), tree_max_nodes, k, True)
         tree = ParseTree(ToyDSL(), tree_max_nodes, i, True)
-        IW = IteratedWidth(tree, n_expansions, i)
+        IW = IteratedWidth(tree, n_states, i)
         start = time.time()
         closed_list, open_history = IW.run()
         all_open_history.append(open_history)
