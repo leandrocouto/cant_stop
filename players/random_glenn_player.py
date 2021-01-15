@@ -1,7 +1,8 @@
 from players.player import Player
 import numpy as np
+import random
 
-class Rule_of_28_Player(Player):
+class RandomGlennPlayer(Player):
 
     def __init__(self):
         # Incremental score for the player. If it reaches self.threshold, 
@@ -39,13 +40,7 @@ class Rule_of_28_Player(Player):
                 else:
                     return 'y'
         else:
-            scores = np.zeros(len(actions))
-            for i in range(len(scores)):
-                # Iterate over all columns in action
-                for column in actions[i]:
-                    scores[i] += self.advance(actions[i]) * self.move_value[column] - self.marker * self.is_new_neutral(column, state)
-            chosen_action = actions[np.argmax(scores)]
-            return chosen_action
+            return random.choice(actions)
 
     def calculate_score(self, state):
         score = 0
@@ -151,22 +146,3 @@ class Rule_of_28_Player(Player):
             difficulty_score += self.highs
 
         return difficulty_score
-    
-    def is_new_neutral(self, action, state):
-        # Return a boolean representing if action will place a new neutral. """
-        is_new_neutral = True
-        for neutral in state.neutral_positions:
-            if neutral[0] == action:
-                is_new_neutral = False
-
-        return is_new_neutral
-
-    def advance(self, action):
-        """ Return how many cells this action will advance for each column. """
-
-        # Special case: doubled action (e.g. (6,6))
-        if len(action) == 2 and action[0] == action[1]:
-            return 2
-        # All other cases will advance only one cell per column
-        else:
-            return 1
