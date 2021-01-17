@@ -5,120 +5,149 @@ import pickle
 import matplotlib.pyplot as plt
 import numpy as np
 import math
+import os
 sys.path.insert(0,'..')
 from IteratedWidth.parse_tree import ParseTree
 from IteratedWidth.DSL import DSL
 from IteratedWidth.toy_DSL import ToyDSL
+from players.random_glenn_player import RandomGlennPlayer
 from IteratedWidth.sketch import Sketch
 from IteratedWidth.iterated_width import IteratedWidth
+from IteratedWidth.breadth_first_search import BFS
 from IteratedWidth.simulated_annealing import SimulatedAnnealing
 from play_game_template import simplified_play_single_game
 from game import Game
 
 class SelfPlay:
-    def __init__(self, n_selfplay_iterations, n_games, max_game_rounds, IW, SA, 
-        dsl, LS_type):
+    def __init__(self, n_games, n_MC_simulations, max_game_rounds, 
+        max_nodes, search_algo, SA, dsl, LS_type, suffix):
         """
           - n_games is the number of games played for evaluation.
+          - n_MC_simulations is the number of Monte Carlo simulations done in
+            order to evaluate a state.
           - max_game_rounds is the max number of rounds played in a Can't Stop
             game before it is flagged as a draw.
-          - IW is an Iterated Width algorithm object.
+          - max_nodes is the max number of nodes the tree will hold.
+          - search_algo is a search algorithm (IW, BFS).
           - SA is a Simulated Annealing algorithm object.
           - dsl is the DSL used to synthesize the programs.
           - LS_type indicates which type of local search is to be used to 
             finish the unfinished programs.
+          - suffix is a string for logging purposes to indicate which search
+            algorithm is being used.
         """
-        self.n_selfplay_iterations = n_selfplay_iterations
         self.n_games = n_games
+        self.n_MC_simulations = n_MC_simulations
         self.max_game_rounds = max_game_rounds
-        self.IW = IW
+        self.max_nodes = max_nodes
+        self.search_algo = search_algo
         self.SA = SA
         self.dsl = dsl
         self.LS_type = LS_type 
+        self.suffix = suffix
+        self.filename = os.path.dirname(os.path.realpath(__file__)) + \
+                        '/log_file_'+ self.suffix + '.txt'
 
     def run(self):
         """ Main routine of the selfplay experiment. """
 
-        open_list, _ = self.IW.run()
-        #open_list = self.remove_unfinished_programs(open_list)
-        player_2, player_2_tree = self.generate_random_program()
-        print('antes local search')
-        open_list = self.local_search(open_list, player_2_tree)
-        print('dps local search')
-        exit()
-        for i in range(self.n_selfplay_iterations):
-            print('iteracao selfplay - ', i)
-            victories = []
-            for j in range(len(open_list)):
-                program = Sketch(open_list[j].generate_program()).get_object()
-                try:
-                    vic, loss, draw = self.play_batch_games(program, player_2)
-                    victories.append(vic)
-                    #print('V/L/D = ', vic, loss, draw)
-                except Exception as e:
-                    print('excecao - ', j, ' - ', str(e))
-                    victories.append(0)
-                    continue
-            print('victories = ', victories)
-            best_player_index = np.argmax(victories)
-            if victories[best_player_index] > self.n_games // 2:
-                player_2 = open_list[best_player_index]
-        return player_2
+        closed_list = self.search_algo.run()
+        # Player initially to be beaten
+        player_2 = RandomGlennPlayer()
+        player_2_tree = None
+        best_player_state = self.local_search(closed_list, player_2)
+        #best_player = Sketch(best_player_state.generate_program()).get_object()
+        print('best antes')
+        print(best_player_state.generate_program())
+        SA_state, _ = self.SA.run(best_player_state, player_2)
+        print('best depois do SA')
+        print(SA_state.generate_program())
+        # Save to file
+        path = os.path.dirname(os.path.realpath(__file__))
+        Sketch(SA_state.generate_program()).save_file_custom(path+'/', self.suffix)
+        return SA_state
 
-    def generate_random_program(self):
-        """ Create an initial random synthesized program. """
-
-        tree = ParseTree(self.dsl, tree_max_nodes, k, False)
-        tree.build_random_tree(tree.root)
-        program_string = tree.generate_program()
-        sketch = Sketch(program_string)
-        program_object = sketch.get_object()
-
-        return program_object, tree 
-
-    def local_search(self, open_list, player_2_state):
+    def local_search(self, closed_list, player_2):
         """ Apply a local search to all unfinished programs. """
 
-        # Finish the unfinished programs randomly
+        # Finish the unfinished programs randomly and evaluate them against 
+        # player_2
         if self.LS_type == 0:
-            for state in open_list:
+            scores = []
+            for state in closed_list:
                 if not state.is_finished():
                     state.finish_tree_randomly()
-            return open_list
-        # Finish the unfinished program randomly and then apply SA
+                player_1 = Sketch(state.generate_program()).get_object()
+                try:
+                    vic, _, _ = self.play_batch_games(player_1, player_2)
+                except:
+                    vic = 0
+                scores.append(vic)
+            print('LS_type = ', self.LS_type)
+            print('Best program')
+            print(closed_list[np.argmax(scores)].generate_program())
+            print('Victories = ', scores[np.argmax(scores)])
+            return closed_list[np.argmax(scores)]
+        # Finish the unfinished programs randomly, apply SA to each of them
+        # and evaluate them against player_2
         elif self.LS_type == 1:
-            if_counter = 0
-            else_counter = 0
-            new_open_list = []
-            for i in range(len(open_list)):
-                print('iniciando SA iteracao - ', i)
-                if not open_list[i].is_finished():
-                    open_list[i].finish_tree_randomly()
+            new_closed_list = []
+            scores = []
+            for i, state in enumerate(closed_list):
+                print('state from CLOSED = ', i)
+                print('program')
+                print(state.generate_program())
+                # Finish randomly all unfinished programs
+                if not state.is_finished():
+                    state.finish_tree_randomly()
+                # Apply SA
+                SA_state, _ = self.SA.run(state, player_2)
+                new_closed_list.append(SA_state)
+                # Evaluate it against player_2
+                player_1 = Sketch(SA_state.generate_program()).get_object()
+                try:
+                    vic, _, _ = self.play_batch_games(player_1, player_2)
+                except:
+                    vic = 0
+                scores.append(vic)
+                print('SA victories = ', vic)
+                print()
+            print('LS_type = ', self.LS_type)
+            print('Best program')
+            print(new_closed_list[np.argmax(scores)].generate_program())
+            print('Victories = ', scores[np.argmax(scores)])
+            return new_closed_list[np.argmax(scores)]
+            
+        # Use Monte Carlo simulations for each of the states while evaluating
+        # against player_2
+        elif self.LS_type == 2:
+            scores = []
+            for i, state in enumerate(closed_list):
+                print('state from CLOSED = ', i)
+                print('program')
+                print(state.generate_program())
+                local_score = []
+                for i in range(self.n_MC_simulations):
+                    state_aux = pickle.loads(pickle.dumps(state, -1))
+                    if not state_aux.is_finished():
+                        state_aux.finish_tree_randomly()
+                    player_1 = Sketch(state_aux.generate_program()).get_object()
+                    try:
+                        vic, _, _ = self.play_batch_games(player_1, player_2)
+                    except:
+                        vic = 0
+                    local_score.append(vic)
+                scores.append(sum(local_score)/ len(local_score))
+                print('MC simulations score avg = ', sum(local_score)/ len(local_score))
+                print()
+            # Return the script that won more in the MC simulations
+            print('LS_type = ', self.LS_type)
+            print('Best program')
+            print(closed_list[np.argmax(scores)].generate_program())
+            print('Victory avg = ', scores[np.argmax(scores)])
+            return closed_list[np.argmax(scores)]
 
-                    SA_state, _ = self.SA.run(open_list[i], player_2_state)
-                    new_open_list.append(SA_state)
-                    if_counter += 1
-                else:
-                    SA_state, _ = self.SA.run(open_list[i], player_2_state)
-                    new_open_list.append(SA_state)
-                    else_counter += 1
-            print('if = ', if_counter)
-            print('else = ', else_counter)
-            return new_open_list
-        else:
-            pass
 
-    def remove_unfinished_programs(self, open_list):
-        """ 
-        Remove all programs that still have 'unfinished nodes' in it. Note 
-        that this does not guarantee that the program is actually executable.
-        """
-
-        finished_programs = []  
-        for state in open_list:
-            if state.is_finished():
-                finished_programs.append(state)
-        return finished_programs
 
     def play_batch_games(self, player_1, player_2):
         """ 
@@ -126,7 +155,7 @@ class SelfPlay:
         players swap who is the first player per iteration because Can't Stop
         is biased towards the player who plays the first move.
         """
-        
+
         victories = 0
         losses = 0
         draws = 0
@@ -162,23 +191,59 @@ class SelfPlay:
 
         return victories, losses, draws
 
+    def simplified_play_single_game(self, player1, player2, game, max_game_length):
+        is_over = False
+        rounds = 0
+        # Game loop
+        while not is_over:
+            rounds += 1
+            moves = game.available_moves()
+            if game.is_player_busted(moves):
+                continue
+            else:
+                if game.player_turn == 1:
+                    chosen_play = player1.get_action(game)
+                else:
+                    chosen_play = player2.get_action(game)
+                # Apply the chosen_play in the game
+                print('player - ', game.player_turn,' chosen play = ', chosen_play)
+                game.play(chosen_play)
+            if rounds > max_game_length:
+                who_won = 0
+                is_over = True
+            else:
+                who_won, is_over = game.is_finished()
+
+        return who_won
+
 if __name__ == "__main__":
-    n_SA_iterations = 50
-    n_games = 10
+    suffix = 'IW'
+    n_SA_iterations = 30
+    n_games = 100
     init_temp = 1
     d = 1
-    SA = SimulatedAnnealing(n_SA_iterations, n_games, init_temp, d)
-    tree_max_nodes = 50
-    n_expansions = 10
-    k = 10
-    n_selfplay_iterations = 10
     max_game_rounds = 500
-    # Local Search type. 0 = random, 1 = random + SA
+    SA = SimulatedAnnealing(n_SA_iterations, max_game_rounds, n_games, init_temp, d)
+    max_nodes = 50
+    n_states = 100
+    n_MC_simulations = 100
+    k = 4
+    # Local Search type. 0 = random, 1 = random + SA, 2 = MC simulations
     LS_type = 1
     #dsl = DSL()
     dsl = ToyDSL()
-    tree = ParseTree(dsl, tree_max_nodes, k, True)
-    IW = IteratedWidth(tree, n_expansions, k)
-    SF = SelfPlay(n_selfplay_iterations, n_games, max_game_rounds, IW, SA, dsl, LS_type)
-    SF.run()
+
+    # IW
+    tree = ParseTree(dsl=dsl, max_nodes=max_nodes, k=k, is_IW=True)
+    search_algo = IteratedWidth(tree, n_states, k)
+
+    # BFS
+    #tree = ParseTree(dsl=dsl, max_nodes=max_nodes, k=k, is_IW=False)
+    #search_algo = BFS(tree, n_states)
+
+    SP = SelfPlay(n_games, n_MC_simulations, max_game_rounds, max_nodes, search_algo, SA, dsl, LS_type, suffix)
+    start = time.time()
+    SP.run()
+    elapsed = time.time() - start
+    print('Elapsed = ', elapsed)
     
