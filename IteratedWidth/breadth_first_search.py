@@ -9,18 +9,19 @@ from IteratedWidth.toy_DSL import ToyDSL
 from IteratedWidth.sketch import Sketch
 
 class BFS:
-    def __init__(self, initial_state, n_expansions):
+    def __init__(self, initial_state, n_states):
         self.OPEN = []
         self.CLOSED = []
         self.initial_state = initial_state
-        self.n_expansions = n_expansions
+        self.n_states = n_states
 
     def run(self):
         """ Main routine of the BFS algorithm. """
 
         self.OPEN.append(self.initial_state)
         self.CLOSED.append(self.initial_state)
-        for i in range(self.n_expansions):
+        i = 0
+        while len(self.CLOSED) < self.n_states:
             print('i = ', i, 'len OPEN = ', len(self.OPEN), 'len CLOSED = ', len(self.CLOSED))
             # State to be expanded - First of the list (Breadth-first search)
             state = self.OPEN.pop(0)
@@ -32,6 +33,7 @@ class BFS:
                     continue
                 self.OPEN.append(state)
                 self.CLOSED.append(state)
+            i += 1
             if not self.OPEN:
                 print('No more nodes in OPEN')
                 return self.CLOSED
@@ -60,11 +62,11 @@ class BFS:
 
 if __name__ == "__main__":
     tree_max_nodes = 50
-    n_expansions = 100000
+    n_states = 100000
     k = 10 
     #tree = ParseTree(DSL(), tree_max_nodes, k, False)
     tree = ParseTree(ToyDSL(), tree_max_nodes, k, False)
-    BFS = BFS(tree, n_expansions)
+    BFS = BFS(tree, n_states)
     start = time.time()
     open_list = BFS.run()
     elapsed_time = time.time() - start

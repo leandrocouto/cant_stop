@@ -50,8 +50,8 @@ class IteratedWidth:
             i += 1
             if not self.OPEN:
                 print('No more nodes in OPEN')
-                return self.CLOSED, open_history
-        return self.CLOSED, open_history
+                return self.CLOSED
+        return self.CLOSED
 
     def update_k_pairs(self, state):
         """ Add 1->k-pairs from state to all_k_pairs avoiding duplicates."""
