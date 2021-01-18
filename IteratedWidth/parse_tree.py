@@ -37,7 +37,7 @@ class ParseTree:
         for i in range(1, self.k+1):
             self.k_pairing[i] = []
             self.k_pairing_values[i] = []
-        self.program = ''
+        self.program = 'S'
 
     def __eq__(self, other):
         """Overrides the default implementation. """
@@ -48,6 +48,7 @@ class ParseTree:
 
     def is_finished(self):
         """ Check if the current tree is complete (no non-terminal nodes). """
+        
         for word in self.program.split():
             if word in self.dsl.finishable_nodes:
                 return False
@@ -137,7 +138,12 @@ class ParseTree:
         "Quickly" expands the children of 'parent_node'. Avoids expanding nodes
         that are recursive. i.e.: A -> A + B 
         """
-        dsl_children_chosen = random.choice(self.dsl.quickly_finish[parent_node.value])
+
+        #Only "quickly" finish after the max_node threshold has been reached
+        if self.current_id < self.max_nodes:
+            dsl_children_chosen = random.choice(self.dsl._grammar[parent_node.value])
+        else:
+            dsl_children_chosen = random.choice(self.dsl.quickly_finish[parent_node.value])
         children = self._tokenize_dsl_entry(dsl_children_chosen)
         for child in children:
             is_terminal = self._is_terminal(child)
@@ -156,7 +162,7 @@ class ParseTree:
         Finish expanding nodes that possibly didn't finish fully expanding.
         This can happen if the max number of tree nodes is reached.
         """
-
+        
         self._finish_tree(self.root)
 
     def _finish_tree(self, start_node):
@@ -164,7 +170,6 @@ class ParseTree:
         Finish expanding nodes that possibly didn't finish fully expanding.
         This can happen if the max number of tree nodes is reached.
         """
-
         tokens = self._tokenize_dsl_entry(start_node.value)
         is_node_finished = True
         finishable_nodes = self.dsl.finishable_nodes
@@ -224,10 +229,6 @@ class ParseTree:
         """
 
         for child in node.children:
-            # Only the values from terminal nodes are relevant for the program
-            # synthesis (using a parse tree)
-            #if child.is_terminal:
-            #    list_of_nodes.append((child, child.parent))
             if not child.children:
                 list_of_nodes.append((child, child.parent))
             self._get_traversal_list_of_nodes(child, list_of_nodes)

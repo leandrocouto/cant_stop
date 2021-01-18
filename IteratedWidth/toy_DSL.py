@@ -45,6 +45,7 @@ class ToyDSL:
         self._grammar['variable'] = [
                                     "a",
                                     "b",
+                                    'scores[i]'
                                     ]
 
         self._grammar['iterable_for_variable'] = [
@@ -53,15 +54,21 @@ class ToyDSL:
 
         self._grammar['ret_expr'] = [
                                     'actions[ iterable_for_variable ]',
-                                    'actions[ variable ]'
+                                    'actions[ variable ]',
+                                    'actions[np.argmax(scores)]'
                                 ]
 
         self._grammar['functions_num'] = [
                                 'ToyDSL.get_player_total_advance(state)',
                                 'ToyDSL.get_opponent_total_advance(state)',
+                                'ToyDSL.advance(actions[i])',
+                                'ToyDSL.is_new_neutral(state, actions[i])',
+                                'ToyDSL.will_player_win_a_column(state, actions[i])',
+                                'ToyDSL.number_of_neutrals_used(state, actions[i])',
+                                'ToyDSL.get_cols_weights(actions[i])'
                                 ]
 
-        self._grammar['INTEGERS'] = [str(i) for i in range(1, 3)] 
+        self._grammar['INTEGERS'] = [str(i) for i in range(1, 6)] 
         self._grammar['OP'] = ['+', '-', '*']
 
         # Used in the parse tree to finish expanding hanging nodes
@@ -86,6 +93,27 @@ class ToyDSL:
                                 'INTEGERS' :self._grammar['INTEGERS'],
                                 'OP' :self._grammar['OP'],
                             }
+    
+    @staticmethod
+    def is_new_neutral(state, action):
+        # Return a boolean representing if action will place a new neutral. """
+        is_new_neutral = True
+        for neutral in state.neutral_positions:
+            if neutral[0] == action:
+                is_new_neutral = False
+
+        return is_new_neutral
+
+    @staticmethod
+    def advance(action):
+        """ Return how many cells this action will advance for each column. """
+
+        # Special case: doubled action (e.g. (6,6))
+        if len(action) == 2 and action[0] == action[1]:
+            return 2
+        # All other cases will advance only one cell per column
+        else:
+            return 1
 
     @staticmethod
     def get_player_total_advance(state):
@@ -174,6 +202,41 @@ class ToyDSL:
             return True
         else:
             return False
+
+    @staticmethod
+    def will_player_win_a_column(state, action):
+
+        clone_state = state.clone()
+        clone_state.play(action)
+        if len(clone_state.player_won_column) > len(state.player_won_column):
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def number_of_neutrals_used(state, action):
+        """ Calculate the number of neutral markers this action will use. """
+
+        neutral_positions = state.neutral_positions
+        markers = 0
+        # Special case: double action (e.g.: (6,6))
+        if len(action) == 2 and action[0] == action[1]:
+            is_new_neutral = True
+            for neutral in neutral_positions:
+                if neutral[0] == action:
+                    is_new_neutral = False
+            if is_new_neutral:
+                markers += 1
+        else:
+            for a in action:
+                is_new_neutral = True
+                for neutral in neutral_positions:
+                    if neutral[0] == action:
+                        is_new_neutral = False
+                if is_new_neutral:
+                    markers += 1
+
+        return markers
 
     @staticmethod
     def number_cells_advanced_this_round(state):
@@ -279,3 +342,38 @@ class ToyDSL:
             # y = 5-|x-7|
             score += (advance + 1) * progress_value[5 - abs(col - 7)]
         return score
+
+    @staticmethod
+    def get_cols_weights(action):
+        value = 0
+        for col in action:
+            if col in [2, 12]:
+                value += 7
+            elif col in [3, 11]:
+                value += 0
+            elif col in [4, 10]:
+                value += 2
+            elif col in [5, 9]:
+                value += 0
+            elif col in [6, 8]:
+                value += 4
+            else:
+                value += 3
+        return value
+        '''
+        value = 0
+        for col in action:
+            if col in [2, 12]:
+                value += 6
+            elif col in [3, 11]:
+                value += 5
+            elif col in [4, 10]:
+                value += 4
+            elif col in [5, 9]:
+                value += 3
+            elif col in [6, 8]:
+                value += 2
+            else:
+                value += 1
+        return value
+        '''
