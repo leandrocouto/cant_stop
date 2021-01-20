@@ -321,7 +321,7 @@ class ParseTree:
         """ Mutate a single node of the tree. """
 
         while True:
-            index_node = random.randint(0, self.current_id)
+            index_node = random.randint(0, self.current_id-1)
             node_to_mutate = self.find_node(index_node)
             if node_to_mutate == None:
                 self.print_tree()
