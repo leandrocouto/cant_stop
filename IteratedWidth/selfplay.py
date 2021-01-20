@@ -55,11 +55,18 @@ class SelfPlay:
         # Player initially to be beaten
         player_2 = RandomGlennPlayer()
         player_2_tree = None
-        best_player_state = self.local_search(closed_list, player_2)
-        #best_player = Sketch(best_player_state.generate_program()).get_object()
-        print('best antes')
+        # Pass a copy of closed_list to not lsoe the information of which
+        # unfinished program birthed the better program
+        copied_closed_list = pickle.loads(pickle.dumps(closed_list, -1))
+        # Apply a local search to find the best program in closed_list
+        best_player_state, best_player_index = self.local_search(copied_closed_list, player_2)
+        best_player = Sketch(best_player_state.generate_program()).get_object()
+        print('best antes SA antes transformacao')
+        print(closed_list[best_player_index].generate_program())
+        print('best antes SA dps transformacao')
         print(best_player_state.generate_program())
-        SA_state, _ = self.SA.run(best_player_state, player_2)
+
+        SA_state, _ = self.SA.run(best_player_state, best_player)
         print('best depois do SA')
         print(SA_state.generate_program())
         # Save to file
@@ -74,7 +81,10 @@ class SelfPlay:
         # player_2
         if self.LS_type == 0:
             scores = []
-            for state in closed_list:
+            for i, state in enumerate(closed_list):
+                print('state from CLOSED = ', i)
+                print('program')
+                print(state.generate_program())
                 if not state.is_finished():
                     state.finish_tree_randomly()
                 player_1 = Sketch(state.generate_program()).get_object()
@@ -83,15 +93,12 @@ class SelfPlay:
                 except:
                     vic = 0
                 scores.append(vic)
-            print('LS_type = ', self.LS_type)
-            print('Best program')
-            print(closed_list[np.argmax(scores)].generate_program())
-            print('Victories = ', scores[np.argmax(scores)])
-            return closed_list[np.argmax(scores)]
+            best_player_index = np.argmax(scores)
+            return closed_list[best_player_index], best_player_index
+
         # Finish the unfinished programs randomly, apply SA to each of them
         # and evaluate them against player_2
         elif self.LS_type == 1:
-            new_closed_list = []
             scores = []
             for i, state in enumerate(closed_list):
                 print('state from CLOSED = ', i)
@@ -102,7 +109,7 @@ class SelfPlay:
                     state.finish_tree_randomly()
                 # Apply SA
                 SA_state, _ = self.SA.run(state, player_2)
-                new_closed_list.append(SA_state)
+                closed_list[i] = SA_state
                 # Evaluate it against player_2
                 player_1 = Sketch(SA_state.generate_program()).get_object()
                 try:
@@ -112,11 +119,8 @@ class SelfPlay:
                 scores.append(vic)
                 print('SA victories = ', vic)
                 print()
-            print('LS_type = ', self.LS_type)
-            print('Best program')
-            print(new_closed_list[np.argmax(scores)].generate_program())
-            print('Victories = ', scores[np.argmax(scores)])
-            return new_closed_list[np.argmax(scores)]
+            best_player_index = np.argmax(scores)
+            return closed_list[best_player_index], best_player_index
             
         # Use Monte Carlo simulations for each of the states while evaluating
         # against player_2
@@ -138,14 +142,11 @@ class SelfPlay:
                         vic = 0
                     local_score.append(vic)
                 scores.append(sum(local_score)/ len(local_score))
-                print('MC simulations score avg = ', sum(local_score)/ len(local_score))
+                print('MC sims score avg = ', sum(local_score)/ len(local_score))
                 print()
             # Return the script that won more in the MC simulations
-            print('LS_type = ', self.LS_type)
-            print('Best program')
-            print(closed_list[np.argmax(scores)].generate_program())
-            print('Victory avg = ', scores[np.argmax(scores)])
-            return closed_list[np.argmax(scores)]
+            best_player_index = np.argmax(scores)
+            return closed_list[best_player_index], best_player_index
 
 
 
@@ -217,8 +218,7 @@ class SelfPlay:
         return who_won
 
 if __name__ == "__main__":
-    suffix = 'IW'
-    n_SA_iterations = 30
+    n_SA_iterations = 100
     n_games = 100
     init_temp = 1
     d = 1
@@ -229,17 +229,22 @@ if __name__ == "__main__":
     n_MC_simulations = 100
     k = 4
     # Local Search type. 0 = random, 1 = random + SA, 2 = MC simulations
-    LS_type = 1
-    #dsl = DSL()
+    LS_type = 2
+    # 0 = IW, 1 = BFS
+    search_type = 0
+
     dsl = ToyDSL()
 
-    # IW
-    tree = ParseTree(dsl=dsl, max_nodes=max_nodes, k=k, is_IW=True)
-    search_algo = IteratedWidth(tree, n_states, k)
-
-    # BFS
-    #tree = ParseTree(dsl=dsl, max_nodes=max_nodes, k=k, is_IW=False)
-    #search_algo = BFS(tree, n_states)
+    if search_type == 0:
+        # IW
+        tree = ParseTree(dsl=dsl, max_nodes=max_nodes, k=k, is_IW=True)
+        search_algo = IteratedWidth(tree, n_states, k)
+        suffix = 'IW' + '_LS' + str(LS_type)
+    elif search_type == 1:
+        # BFS
+        tree = ParseTree(dsl=dsl, max_nodes=max_nodes, k=k, is_IW=False)
+        search_algo = BFS(tree, n_states)
+        suffix = 'BFS' + '_LS' + str(LS_type)
 
     SP = SelfPlay(n_games, n_MC_simulations, max_game_rounds, max_nodes, search_algo, SA, dsl, LS_type, suffix)
     start = time.time()

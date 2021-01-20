@@ -3,29 +3,33 @@ import sys
 import pickle
 sys.path.insert(0,'..')
 from IteratedWidth.sketch import Sketch
+from game import Game
+from play_game_template import simplified_play_single_game
 
 class SimulatedAnnealing:
-    def __init__(self, n_SA_iterations, n_games, init_temp, d):
+    def __init__(self, n_SA_iterations, max_game_rounds, n_games, init_temp, d):
         self.n_SA_iterations = n_SA_iterations
+        self.max_game_rounds = max_game_rounds
         self.n_games = n_games
         self.init_temp = init_temp
         self.d = d
 
-    def run(self, tree, tree_to_be_beaten):
+    def run(self, initial_state, player_to_be_beaten):
         # Original program
-        curr_tree = pickle.loads(pickle.dumps(tree, -1))
-        curr_program = Sketch(curr_tree.generate_program()).get_object()
+        curr_tree = pickle.loads(pickle.dumps(initial_state, -1))
+        curr_player = Sketch(curr_tree.generate_program()).get_object()
         # Program to be beaten is given from selfplay
-        best_tree = pickle.loads(pickle.dumps(tree_to_be_beaten, -1))
-        best_program = Sketch(best_tree.generate_program()).get_object()
+        #best_tree = pickle.loads(pickle.dumps(initial_state, -1))
+        #best_player = Sketch(initial_state.generate_program()).get_object()
+        best_tree = None
+        best_player = player_to_be_beaten
 
         # Evaluate the starting program against the program from selfplay
         try:
-            victories, _, _ = self.evaluate(best_program, curr_program)
+            victories, _, _ = self.evaluate(curr_player, best_player)
         # If the program gives an error during evaluation, this program should
         # be 'discarded/bad' -> set victory to 0.
         except Exception as e:
-            #print('erro - ', str(e))
             victories = 0
         
 
@@ -39,10 +43,10 @@ class SimulatedAnnealing:
             # Mutate it
             mutated_tree.mutate_tree()
             # Get the object of the mutated program
-            mutated_program = Sketch(mutated_tree.generate_program()).get_object()
+            mutated_player = Sketch(mutated_tree.generate_program()).get_object()
             # Evaluates the mutated program against best_program
             try:
-                victories_mut, _, _ = self.evaluate(mutated_program, best_program)
+                victories_mut, _, _ = self.evaluate(mutated_player, curr_player)
             except Exception as e:
                 #print('erro - ', str(e))
                 victories_mut = 0
@@ -57,16 +61,22 @@ class SimulatedAnnealing:
                                                             )
             
             if updated_score_mutated > updated_score_best:
-                print('foi melhor - best, new = ', best_score, new_score)
-                exit()
+                print('Iteration = ',i, 'New score = ', new_score, 'best_score = ', best_score)
                 best_score = new_score
                 # Copy the trees
                 best_tree = mutated_tree
                 # Copy the script
-                best_program = mutated_program
+                best_player = mutated_player
             # update temperature according to schedule
             curr_temp = self.temperature_schedule(i)
-        return best_tree, best_program
+
+        # It can happen that the mutated state is never better than 
+        # player_to_be_beaten, therefore we set best_tree and best_player to the 
+        # original initial_state.
+        if best_tree is None:
+            best_tree = curr_tree
+            best_player = curr_player
+        return best_tree, best_player
 
     def temperature_schedule(self, iteration):
         """ Calculate the next temperature used for the score calculation. """
