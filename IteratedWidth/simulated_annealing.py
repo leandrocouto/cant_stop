@@ -1,26 +1,40 @@
 import math
 import sys
 import pickle
+import time
+import os
 sys.path.insert(0,'..')
 from IteratedWidth.sketch import Sketch
 from game import Game
 from play_game_template import simplified_play_single_game
 
 class SimulatedAnnealing:
-    def __init__(self, n_SA_iterations, max_game_rounds, n_games, init_temp, d):
+    def __init__(self, n_SA_iterations, max_game_rounds, n_games, init_temp, d,
+                to_log):
         self.n_SA_iterations = n_SA_iterations
         self.max_game_rounds = max_game_rounds
         self.n_games = n_games
         self.init_temp = init_temp
         self.d = d
+        # Bool representing if successful iterations are to be saved to file
+        self.to_log = to_log
+        # Logging info
+        self.folder = None
+        self.filename = None
+        self.suffix = None
 
     def run(self, initial_state, player_to_be_beaten):
+        """ 
+        Main routine of Simulated Annealing. SA will start mutating from
+        initial_state and the first player to be beaten is player_to_be_beaten.
+        If this player is beaten, the player that beat it will be the one to be
+        beaten in the next iteration. 
+        """
+
         # Original program
         curr_tree = pickle.loads(pickle.dumps(initial_state, -1))
         curr_player = Sketch(curr_tree.generate_program()).get_object()
         # Program to be beaten is given from selfplay
-        #best_tree = pickle.loads(pickle.dumps(initial_state, -1))
-        #best_player = Sketch(initial_state.generate_program()).get_object()
         best_tree = None
         best_player = player_to_be_beaten
 
@@ -35,9 +49,19 @@ class SimulatedAnnealing:
 
         best_score = victories
 
+        # Initial program
+        with open(self.filename, 'a') as f:
+            print('Initial SA program below', file=f)
+            print(initial_state.generate_program(), file=f)
+            print(file=f)
+            
+        # Number of "successful" iterations
+        successful = 0 
         curr_temp = self.init_temp
         for i in range(2, self.n_SA_iterations + 2):
-            #print('sa - ', i)
+            with open(self.filename, 'a') as f:
+                print('Beginning iteration ',i, file=f)
+            start = time.time()
             # Make a copy of curr_tree
             mutated_tree = pickle.loads(pickle.dumps(curr_tree, -1))
             # Mutate it
@@ -61,7 +85,20 @@ class SimulatedAnnealing:
                                                             )
             
             if updated_score_mutated > updated_score_best:
-                print('Iteration = ',i, 'New score = ', new_score, 'best_score = ', best_score)
+                successful += 1
+                if self.to_log:
+                    # Save to file
+                    inner_folder = self.folder + '/Successful_SA/'
+                    if not os.path.exists(inner_folder):
+                        os.makedirs(inner_folder)
+                    Sketch(mutated_tree.generate_program()).save_file_custom(inner_folder, self.suffix + '_SA_ite' + str(i))
+
+                with open(self.filename, 'a') as f:
+                    elapsed = time.time() - start
+                    print('SA - Iteration = ',i, '- Mutated player was better - Victories =', victories_mut, file=f)
+                    print('Mutated program below - Time of this iteration =', elapsed, 'Successful ite. so far = ', successful, file=f)
+                    print(mutated_tree.generate_program(), file=f)
+                    print(file=f)
                 best_score = new_score
                 # Copy the trees
                 best_tree = mutated_tree
@@ -76,6 +113,8 @@ class SimulatedAnnealing:
         if best_tree is None:
             best_tree = curr_tree
             best_player = curr_player
+        with open(self.filename, 'a') as f:
+            print('Successful iterations of this SA = ', successful, 'out of', self.n_SA_iterations, 'iterations.',  file=f)
         return best_tree, best_player
 
     def temperature_schedule(self, iteration):

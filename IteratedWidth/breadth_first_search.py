@@ -52,8 +52,6 @@ class BFS:
             dsl_entries = state.dsl._grammar[leaf.value]
             for entry in dsl_entries:
                 copied_tree = state.clone()
-                # Reset its novelty score
-                copied_tree.novelty = 0
                 node = copied_tree.find_node(leaf.node_id)
                 copied_tree.expand_specific_node(node, entry)
                 children.append(copied_tree)
@@ -62,8 +60,8 @@ class BFS:
 
 if __name__ == "__main__":
     tree_max_nodes = 50
-    n_states = 100000
-    k = 10 
+    n_states = 1000000
+    k = 3
     #tree = ParseTree(DSL(), tree_max_nodes, k, False)
     tree = ParseTree(ToyDSL(), tree_max_nodes, k, False)
     BFS = BFS(tree, n_states)
