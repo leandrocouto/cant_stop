@@ -4,7 +4,8 @@ import pickle
 import time
 import os
 sys.path.insert(0,'..')
-from IteratedWidth.sketch import Sketch
+#from IteratedWidth.sketch import Sketch
+from IteratedWidth.new_sketch import NewSketch
 from game import Game
 from play_game_template import simplified_play_single_game
 
@@ -33,7 +34,7 @@ class SimulatedAnnealing:
 
         # Original program
         curr_tree = pickle.loads(pickle.dumps(initial_state, -1))
-        curr_player = Sketch(curr_tree.generate_program()).get_object()
+        curr_player = NewSketch(curr_tree.generate_program()).get_object()
         # Program to be beaten is given from selfplay
         best_tree = None
         best_player = player_to_be_beaten
@@ -62,17 +63,17 @@ class SimulatedAnnealing:
             with open(self.filename, 'a') as f:
                 print('Beginning iteration ',i, file=f)
             start = time.time()
+            #print('sa ite', i)
             # Make a copy of curr_tree
             mutated_tree = pickle.loads(pickle.dumps(curr_tree, -1))
             # Mutate it
             mutated_tree.mutate_tree()
             # Get the object of the mutated program
-            mutated_player = Sketch(mutated_tree.generate_program()).get_object()
+            mutated_player = NewSketch(mutated_tree.generate_program()).get_object()
             # Evaluates the mutated program against best_program
             try:
                 victories_mut, _, _ = self.evaluate(mutated_player, curr_player)
             except Exception as e:
-                #print('erro - ', str(e))
                 victories_mut = 0
 
             new_score = victories_mut
@@ -91,7 +92,7 @@ class SimulatedAnnealing:
                     inner_folder = self.folder + '/Successful_SA/'
                     if not os.path.exists(inner_folder):
                         os.makedirs(inner_folder)
-                    Sketch(mutated_tree.generate_program()).save_file_custom(inner_folder, self.suffix + '_SA_ite' + str(i))
+                    NewSketch(mutated_tree.generate_program()).save_file_custom(inner_folder, self.suffix + '_SA_ite' + str(i))
 
                 with open(self.filename, 'a') as f:
                     elapsed = time.time() - start
