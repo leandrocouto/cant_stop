@@ -24,15 +24,24 @@ class BFS:
         while len(self.CLOSED) < self.n_states:
             print('i = ', i, 'len OPEN = ', len(self.OPEN), 'len CLOSED = ', len(self.CLOSED))
             # State to be expanded - First of the list (Breadth-first search)
+            #print('OPEN ABAIXO')
+            #for s in self.OPEN:
+            #    s.print_tree()
+            #    print()
+            #print()
+            #print()
+            #print()
             state = self.OPEN.pop(0)
-            children = self.expand_children(state)
+            #children = self.expand_children(state)
+            children = self.new_expand_children(state)
             # Add expanded children to OPEN
-            for state in children:
+            for child in children:
                 # If state has already been seen, ignore it
-                if state in self.CLOSED:
+                if child in self.CLOSED:
                     continue
-                self.OPEN.append(state)
-                self.CLOSED.append(state)
+                child.depth = state.depth + 1
+                self.OPEN.append(child)
+                self.CLOSED.append(child)
             i += 1
             if not self.OPEN:
                 print('No more nodes in OPEN')
@@ -55,6 +64,25 @@ class BFS:
                 node = copied_tree.find_node(leaf.node_id)
                 copied_tree.expand_specific_node(node, entry)
                 children.append(copied_tree)
+
+        return children
+
+    def new_expand_children(self, state):
+        """ Expand a child of state. """
+
+        tree_leaves = state.get_tree_leaves()
+        # List for nodes to be added in self.OPEN
+        children = []
+        for leaf in tree_leaves:
+            if leaf.is_terminal:
+                continue
+            dsl_entries = state.dsl._grammar[leaf.value]
+            for entry in dsl_entries:
+                copied_tree = state.clone()
+                node = copied_tree.find_node(leaf.node_id)
+                copied_tree.expand_specific_node(node, entry)
+                children.append(copied_tree)
+            break
 
         return children
 
