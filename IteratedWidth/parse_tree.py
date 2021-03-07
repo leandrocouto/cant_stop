@@ -51,10 +51,8 @@ class ParseTree:
     '''
     
     def set_fixed_nodes(self):
-        list_of_nodes = []
-        self._get_traversal_list_of_nodes(self.root, list_of_nodes)
+        list_of_nodes = self.get_all_traversal_list_of_nodes()
         for node in list_of_nodes:
-            #node.add_property('can_mutate', lambda self: False)
             node.can_mutate = False
 
     def __eq__(self, other):
@@ -436,24 +434,37 @@ class ParseTree:
         for child_node in node.children:
             self._update_nodes_ids(child_node)
 
-    
+    '''
     def _can_mutate(self, node):
         if node.value in self.dsl.terminal_nodes:
             return True
         else:
             return False
-    
     '''
+    
     def _can_mutate(self, node):
-        if node.can_mutate:
+        if not node.can_mutate:
+            return False
+        else:
+            if node.value not in ['I(.)', 'I(+)', 'I(-)'] and not node.is_terminal:
+                return True
+            else:
+                return False
+        '''
+        if node.can_mutate and node.value not in ['I(.)', 'I(+)', 'I(-)'] and not node.is_terminal:
             return True
         else:
             return False
-    '''
+        '''
+    
     def mutate_tree(self):
         """ Mutate a single node of the tree. """
 
+        # It can happen that a state cannot be mutated (because of the local
+        # search restrictions to not mutate already predefined nodes)
+        max_tries = 1000
         while True:
+            max_tries -= 1
             index_node = random.randint(0, self.current_id-1)
             node_to_mutate = self.find_node(index_node)
             if node_to_mutate == None:
@@ -461,9 +472,11 @@ class ParseTree:
                 raise Exception('Node randomly selected does not exist.' + \
                     ' Index sampled = ' + str(index_node) + \
                     ' Tree is printed above.')
-            #if not node_to_mutate.is_terminal:
             if self._can_mutate(node_to_mutate):
                 break
+
+            if max_tries == 0:
+                return
 
         # delete its children and mutate it with new values
         node_to_mutate.children = []
@@ -508,7 +521,6 @@ class ParseTree:
             initial_list = [leaf]
             # While it can still go up in the tree to get all upward paths
             while initial_list[-1].parent != None:
-                #print('entrei no while')
                 all_downward_paths = []
                 # Get all downward paths from the node at the end of the list
                 self._get_downward_paths(all_downward_paths, initial_list[-1].parent, [], initial_list[-1])

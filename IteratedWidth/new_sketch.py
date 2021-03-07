@@ -64,9 +64,6 @@ class Script(Player):
 
     def get_object(self):
         """ Generate an object of the class inside the string self._py """
-        #print('texto')
-        #print(self.generate_text())
-        #self.save_file_custom('', 'testeeeee')
         return self._string_to_object(self.generate_text())
     
 

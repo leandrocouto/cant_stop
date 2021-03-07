@@ -14,12 +14,16 @@ class NewDSL:
         self._grammar['statement']   = [
                                         r"statement I(.) statement",
                                         r"assign_expr I(.)",
-                                        r"for iterable_for_variable in range(len(scores)): I(+) statement I(-)",
+                                        #r"for iterable_for_variable in range(len(scores)): I(+) statement I(-)",
                                         r"if_cond",
                                         r"return ret_expr I(.)"
                                         ]
 
         self._grammar['if_cond'] = [
+                                        r"if bool_expr : I(+) statement I(.) return ret_expr I(-)",
+                                        r"if bool_expr : I(+) statement I(.) return ret_expr I(-) else: I(+) statement I(.) return ret_expr I(-)",
+                                        r"if bool_expr : I(+) statement I(.) return ret_expr I(-) elif bool_expr : I(+) statement I(.) return ret_expr I(-) else: I(+) statement I(.) return ret_expr I(-)",
+
                                         r"if bool_expr : I(+) statement I(-)",
                                         r"if bool_expr : I(+) statement I(-) else: I(+) statement I(-)",
                                         r"if bool_expr : I(+) statement I(-) elif bool_expr : I(+) statement I(-) else: I(+) statement I(-)",
@@ -52,7 +56,7 @@ class NewDSL:
         self._grammar['variable'] = [
                                     "a",
                                     "b",
-                                    'scores[i]'
+                                    #'scores[i]'
                                     ]
 
         self._grammar['iterable_for_variable'] = [
@@ -62,9 +66,9 @@ class NewDSL:
         ]
 
         self._grammar['ret_expr'] = [
-                                    'actions[ iterable_for_variable ]',
-                                    'actions[ variable ]',
-                                    'actions[np.argmax(scores)]',
+                                    #'actions[ iterable_for_variable ]',
+                                    #'actions[ variable ]',
+                                    #'actions[np.argmax(scores)]',
                                     "'y'", 
                                     "'n'"
                                 ]
@@ -72,18 +76,19 @@ class NewDSL:
         self._grammar['functions_num'] = [
                                 'NewDSL.get_player_total_advance(state)',
                                 'NewDSL.get_opponent_total_advance(state)',
-                                'NewDSL.advance(actions[i])',
-                                'NewDSL.is_new_neutral(state, actions[i])',
-                                'NewDSL.will_player_win_a_column(state, actions[i])',
-                                'NewDSL.number_of_neutrals_used(state, actions[i])',
-                                'NewDSL.get_cols_weights(actions[i])',
+                                #'NewDSL.advance(actions[i])',
+                                #'NewDSL.is_new_neutral(state, actions[i])',
+                                #'NewDSL.will_player_win_a_column(state, actions[i])',
+                                #'NewDSL.number_of_neutrals_used(state, actions[i])',
+                                #'NewDSL.get_cols_weights(actions[i])',
                                 'NewDSL.calculate_score(state, [ INT, INT , INT , INT , INT , INT ])',
                                 'NewDSL.calculate_difficulty_score(state, INT , INT , INT , INT )'
                                 ]
 
         self._grammar['bool_cond'] = [
-                                'NewDSL.is_new_neutral(state, actions[i])',
-                                'NewDSL.will_player_win_a_column(state, actions[i])',
+                                #'NewDSL.is_new_neutral(state, actions[i])',
+                                #'NewDSL.will_player_win_a_column(state, actions[i])',
+                                'NewDSL.will_player_win_a_column(state, ret_expr)',
                                 'NewDSL.will_player_win_after_n(state)'
                                 ]
 
