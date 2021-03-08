@@ -81,15 +81,16 @@ class NewDSL:
                                 #'NewDSL.will_player_win_a_column(state, actions[i])',
                                 #'NewDSL.number_of_neutrals_used(state, actions[i])',
                                 #'NewDSL.get_cols_weights(actions[i])',
-                                'NewDSL.calculate_score(state, [ INT, INT , INT , INT , INT , INT ])',
+                                'NewDSL.calculate_score(state, [ INT , INT , INT , INT , INT , INT ])',
                                 'NewDSL.calculate_difficulty_score(state, INT , INT , INT , INT )'
                                 ]
 
         self._grammar['bool_cond'] = [
                                 #'NewDSL.is_new_neutral(state, actions[i])',
                                 #'NewDSL.will_player_win_a_column(state, actions[i])',
-                                'NewDSL.will_player_win_a_column(state, ret_expr)',
-                                'NewDSL.will_player_win_after_n(state)'
+                                'NewDSL.will_player_win_a_column(state, ret_expr )',
+                                'NewDSL.will_player_win_after_n(state)',
+                                'NewDSL.are_there_available_columns_to_play(state)'
                                 ]
 
         self._grammar['INT'] = [str(i) for i in range(1, 11)] 
