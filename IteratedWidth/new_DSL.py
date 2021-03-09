@@ -88,7 +88,7 @@ class NewDSL:
         self._grammar['bool_cond'] = [
                                 #'NewDSL.is_new_neutral(state, actions[i])',
                                 #'NewDSL.will_player_win_a_column(state, actions[i])',
-                                'NewDSL.will_player_win_a_column(state, ret_expr )',
+                                #'NewDSL.will_player_win_a_column(state, ret_expr )',
                                 'NewDSL.will_player_win_after_n(state)',
                                 'NewDSL.are_there_available_columns_to_play(state)'
                                 ]

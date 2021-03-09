@@ -16,6 +16,8 @@ class Script(Player):
 \t\timport numpy as np
 \t\tactions = state.available_moves()
 \t\tscores = np.zeros(len(actions))
+\t\ta = 0
+\t\tb = 0
 \t\tif 'y' in actions:
 '''
         
@@ -27,7 +29,7 @@ class Script(Player):
 \t\t\tmove_value = [0, 0, 7, 0, 2, 0, 4, 3, 4, 0, 2, 0, 7]
 \t\t\tfor i in range(len(scores)):
 \t\t\t\tfor column in actions[i]:
-\t\t\t\t\tscores[i] += NewDSL.advance(actions[i]) * move_value[column] - 6 * NewDSL.is_new_neutral(column, state)
+\t\t\t\t\tscores[i] += NewDSL.advance(actions[i]) * move_value[column] - 6 * NewDSL.is_new_neutral(state, column)
 \t\t\tchosen_action = actions[np.argmax(scores)]
 \t\t\treturn chosen_action
 '''
