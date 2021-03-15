@@ -82,7 +82,9 @@ class NewDSL:
                                 #'NewDSL.number_of_neutrals_used(state, actions[i])',
                                 #'NewDSL.get_cols_weights(actions[i])',
                                 'NewDSL.calculate_score(state, [ INT , INT , INT , INT , INT , INT ])',
-                                'NewDSL.calculate_difficulty_score(state, INT , INT , INT , INT )'
+                                'NewDSL.calculate_difficulty_score(state, INT , INT , INT , INT )',
+                                #'NewDSL.get_player_column_advance(state, INT )',
+                                #'NewDSL.get_opponent_column_advance(state, INT )'
                                 ]
 
         self._grammar['bool_cond'] = [
@@ -93,7 +95,7 @@ class NewDSL:
                                 'NewDSL.are_there_available_columns_to_play(state)'
                                 ]
 
-        self._grammar['INT'] = [str(i) for i in range(1, 11)] 
+        self._grammar['INT'] = [str(i) for i in range(1, 13)] 
         self._grammar['MATH_OP'] = ['+', '-', '*']
         self._grammar['BOOL_OP'] = ['and', 'or', 'and not', 'or not']
         self._grammar['COMP_OP'] = ['<', '>', '<=', '>=']
@@ -217,6 +219,77 @@ class NewDSL:
             if previously_conquered != -1:
                 counter += previously_conquered + 1
         return counter
+
+    @staticmethod
+    def get_player_column_advance(state, column):
+        """ 
+        Get the number of cells advanced in a specific column (2->12 inclusive)
+        of the player. 
+        """
+
+        if column not in list(range(2,13)):
+            raise Exception('Out of range column passed to get_player_column_advance()')
+        counter = 0
+        player = state.player_turn
+        # First check if the column is already won
+        for won_column in state.finished_columns:
+            if won_column[0] == column and won_column[1] == player:
+                return len(state.board_game.board[won_column[0]]) + 1
+            elif won_column[0] == column and won_column[1] != player:
+                return 0
+        # If not, 'manually' count it while taking note of the neutral position
+        previously_conquered = -1
+        neutral_position = -1
+        list_of_cells = state.board_game.board[column]
+
+        for i in range(len(list_of_cells)):
+            if player in list_of_cells[i].markers:
+                previously_conquered = i
+            if 0 in list_of_cells[i].markers:
+                neutral_position = i
+        if neutral_position != -1:
+            counter += neutral_position + 1
+            for won_column in state.player_won_column:
+                if won_column[0] == column:
+                    counter += 1
+        elif previously_conquered != -1 and neutral_position == -1:
+            counter += previously_conquered + 1
+            for won_column in state.player_won_column:
+                if won_column[0] == column:
+                    counter += len(list_of_cells) - previously_conquered
+        return counter
+
+
+    @staticmethod
+    def get_opponent_column_advance(state, column):
+        """ 
+        Get the number of cells advanced in a specific column (2->12 inclusive)
+        of the opponent. 
+        """
+
+        if column not in list(range(2,13)):
+            raise Exception('Out of range column passed to get_opponent_column_advance()')
+        counter = 0
+        if state.player_turn == 1:
+            player = 2
+        else:
+            player = 1
+        # First check if the column is already won
+        for won_column in state.finished_columns:
+            if won_column[0] == column and won_column[1] == player:
+                return len(state.board_game.board[won_column[0]]) + 1
+            elif won_column[0] == column and won_column[1] != player:
+                return 0
+        # If not, 'manually' count it
+        previously_conquered = -1
+        neutral_position = -1
+        list_of_cells = state.board_game.board[column]
+
+        for i in range(len(list_of_cells)):
+            if player in list_of_cells[i].markers:
+                previously_conquered = i
+
+        return previously_conquered + 1
 
     @staticmethod
     def will_player_win_after_n(state):
