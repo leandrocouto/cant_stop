@@ -4,8 +4,7 @@ import pickle
 import time
 import os
 sys.path.insert(0,'..')
-#from IteratedWidth.sketch import Sketch
-from IteratedWidth.new_sketch import NewSketch
+from IteratedWidth.sketch import Sketch
 from game import Game
 from play_game_template import simplified_play_single_game
 
@@ -34,7 +33,7 @@ class SimulatedAnnealing:
 
         # Original program
         curr_tree = pickle.loads(pickle.dumps(initial_state, -1))
-        curr_player = NewSketch(curr_tree.generate_program()).get_object()
+        curr_player = Sketch(curr_tree.generate_program()).get_object()
         # Program to be beaten is given from selfplay
         best_tree = None
         best_player = player_to_be_beaten
@@ -69,12 +68,14 @@ class SimulatedAnnealing:
             # Mutate it
             mutated_tree.mutate_tree()
             # Get the object of the mutated program
-            mutated_player = NewSketch(mutated_tree.generate_program()).get_object()
+            mutated_player = Sketch(mutated_tree.generate_program()).get_object()
             # Evaluates the mutated program against best_program
             try:
-                victories_mut, _, _ = self.evaluate(mutated_player, curr_player)
+                victories_mut, losses_mut, draws_mut = self.evaluate(mutated_player, curr_player)
             except Exception as e:
                 victories_mut = 0
+                losses_mut = 0
+                draws_mut = 0
 
             new_score = victories_mut
 
@@ -84,7 +85,17 @@ class SimulatedAnnealing:
                                                                 new_score, 
                                                                 curr_temp
                                                             )
-            
+            if self.to_log:
+                inner_folder = self.folder + '/Successful_SA/'
+                inner_log = self.folder + '/Successful_SA/short_log.txt'
+                if not os.path.exists(inner_folder):
+                    os.makedirs(inner_folder)
+                with open(inner_log, 'a') as f:
+                    print('SA - Iteration = ',i, '- V/L/D =', victories_mut, losses_mut, draws_mut, file=f)
+            else:
+                inner_log = self.folder + '/short_log.txt'
+                with open(inner_log, 'a') as f:
+                    print('SA - Iteration = ',i, '- V/L/D =', victories_mut, losses_mut, draws_mut, file=f)
             if updated_score_mutated > updated_score_best:
                 successful += 1
                 if self.to_log:
@@ -92,7 +103,7 @@ class SimulatedAnnealing:
                     inner_folder = self.folder + '/Successful_SA/'
                     if not os.path.exists(inner_folder):
                         os.makedirs(inner_folder)
-                    NewSketch(mutated_tree.generate_program()).save_file_custom(inner_folder, self.suffix + '_SA_ite' + str(i))
+                    Sketch(mutated_tree.generate_program()).save_file_custom(inner_folder, self.suffix + '_SA_ite' + str(i))
 
                 with open(self.filename, 'a') as f:
                     elapsed = time.time() - start
@@ -106,6 +117,13 @@ class SimulatedAnnealing:
                 # Copy the script
                 best_player = mutated_player
             # update temperature according to schedule
+            else:
+                with open(self.filename, 'a') as f:
+                    elapsed = time.time() - start
+                    print('SA - Iteration = ',i, '- Mutated player was worse - Victories =', victories_mut, file=f)
+                    print('Mutated program below - Time of this iteration =', elapsed, 'Successful ite. so far = ', successful, file=f)
+                    print(mutated_tree.generate_program(), file=f)
+                    print(file=f)
             curr_temp = self.temperature_schedule(i)
 
         # It can happen that the mutated state is never better than 

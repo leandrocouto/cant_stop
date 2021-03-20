@@ -2,38 +2,41 @@ import random
 import codecs
 import sys
 from IteratedWidth.string_loader import StringLoader, StringFinder
-from IteratedWidth.toy_DSL import ToyDSL
+from IteratedWidth.DSL import DSL
 
-class Sketch:
+class NewSketch:
     def __init__(self, program_string):
         self.program_string = program_string
-        self._py = r'''
+        self._header_py = r'''
 from players.player import Player
-from IteratedWidth.toy_DSL import ToyDSL
+from IteratedWidth.DSL import DSL
 
 class Script(Player):
 \tdef get_action(self, state):
-\t\t import numpy as np
-\t\t actions = state.available_moves()
-\t\t scores = np.zeros(len(actions))
-\t\t if 'y' in actions:
-\t\t\t if ToyDSL.will_player_win_after_n(state):
-\t\t\t\t return 'n'
-\t\t\t elif ToyDSL.are_there_available_columns_to_play(state):
-\t\t\t\t return 'y'
-\t\t\t else:
-\t\t\t\t score = ToyDSL.calculate_score(state, [7, 7, 3, 2, 2, 1]) + ToyDSL.calculate_difficulty_score(state, 7, 1, 6, 5)
-\t\t\t\t if score >= 29:
-\t\t\t\t\t return 'n'
-\t\t\t\t else:
-\t\t\t\t\t return 'y'
-\t\t else:
+\t\timport numpy as np
+\t\tactions = state.available_moves()
+\t\tscores = np.zeros(len(actions))
+\t\ta = 0
+\t\tb = 0
+\t\tif 'y' in actions:
 '''
         
         self.program = r'''{0}'''
+
+        self._end_py = r'''
+\t\telse:
+\t\t\tscores = np.zeros(len(actions))
+\t\t\tmove_value = [0, 0, 7, 0, 2, 0, 4, 3, 4, 0, 2, 0, 7]
+\t\t\tfor i in range(len(scores)):
+\t\t\t\tfor column in actions[i]:
+\t\t\t\t\tscores[i] += DSL.advance(actions[i]) * move_value[column] - 6 * DSL.is_new_neutral(state, column)
+\t\t\tchosen_action = actions[np.argmax(scores)]
+\t\t\treturn chosen_action
+'''
     def generate_text(self):
-        py = self._py
+        py = self._header_py
         py += self.program.format(self.program_string)
+        py += self._end_py
         py = codecs.decode(py, 'unicode_escape')
         return py
 
@@ -56,13 +59,13 @@ class Script(Player):
     def _string_to_object(self, str_class, *args, **kwargs):
         """ Transform a program written inside str_class to an object. """
         import re
+        #print(str_class)
         exec(str_class)
         class_name = re.search("class (.*):", str_class).group(1).partition("(")[0]
         return locals()[class_name](*args, **kwargs)
 
     def get_object(self):
         """ Generate an object of the class inside the string self._py """
-
         return self._string_to_object(self.generate_text())
     
 

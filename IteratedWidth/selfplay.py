@@ -8,10 +8,8 @@ import math
 import os
 sys.path.insert(0,'..')
 from IteratedWidth.parse_tree import ParseTree
-#from IteratedWidth.toy_DSL import ToyDSL
-#from IteratedWidth.sketch import Sketch
-from IteratedWidth.new_DSL import NewDSL
-from IteratedWidth.new_sketch import NewSketch
+from IteratedWidth.DSL import DSL
+from IteratedWidth.sketch import Sketch
 from IteratedWidth.iterated_width import IteratedWidth
 from IteratedWidth.breadth_first_search import BFS
 from IteratedWidth.simulated_annealing import SimulatedAnnealing
@@ -69,23 +67,26 @@ class SelfPlay:
         start = time.time()
 
         # If there is a closed list on file, read it
+        print('search_algo = ', self.search_algo)
         try:
             if isinstance(self.search_algo, IteratedWidth):
-                algo_name = 'iw'
+                with open('iw_k' + str(self.search_algo.initial_state.k), mode='rb') as file:
+                    closed_list = pickle.load(file)
+                    print('entrei aqui - iw')
             else:
-                algo_name = 'bfs'
-            print('algo_name = ', algo_name)
-            print('nome = ', algo_name + '_k' + str(self.search_algo.initial_state.k))
-            with open(algo_name + '_k' + str(self.search_algo.initial_state.k), mode='rb') as file:
-                closed_list = pickle.load(file)
-                #print('closed_list = ', closed_list)
-                print('entrei aqui')
-                #for state in closed_list:
-                #    state.add_property('b', lambda self: 1)
-                #    print(state.b)
+                with open('bfs', mode='rb') as file:
+                    closed_list = pickle.load(file)
+                    print('entrei aqui - bfs')
+                    print('tamanho total bfs = ', len(closed_list))
+                    closed_list = closed_list[:n_states]
+                    print('tamanho bfs dps = ', len(closed_list))
         except:
             # Otherwise, calculate it
+            print('entrei no except')
             closed_list = self.search_algo.run()
+            # Tag the nodes in order for SA to not mutate them later
+            for state in closed_list:
+                state.set_fixed_nodes()
             # Save closed list to file
             with open(self.folder + 'closed_list_' + str(len(closed_list)) + 'states', 'wb') as file:
                 pickle.dump(closed_list, file)
@@ -107,15 +108,25 @@ class SelfPlay:
         # Apply a local search to find the best program in closed_list
         start_LS = time.time()
         best_player_state, best_player_index = self.local_search(copied_closed_list, player_2)
+        #best_player_state = closed_list[20]
+        #best_player_index = 20
+        print('estado escolhido - arvore')
+        best_player_state.print_tree()
+        print('estado escolhido - programa')
+        print(best_player_state.generate_program())
         elapsed_LS = time.time() - start_LS
-        if self.LS_type == 2:
-            # Finish it randomly because MC simulations can return unfinished programs
-            best_player_state.finish_tree_randomly()
-        best_player = NewSketch(best_player_state.generate_program()).get_object()
+
+        # Finish it randomly because MC simulations can return unfinished programs
+        best_player_state.finish_tree_randomly()
+
+        best_player = Sketch(best_player_state.generate_program()).get_object()
         # Save to file - Script chosen before local search
-        NewSketch(closed_list[best_player_index].generate_program()).save_file_custom(self.folder, self.suffix + '_before_LS')
+        Sketch(closed_list[best_player_index].generate_program()).save_file_custom(self.folder, self.suffix + '_before_LS')
         # Save to file - Script chosen after local search
-        NewSketch(best_player_state.generate_program()).save_file_custom(self.folder, self.suffix + '_after_LS')
+        Sketch(best_player_state.generate_program()).save_file_custom(self.folder, self.suffix + '_after_LS')
+        # Save to file - Script state
+        with open(self.folder + 'state_chosen_LS', 'wb') as file:
+            pickle.dump(best_player_state, file)
         with open(self.filename, 'a') as f:
             print('Best Script before SA - before transformation', file=f)
             print(closed_list[best_player_index].generate_program(), file=f)
@@ -135,7 +146,7 @@ class SelfPlay:
             print(SA_state.generate_program(), file=f)
             print('Time elapsed for last SA =', elapsed_SA, file=f)
         # Save to file - Final script
-        NewSketch(SA_state.generate_program()).save_file_custom(self.folder, self.suffix + '_after_SA')
+        Sketch(SA_state.generate_program()).save_file_custom(self.folder, self.suffix + '_after_SA')
 
         elapsed = time.time() - start
         with open(self.filename, 'a') as f:
@@ -154,17 +165,19 @@ class SelfPlay:
                 start_LS_ite = time.time()
                 if not state.is_finished():
                     state.finish_tree_randomly()
-                player_1 = NewSketch(state.generate_program()).get_object()
+                player_1 = Sketch(state.generate_program()).get_object()
                 try:
                     vic, loss, draw = self.play_batch_games(player_1, player_2)
                     print('deu certo - i = ', i, 'v/l/d = ', vic, loss, draw)
                 except:
                     print('deu ruim - i = ', i)
                     vic = 0
+                    loss = 0
+                    draw = 0
                 scores.append(vic)
                 elapsed_LS_ite = time.time() - start_LS_ite
                 with open(self.filename, 'a') as f:
-                    print('Finished looping through state', i, 'from closed_list in local search. Time =', elapsed_LS_ite, file=f)
+                    print('Finished looping through state', i, 'from closed_list in local search. V/L/D = ', vic, loss, draw, 'Time =', elapsed_LS_ite, file=f)
             with open(self.filename, 'a') as f:
                 print('Score vector = ', scores, file=f)
             best_player_index = np.argmax(scores)
@@ -176,6 +189,9 @@ class SelfPlay:
             scores = []
             for i, state in enumerate(closed_list):
                 start_LS_ite = time.time()
+                inner_log = self.folder + '/short_log.txt'
+                with open(inner_log, 'a') as f:
+                    print('SA beginning - State', i, file=f)
                 # Finish randomly all unfinished programs
                 if not state.is_finished():
                     state.finish_tree_randomly()
@@ -183,17 +199,21 @@ class SelfPlay:
                 SA_state, _ = self.inner_SA.run(state, player_2)
                 closed_list[i] = SA_state
                 # Evaluate it against player_2
-                player_1 = NewSketch(SA_state.generate_program()).get_object()
+                player_1 = Sketch(SA_state.generate_program()).get_object()
                 try:
                     vic, loss, draw = self.play_batch_games(player_1, player_2)
                     print('deu certo - i = ', i, 'v/l/d = ', vic, loss, draw)
                 except:
                     vic = 0
+                    loss = 0
+                    draw = 0
                     print('deu ruim - i = ', i)
                 scores.append(vic)
                 elapsed_LS_ite = time.time() - start_LS_ite
+                with open(inner_log, 'a') as f:
+                    print('SA end - Time:', elapsed_LS_ite, '\n\n', file=f)
                 with open(self.filename, 'a') as f:
-                    print('Finished looping through state', i, 'from closed_list in local search. Time =', elapsed_LS_ite, file=f)
+                    print('Finished looping through state', i, 'from closed_list in local search. V/L/D = ', vic, loss, draw, 'Time =', elapsed_LS_ite, file=f)
             with open(self.filename, 'a') as f:
                 print('Score vector = ', scores, file=f)
             best_player_index = np.argmax(scores)
@@ -216,12 +236,14 @@ class SelfPlay:
                         print('deu certo - i = ', i, 'v/l/d = ', vic, loss, draw)
                     except:
                         vic = 0
+                        loss = 0
+                        draw = 0
                         print('deu ruim - i = ', i)
                     local_score.append(vic)
                 scores.append(sum(local_score)/ len(local_score))
                 elapsed_LS_ite = time.time() - start_LS_ite
                 with open(self.filename, 'a') as f:
-                    print('Finished looping through state', i, 'from closed_list in local search. Time =', elapsed_LS_ite, file=f)
+                    print('Finished looping through state', i, 'from closed_list in local search. V/L/D = ', vic, loss, draw,'Time =', elapsed_LS_ite, file=f)
             with open(self.filename, 'a') as f:
                 print('Score vector (victories avg) = ', scores, file=f)
             # Return the script that won more in the MC simulations
@@ -302,41 +324,27 @@ if __name__ == "__main__":
     # Local Search algorithm -> 0 = random, 1 = random + SA, 2 = MC simulations
     LS_type = int(sys.argv[2])
 
-    n_SA_iterations_options = [100, 500, 1000]
+    n_SA_iterations_options = [500, 500, 1000]
     n_SA_iterations = n_SA_iterations_options[int(sys.argv[3])]
 
     # k and n_states are paired together in order to make a fair comparison
     # between algorithms. This is because IW if k is low will have a low number
     # of states returned.
-    k_options = [3, 5, 6]
+    k_options = [3, 4, 5]
     k = k_options[int(sys.argv[4])]
-    n_states_options = [1867, 2000, 6000]
+    n_states_options = [94, 201, 622] # k=3 94, k=4 201, k=5 622, k=6 1244
     n_states = n_states_options[int(sys.argv[4])]
 
     n_games = 100
     init_temp = 1
     d = 1
     max_game_rounds = 500
-    max_nodes = 30
-    n_MC_simulations = 100
+    max_nodes = 100
+    n_MC_simulations = 1000
     inner_SA = SimulatedAnnealing(n_SA_iterations, max_game_rounds, n_games, init_temp, d, False)
-    outer_SA = SimulatedAnnealing(10, max_game_rounds, n_games, init_temp, d, True)
+    outer_SA = SimulatedAnnealing(1000, max_game_rounds, n_games, init_temp, d, True)
     
-
-    #dsl = ToyDSL()
-
-    
-
-    dsl = NewDSL()
-    '''
-    tree = ParseTree(dsl=dsl, max_nodes=max_nodes, k=k, is_IW=True)
-    tree.build_random_tree(tree.root)
-    print(tree.generate_program())
-    sketch = NewSketch(tree.generate_program())
-    print(sketch.generate_text())
-    #tree.get_all_paths()
-    exit()
-    '''
+    dsl = DSL()
     
     if search_type == 0:
         # IW

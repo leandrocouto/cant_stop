@@ -3,7 +3,6 @@ import random
 import time
 import matplotlib.pyplot as plt
 sys.path.insert(0,'..')
-from IteratedWidth.parse_tree import ParseTree
 
 class IteratedWidth:
     def __init__(self, tree, n_states, k):
@@ -96,22 +95,4 @@ class IteratedWidth:
                     state.novelty = i
                     return
         state.novelty = -1
-
-if __name__ == "__main__":
-    tree_max_nodes = 50
-    n_states = 1000
-    k = 15
-    from IteratedWidth.toy_DSL import ToyDSL
-    #tree = ParseTree(DSL(), tree_max_nodes, k, True)
-    tree = ParseTree(ToyDSL(), tree_max_nodes, k, True)
-    IW = IteratedWidth(tree, n_states, k)
-    start = time.time()
-    closed_list, _ = IW.run()
-    elapsed_time = time.time() - start
-    print('Elapsed time = ', elapsed_time)
-    print('len = ', len(closed_list))
-    print('closed')
-    for state in closed_list:
-        if state.is_finished():
-            print(state.generate_program())
     

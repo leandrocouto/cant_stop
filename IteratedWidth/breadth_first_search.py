@@ -3,10 +3,6 @@ import random
 import time
 import matplotlib.pyplot as plt
 sys.path.insert(0,'..')
-from IteratedWidth.parse_tree import ParseTree
-from IteratedWidth.DSL import DSL
-from IteratedWidth.toy_DSL import ToyDSL
-from IteratedWidth.sketch import Sketch
 
 class BFS:
     def __init__(self, initial_state, n_states):
@@ -24,13 +20,6 @@ class BFS:
         while len(self.CLOSED) < self.n_states:
             print('i = ', i, 'len OPEN = ', len(self.OPEN), 'len CLOSED = ', len(self.CLOSED))
             # State to be expanded - First of the list (Breadth-first search)
-            #print('OPEN ABAIXO')
-            #for s in self.OPEN:
-            #    s.print_tree()
-            #    print()
-            #print()
-            #print()
-            #print()
             state = self.OPEN.pop(0)
             #children = self.expand_children(state)
             children = self.new_expand_children(state)
@@ -85,16 +74,3 @@ class BFS:
             break
 
         return children
-
-if __name__ == "__main__":
-    tree_max_nodes = 50
-    n_states = 1000000
-    k = 3
-    #tree = ParseTree(DSL(), tree_max_nodes, k, False)
-    tree = ParseTree(ToyDSL(), tree_max_nodes, k, False)
-    BFS = BFS(tree, n_states)
-    start = time.time()
-    open_list = BFS.run()
-    elapsed_time = time.time() - start
-    print('Elapsed time = ', elapsed_time)
-    print('len = ', len(open_list))

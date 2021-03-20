@@ -8,29 +8,31 @@ class DSL:
         self.start = 'S'
         
         self._grammar = {}
-       	
-       	self._grammar[self.start] = [r"\n\t\t statement"]
+        
+        self._grammar[self.start] = [r"I(.) statement"]
 
         self._grammar['statement']   = [
-                                        r"statement \n\t\t statement",
-                                        r"assign_expr \n\t\t",
-                                        r"if_expr",
-                                        #r"for_expr \n\t\t",
-                                        r"return ret_expr \n\t\t"
+                                        r"statement I(.) statement",
+                                        r"assign_expr I(.)",
+                                        #r"for iterable_for_variable in range(len(scores)): I(+) statement I(-)",
+                                        r"if_cond",
+                                        r"return ret_expr I(.)"
                                         ]
 
-        self._grammar['statement_1']   = [
-                                        r"statement_1 \n\t\t\t statement_1",
-                                        r"assign_expr \n\t\t\t",
-                                        r"if_expr_1",
-                                        #r"for_expr \n\t\t\t",
-                                        r"return ret_expr \n\t\t\t"
+        self._grammar['if_cond'] = [
+                                        r"if bool_expr : I(+) statement I(.) return ret_expr I(-)",
+                                        r"if bool_expr : I(+) statement I(.) return ret_expr I(-) else: I(+) statement I(.) return ret_expr I(-)",
+                                        r"if bool_expr : I(+) statement I(.) return ret_expr I(-) elif bool_expr : I(+) statement I(.) return ret_expr I(-) else: I(+) statement I(.) return ret_expr I(-)",
+
+                                        r"if bool_expr : I(+) statement I(-)",
+                                        r"if bool_expr : I(+) statement I(-) else: I(+) statement I(-)",
+                                        r"if bool_expr : I(+) statement I(-) elif bool_expr : I(+) statement I(-) else: I(+) statement I(-)",
                                         ]
 
-        self._grammar['statement_2']   = [
-                                        r"statement_2 \n\t\t\t\t statement_2",
-                                        r"assign_expr \n\t\t\t\t",
-                                        r"return ret_expr \n\t\t\t\t"
+        self._grammar['bool_expr'] = [
+                                        "bool_cond",
+                                        "bool_cond BOOL_OP bool_cond",
+                                        "functions_num COMP_OP math_term"
                                         ]
 
         self._grammar['assign_expr'] = [
@@ -41,47 +43,21 @@ class DSL:
                                         ]
 
         self._grammar['math_expr'] = [
-                                        "math_expr OP math_expr",
-                                        "math_expr OP math_term",
+                                        "math_expr MATH_OP math_term",
                                         "math_term"
                                         ]
 
         self._grammar['math_term'] = [
-                                        "INTEGERS",
+                                        "INT",
                                         "variable",
                                         "functions_num",
                                         ]
 
-        self._grammar['if_expr'] = [
-                                    r"if bool_template : \n\t\t\t statement_1",
-                                    r"if bool_template : \n\t\t\t statement_1 \n\t\t elif bool_template : \n\t\t\t statement_1 \n\t\t else: \n\t\t\t statement_1",
-                                    r"if bool_template : \n\t\t\t statement_1 \n\t\t else: \n\t\t\t statement_1"
-        ]
-
-        self._grammar['if_expr_1'] = [
-                                    r"if bool_template : \n\t\t\t\t statement_2",
-                                    r"if bool_template : \n\t\t\t\t statement_2 \n\t\t\t elif bool_template : \n\t\t\t\t statement_2 \n\t\t\t else: \n\t\t\t\t statement_2",
-                                    r"if bool_template : \n\t\t\t\t statement_2 \n\t\t\t else: \n\t\t\t\t statement_2"
-        ]
-
-        self._grammar['bool_template'] = [
-                                    "bool_expr",
-                                    "bool_expr BOOL_OP bool_expr",
-                                    "( bool_template ) BOOL_OP ( bool_template )"
-        ]
-
-        self._grammar['bool_expr'] = [
-                                    "functions_bool",
-                                    "functions_num COMP_OP INTEGERS",
-                                    "functions_num COMP_OP variable",
-                                    "functions_num OP functions_num COMP_OP INTEGERS",
-                                    "functions_num OP functions_num COMP_OP variable"
-        ]
-        
-        self._grammar['for_expr'] = [
-                                    r"for iterable_for_variable in range(len( vector )): \n\t\t statement",
-                                    r"for foreach_variable in vector : \n\t\t statement",
-        ]
+        self._grammar['variable'] = [
+                                    "a",
+                                    "b",
+                                    #'scores[i]'
+                                    ]
 
         self._grammar['iterable_for_variable'] = [
                                     "i",
@@ -89,79 +65,91 @@ class DSL:
                                     "k"
         ]
 
-        self._grammar['foreach_variable'] = [
-                                    "a",
-                                    "b",
-                                    "c"
-        ]
-
-        self._grammar['variable'] = [
-                                        "iterable_for_variable",
-                                        "foreach_variable"
-                                        ]
-        self._grammar['vector'] = [
-                                    'move_value',
-                                    'progress_value'
-                                ]
-
         self._grammar['ret_expr'] = [
-                                    'actions[ iterable_for_variable ]',
-                                    'foreach_variable'
+                                    #'actions[ iterable_for_variable ]',
+                                    #'actions[ variable ]',
+                                    #'actions[np.argmax(scores)]',
+                                    "'y'", 
+                                    "'n'"
                                 ]
 
-        self._grammar['functions_bool'] = [
-                                        'DSL.will_player_win_after_n(state)',
-                                        'DSL.are_there_available_columns_to_play(state)'
-                                    ]
-        self._grammar['functions_num'] = [# Strictly "string" actions
-                                'DSL.calculate_score(state, vector )',
-                                'DSL.calculate_difficulty_score(state, INTEGERS , INTEGERS , INTEGERS , INTEGERS )',
+        self._grammar['functions_num'] = [
                                 'DSL.get_player_total_advance(state)',
                                 'DSL.get_opponent_total_advance(state)',
-                                'DSL.number_cells_advanced_this_round(state)',
+                                #'DSL.advance(actions[i])',
+                                #'DSL.is_new_neutral(state, actions[i])',
+                                #'DSL.will_player_win_a_column(state, actions[i])',
+                                #'DSL.number_of_neutrals_used(state, actions[i])',
+                                #'DSL.get_cols_weights(actions[i])',
+                                'DSL.calculate_score(state, [ INT , INT , INT , INT , INT , INT ])',
+                                'DSL.calculate_difficulty_score(state, INT , INT , INT , INT )',
+                                #'DSL.get_player_column_advance(state, INT )',
+                                #'DSL.get_opponent_column_advance(state, INT )'
                                 ]
-        self._grammar['OP'] = ['+', '-', '*']
+
+        self._grammar['bool_cond'] = [
+                                #'DSL.is_new_neutral(state, actions[i])',
+                                #'DSL.will_player_win_a_column(state, actions[i])',
+                                #'DSL.will_player_win_a_column(state, ret_expr )',
+                                'DSL.will_player_win_after_n(state)',
+                                'DSL.are_there_available_columns_to_play(state)'
+                                ]
+
+        self._grammar['INT'] = [str(i) for i in range(1, 13)] 
+        self._grammar['MATH_OP'] = ['+', '-', '*']
         self._grammar['BOOL_OP'] = ['and', 'or', 'and not', 'or not']
-        self._grammar['COMP_OP'] = ['>', '<', '>=', '<=']
-        self._grammar['INTEGERS'] = [str(i) for i in range(1, 20)]
+        self._grammar['COMP_OP'] = ['<', '>', '<=', '>=']
+
         # Used in the parse tree to finish expanding hanging nodes
-        self.finishable_nodes = ['statement', 'statement_1','statement_2', 'assign_expr', 'math_expr', 'math_term', 
-                                'if_expr', 'if_expr_1', 'bool_template', 'bool_expr', 'for_expr',
-                                'iterable_for_variable', 'foreach_variable', 'variable', 
-                                'vector', 'ret_expr', 'functions_bool', 'functions_num', 
-                                'OP', 'BOOL_OP', 'COMP_OP', 'INTEGERS']
+        self.finishable_nodes = [self.start, 'statement', 'assign_expr', 'if_cond',
+                                'bool_expr', 'bool_cond', 'math_expr', 'math_term', 'variable', 
+                                'iterable_for_variable', 'functions_num', 'ret_expr',
+                                'INT', 'MATH_OP', 'BOOL_OP', 'COMP_OP']
 
         # Dictionary to "quickly" finish the tree.
         # Needed for the tree to not surpass the max node limit.
         self.quickly_finish = {
-                                self.start :self._grammar[self.start],
-                                'statement' : [r"assign_expr \n\t\t\t", r"return ret_expr \n\t\t\t"],
-                                'statement_1' : [r"assign_expr \n\t\t\t\t", r"return ret_expr \n\t\t\t\t"],
-                                'statement_2' : [r"assign_expr \n\t\t\t\t\t", r"return ret_expr \n\t\t\t\t\t"],
-                                'assign_expr' :self._grammar['assign_expr'],
-                                'math_expr' : ["math_term"],
-                                'math_term' :self._grammar['math_term'],
-                                'if_expr' :self._grammar['if_expr'],
-                                'if_expr_1' :self._grammar['if_expr_1'],
-                                'bool_template' :self._grammar['bool_template'],
-                                'bool_expr' :self._grammar['bool_expr'],
-                                'for_expr' :self._grammar['for_expr'],
-                                'iterable_for_variable' :self._grammar['iterable_for_variable'],
-                                'foreach_variable' :self._grammar['foreach_variable'],
+                                self.start : self._grammar[self.start],
+                                'statement' : [r"assign_expr I(.)", r"return ret_expr I(.)"],
+                                'if_cond' : self._grammar[r"if_cond"],
+                                'bool_expr' : [r"bool_cond"],
+                                'bool_cond' : self._grammar["bool_cond"],
+                                'assign_expr' : self._grammar["assign_expr"],
+                                'math_expr' : self._grammar["math_expr"],
+                                'math_term' : self._grammar["math_term"],
                                 'variable' :self._grammar['variable'],
-                                'vector' :self._grammar['vector'],
-                                'ret_expr' :self._grammar['ret_expr'],
-                                'functions_bool' :self._grammar['functions_bool'],
+                                'iterable_for_variable' :self._grammar['iterable_for_variable'],
                                 'functions_num' :self._grammar['functions_num'],
-                                'OP' :self._grammar['OP'],
+                                'ret_expr' :self._grammar['ret_expr'],
+                                'INT' :self._grammar['INT'],
+                                'MATH_OP' :self._grammar['MATH_OP'],
                                 'BOOL_OP' :self._grammar['BOOL_OP'],
                                 'COMP_OP' :self._grammar['COMP_OP'],
-                                'INTEGERS' :self._grammar['INTEGERS'],
                             }
 
+        # Used in SA's mutation to not edit tree's structure
+        self.terminal_nodes = ['variable', 'functions_num', 'ret_expr', 'INT','MATH_OP', 'BOOL_OP', 'COMP_OP']
+
     @staticmethod
-    def indent(integer):
-    	return '\n' + integer * '\t'
+    def is_new_neutral(state, action):
+        # Return a boolean representing if action will place a new neutral. """
+        is_new_neutral = True
+        for neutral in state.neutral_positions:
+            if neutral[0] == action:
+                is_new_neutral = False
+
+        return is_new_neutral
+
+    @staticmethod
+    def advance(action):
+        """ Return how many cells this action will advance for each column. """
+
+        # Special case: doubled action (e.g. (6,6))
+        if len(action) == 2 and action[0] == action[1]:
+            return 2
+        # All other cases will advance only one cell per column
+        else:
+            return 1
 
     @staticmethod
     def get_player_total_advance(state):
@@ -233,17 +221,126 @@ class DSL:
         return counter
 
     @staticmethod
-    def calculate_score(state, progress_value):
-        score = 0
-        neutrals = [col[0] for col in state.neutral_positions]
-        for col in neutrals:
-            advance = ExperimentalDSL.number_cells_advanced_this_round_for_col(state, col)
-            # +1 because whenever a neutral marker is used, the weight of that
-            # column is summed
-            # Interporlated formula to find the array index given the column
-            # y = 5-|x-7|
-            score += (advance + 1) * progress_value[5 - abs(col - 7)]
-        return score
+    def get_player_column_advance(state, column):
+        """ 
+        Get the number of cells advanced in a specific column (2->12 inclusive)
+        of the player. 
+        """
+
+        if column not in list(range(2,13)):
+            raise Exception('Out of range column passed to get_player_column_advance()')
+        counter = 0
+        player = state.player_turn
+        # First check if the column is already won
+        for won_column in state.finished_columns:
+            if won_column[0] == column and won_column[1] == player:
+                return len(state.board_game.board[won_column[0]]) + 1
+            elif won_column[0] == column and won_column[1] != player:
+                return 0
+        # If not, 'manually' count it while taking note of the neutral position
+        previously_conquered = -1
+        neutral_position = -1
+        list_of_cells = state.board_game.board[column]
+
+        for i in range(len(list_of_cells)):
+            if player in list_of_cells[i].markers:
+                previously_conquered = i
+            if 0 in list_of_cells[i].markers:
+                neutral_position = i
+        if neutral_position != -1:
+            counter += neutral_position + 1
+            for won_column in state.player_won_column:
+                if won_column[0] == column:
+                    counter += 1
+        elif previously_conquered != -1 and neutral_position == -1:
+            counter += previously_conquered + 1
+            for won_column in state.player_won_column:
+                if won_column[0] == column:
+                    counter += len(list_of_cells) - previously_conquered
+        return counter
+
+
+    @staticmethod
+    def get_opponent_column_advance(state, column):
+        """ 
+        Get the number of cells advanced in a specific column (2->12 inclusive)
+        of the opponent. 
+        """
+
+        if column not in list(range(2,13)):
+            raise Exception('Out of range column passed to get_opponent_column_advance()')
+        counter = 0
+        if state.player_turn == 1:
+            player = 2
+        else:
+            player = 1
+        # First check if the column is already won
+        for won_column in state.finished_columns:
+            if won_column[0] == column and won_column[1] == player:
+                return len(state.board_game.board[won_column[0]]) + 1
+            elif won_column[0] == column and won_column[1] != player:
+                return 0
+        # If not, 'manually' count it
+        previously_conquered = -1
+        neutral_position = -1
+        list_of_cells = state.board_game.board[column]
+
+        for i in range(len(list_of_cells)):
+            if player in list_of_cells[i].markers:
+                previously_conquered = i
+
+        return previously_conquered + 1
+
+    @staticmethod
+    def will_player_win_after_n(state):
+        """ 
+        Return a boolean in regards to if the player will win the game or not 
+        if they choose to stop playing the current round (i.e.: choose the 
+        'n' action). 
+        """
+        won_columns_by_player = [won[0] for won in state.finished_columns if state.player_turn == won[1]]
+        won_columns_by_player_this_round = [won[0] for won in state.player_won_column if state.player_turn == won[1]]
+        if len(won_columns_by_player) + len(won_columns_by_player_this_round) >= 3:
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def will_player_win_a_column(state, action):
+        """
+        
+        """
+        clone_state = state.clone()
+        clone_state.play(action)
+        if len(clone_state.player_won_column) > len(state.player_won_column):
+            return True
+        else:
+            return False
+
+    @staticmethod
+    def number_of_neutrals_used(state, action):
+        """ Calculate the number of neutral markers this action will use. """
+
+        neutral_positions = state.neutral_positions
+        markers = 0
+        # Special case: double action (e.g.: (6,6))
+        if len(action) == 2 and action[0] == action[1]:
+            is_new_neutral = True
+            for neutral in neutral_positions:
+                if neutral[0] == action:
+                    is_new_neutral = False
+            if is_new_neutral:
+                markers += 1
+        else:
+            for a in action:
+                is_new_neutral = True
+                for neutral in neutral_positions:
+                    if neutral[0] == action:
+                        is_new_neutral = False
+                if is_new_neutral:
+                    markers += 1
+
+        return markers
 
     @staticmethod
     def number_cells_advanced_this_round(state):
@@ -253,7 +350,7 @@ class DSL:
         """
         counter = 0
         for column in range(state.column_range[0], state.column_range[1]+1):
-            counter += ExperimentalDSL.number_cells_advanced_this_round_for_col(state, column)
+            counter += DSL.number_cells_advanced_this_round_for_col(state, column)
         return counter
 
     @staticmethod
@@ -289,50 +386,6 @@ class DSL:
         return counter
 
     @staticmethod
-    def get_available_columns(state):
-        """ Return a list of all available columns. """
-
-        # List containing all columns, remove from it the columns that are
-        # available given the current board
-        available_columns = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-        for neutral in state.neutral_positions:
-            available_columns.remove(neutral[0])
-        for finished in state.finished_columns:
-            if finished[0] in available_columns:
-                available_columns.remove(finished[0])
-
-        return available_columns
-
-    @staticmethod
-    def will_player_win_after_n(state):
-        """ 
-        Return a boolean in regards to if the player will win the game or not 
-        if they choose to stop playing the current round (i.e.: choose the 
-        'n' action). 
-        """
-        clone_state = state.clone()
-        clone_state.play('n')
-        won_columns = 0
-        for won_column in clone_state.finished_columns:
-            if state.player_turn == won_column[1]:
-                won_columns += 1
-        #This means if the player stop playing now, they will win the game
-        if won_columns == 3:
-            return True
-        else:
-            return False
-
-    @staticmethod
-    def are_there_available_columns_to_play(state):
-        """
-        Return a booleanin regards to if there available columns for the player
-        to choose. That is, if the does not yet have all three neutral markers
-        used AND there are available columns that are not finished/won yet.
-        """
-        available_columns = ExperimentalDSL.get_available_columns(state)
-        return state.n_neutral_markers != 3 and len(available_columns) > 0
-
-    @staticmethod
     def calculate_difficulty_score(state, odds, evens, highs, lows):
         """
         Add an integer to the current score given the peculiarities of the
@@ -357,22 +410,71 @@ class DSL:
         return difficulty_score
 
     @staticmethod
-    def is_new_neutral(action, state):
-        # Return a boolean representing if action will place a new neutral. """
-        is_new_neutral = True
-        for neutral in state.neutral_positions:
-            if neutral[0] == action:
-                is_new_neutral = False
-
-        return is_new_neutral
+    def are_there_available_columns_to_play(state):
+        """
+        Return a booleanin regards to if there available columns for the player
+        to choose. That is, if the does not yet have all three neutral markers
+        used AND there are available columns that are not finished/won yet.
+        """
+        available_columns = DSL.get_available_columns(state)
+        return state.n_neutral_markers != 3 and len(available_columns) > 0
 
     @staticmethod
-    def advance(action):
-        """ Return how many cells this action will advance for each column. """
+    def get_available_columns(state):
+        """ Return a list of all available columns. """
 
-        # Special case: doubled action (e.g. (6,6))
-        if len(action) == 2 and action[0] == action[1]:
-            return 2
-        # All other cases will advance only one cell per column
+        # List containing all columns, remove from it the columns that are
+        # available given the current board
+        available_columns = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        for neutral in state.neutral_positions:
+            available_columns.remove(neutral[0])
+        for finished in state.finished_columns:
+            if finished[0] in available_columns:
+                available_columns.remove(finished[0])
+
+        return available_columns
+
+    @staticmethod
+    def calculate_score(state, progress_value):
+        score = 0
+        neutrals = [col[0] for col in state.neutral_positions]
+        for col in neutrals:
+            advance = DSL.number_cells_advanced_this_round_for_col(state, col)
+            # +1 because whenever a neutral marker is used, the weight of that
+            # column is summed
+            # Interporlated formula to find the array index given the column
+            # y = 5-|x-7|
+            score += (advance + 1) * progress_value[5 - abs(col - 7)]
+        return score
+
+    @staticmethod
+    def get_cols_weights(action):
+        value = 0
+        for col in action:
+            if col in [2, 12]:
+                value += 7
+            elif col in [3, 11]:
+                value += 0
+            elif col in [4, 10]:
+                value += 2
+            elif col in [5, 9]:
+                value += 0
+            elif col in [6, 8]:
+                value += 4
+            else:
+                value += 3
+        return value
+
+    @staticmethod
+    def will_player_win_after_n(state):
+        clone_state = state.clone()
+        clone_state.play('n')
+        won_columns = 0
+        for won_column in clone_state.finished_columns:
+            if state.player_turn == won_column[1]:
+                won_columns += 1
+        #This means if the player stop playing now, they will win the game
+        if won_columns == 3:
+            return True
         else:
-            return 1
+            return False
