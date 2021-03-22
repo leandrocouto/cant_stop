@@ -2,7 +2,6 @@ import sys
 import random
 import time
 import matplotlib.pyplot as plt
-sys.path.insert(0,'..')
 
 class IteratedWidth:
     def __init__(self, tree, n_states, k):

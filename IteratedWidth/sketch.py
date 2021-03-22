@@ -1,15 +1,15 @@
 import random
 import codecs
 import sys
-from IteratedWidth.string_loader import StringLoader, StringFinder
-from IteratedWidth.DSL import DSL
+from string_loader import StringLoader, StringFinder
+from DSL import DSL
 
-class NewSketch:
+class Sketch:
     def __init__(self, program_string):
         self.program_string = program_string
         self._header_py = r'''
 from players.player import Player
-from IteratedWidth.DSL import DSL
+from DSL import DSL
 
 class Script(Player):
 \tdef get_action(self, state):

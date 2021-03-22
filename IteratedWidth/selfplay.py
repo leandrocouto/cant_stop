@@ -6,13 +6,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import math
 import os
+from parse_tree import ParseTree
+from DSL import DSL
+from sketch import Sketch
+from iterated_width import IteratedWidth
+from breadth_first_search import BFS
+from simulated_annealing import SimulatedAnnealing
 sys.path.insert(0,'..')
-from IteratedWidth.parse_tree import ParseTree
-from IteratedWidth.DSL import DSL
-from IteratedWidth.sketch import Sketch
-from IteratedWidth.iterated_width import IteratedWidth
-from IteratedWidth.breadth_first_search import BFS
-from IteratedWidth.simulated_annealing import SimulatedAnnealing
 from players.random_glenn_player import RandomGlennPlayer
 from play_game_template import simplified_play_single_game
 from game import Game
@@ -80,9 +80,9 @@ class SelfPlay:
                     print('tamanho total bfs = ', len(closed_list))
                     closed_list = closed_list[:n_states]
                     print('tamanho bfs dps = ', len(closed_list))
-        except:
+        except Exception as e:
             # Otherwise, calculate it
-            print('entrei no except')
+            print('entrei no except - ', str(e))
             closed_list = self.search_algo.run()
             # Tag the nodes in order for SA to not mutate them later
             for state in closed_list:
