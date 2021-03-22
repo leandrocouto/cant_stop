@@ -34,7 +34,7 @@ class Board:
             else:
                 height -= self.offset
 
-    def print_board(self, rows, finished_columns):
+    def print_board(self, rows, finished_columns, player_id):
         """
         Print the board. 
         The asterisk means that the current player
@@ -42,11 +42,8 @@ class Board:
         not chosen "n" action yet).
         """
 
-
-
-        partial_completed_rows = [item[0] for item in rows]
-        completed_rows = [column_won[0] for column_won in finished_columns]
-        player_completed_rows = [column_won[1] for column_won in finished_columns]
+        partial_completed_rows = [item for item in rows]
+        completed_rows = [column_won for column_won in finished_columns]
         for x in range(self.column_range[0],self.column_range[1]+1):
             list_of_cells = self.board[x]
             print('{:3d}:'.format(x), end='')
@@ -54,7 +51,7 @@ class Board:
             # won that column
             if x in completed_rows:
                 for cell in list_of_cells:
-                    print('[', player_completed_rows[completed_rows.index(x)], ']', sep='',end='')
+                    print('[', player_id, ']', sep='',end='')
             else:
                 for cell in list_of_cells:
                     print(cell.markers, end='')
@@ -80,21 +77,19 @@ class Board:
                 height -= self.offset
         return True
 
-class Game:
-    def __init__(self, n_players, dice_number, dice_value, column_range,
+class SolitaireGame:
+    def __init__(self, dice_number, dice_value, column_range,
                     offset, initial_height):
         """
-        - n_players is the number of players (only 2 is possible).
         - dice_number is the number of dice used in the Can't Stop game.
         - dice_value is the number of faces of a single die.
         - column_range is a list denoting the range of the board game columns.
         - offset is the height difference between columns.
         - initial_height is the height of the columns at the board border.
-        - finished_columns is a list of 2-tuples indicating which columns were
-          won by a certain player. Ex.: (2, 3) = column 2 won by player 3.
-        - player_won_column is a list of 2-tuples indicating which columns
-          were won by a certain player in the current round.
-          Ex.: (2, 3) = column 2 won by player 3 in the current round.
+        - finished_columns is a list of integers indicating which columns were
+          won by the player.
+        - player_won_column is a list of integers indicating which columns
+          were won by the player.
         - dice_action refers to which action the game is at at the moment, 
           if the player is choosing which combination or if the player is 
           choosing if he wants to continue playing the turn or not.
@@ -103,31 +98,32 @@ class Game:
         - neutral_positions is a 2-tuple storing where the neutral markers are
           stored in the board (column index, cell index).
         - current_roll refers to all dice_number dice roll.
+        - n_rounds is the number of rounds played so far. A round consists of
+          plays until the player is busted or they choose the action 'n'.
         """
 
-        self.n_players = n_players
         self.dice_number = dice_number
         self.dice_value = dice_value
         self.column_range = column_range 
         self.offset = offset
+        self.player_id = 1
+        self.player_turn = 1 # Legacy attribute for classical Can't Stop DSL
         self.initial_height = initial_height
         self.board_game = Board(self.column_range, self.offset, 
                                 self.initial_height
                                 )
-        self.player_turn = 1
         self.finished_columns = []
         self.player_won_column = []
         self.dice_action = True
         self.current_roll = self.roll_dice()
         self.n_neutral_markers = 0
         self.neutral_positions = []
-        self.actions_taken = [] 
+        self.n_rounds = 0
     
     def check_game_equality(self, game):
         """ Check if self and 'game' represents the same state. """
 
         return self.check_boardgame_equality(game) and \
-                self.player_turn == game.player_turn and \
                 self.n_neutral_markers == game.n_neutral_markers and \
                 sorted(self.neutral_positions) == sorted(game.neutral_positions)
 
@@ -160,7 +156,11 @@ class Game:
 
     
     def print_board(self):
-        self.board_game.print_board(self.player_won_column, self.finished_columns)
+        self.board_game.print_board(
+                                    self.player_won_column, 
+                                    self.finished_columns,
+                                    self.player_id
+                                    )
 
     def clone(self):
         """Return a "deepcopy" of this game. Used for MCTS routines."""
@@ -177,12 +177,14 @@ class Game:
             self.transform_neutral_markers()
             # Next action should be to choose a dice combination
             self.dice_action = True
+            self.n_rounds += 1
             return
         if chosen_play == 'y':
             # Next action should be to choose a dice combination
             self.dice_action = True
             return
         if self.is_player_busted(self.available_moves()):
+            self.n_rounds += 1
             return
         for die_position in range(len(chosen_play)):
             current_position_zero = -1
@@ -192,7 +194,7 @@ class Game:
             for i in range(0, len(cell_list)):
                 if 0 in cell_list[i].markers:
                     current_position_zero = i
-                if self.player_turn in cell_list[i].markers:
+                if self.player_id in cell_list[i].markers:
                     current_position_id = i
 
             # If there's no zero and no player_id marker
@@ -205,8 +207,8 @@ class Game:
                 #First check if the player will win that column
                 self.n_neutral_markers += 1
                 if current_position_id == len(cell_list) - 1:
-                    if (col, self.player_turn) not in self.player_won_column:
-                        self.player_won_column.append((col, self.player_turn))
+                    if col not in self.player_won_column:
+                        self.player_won_column.append(col)
                 else:
                     cell_list[current_position_id+1].markers.append(0)
                     self.neutral_positions.append((col, current_position_id+1))
@@ -214,8 +216,8 @@ class Game:
             else:
                 #First check if the player will win that column
                 if current_position_zero == len(cell_list) - 1:
-                    if (col, self.player_turn) not in self.player_won_column:
-                        self.player_won_column.append((col, self.player_turn))
+                    if col not in self.player_won_column:
+                        self.player_won_column.append(col)
                 else:
                     cell_list[current_position_zero].markers.remove(0)
                     cell_list[current_position_zero+1].markers.append(0)
@@ -228,19 +230,19 @@ class Game:
 
 
     def transform_neutral_markers(self):
-        """Transform the neutral markers into player_id markers (1 or 2)."""
+        """Transform the neutral markers. """
 
         for neutral in self.neutral_positions:
             markers = self.board_game.board[neutral[0]][neutral[1]].markers
             for i in range(len(markers)):
                 if markers[i] == 0:
-                    markers[i] = self.player_turn
+                    markers[i] = self.player_id
             # Remove the previous player_turn id in order to keep only the
             # the furthest one
             col_cell_list = self.board_game.board[neutral[0]]
             for i in range(neutral[1]-1, -1, -1):
-                if self.player_turn in col_cell_list[i].markers:
-                    col_cell_list[i].markers.remove(self.player_turn)
+                if self.player_id in col_cell_list[i].markers:
+                    col_cell_list[i].markers.remove(self.player_id)
                     break
 
         # Special case example: Player 1 is about to win, for ex. column 7 
@@ -253,19 +255,13 @@ class Game:
         # Check if the player won some column and update it accordingly.
 
         for column_won in self.player_won_column:
-            self.finished_columns.append((column_won[0], column_won[1]))
+            self.finished_columns.append(column_won)
         
-            for cell in self.board_game.board[column_won[0]]:
+            for cell in self.board_game.board[column_won]:
                 cell.markers.clear()
-                #cell.markers.append(self.player_turn)
     
 
         self.player_won_column.clear()
-
-        if self.player_turn == self.n_players:
-            self.player_turn = 1
-        else:
-            self.player_turn += 1
 
         self.n_neutral_markers = 0
         self.neutral_positions = []
@@ -301,10 +297,6 @@ class Game:
         if len(all_moves) == 0:
             self.erase_neutral_markers()
             self.player_won_column.clear()
-            if self.player_turn == self.n_players:
-                self.player_turn = 1
-            else:
-                self.player_turn += 1
             # A new dice roll is done (same is done if a play is completed)
             self.current_roll = self.roll_dice()
             return True
@@ -318,10 +310,6 @@ class Game:
                         return False
         self.erase_neutral_markers()
         self.player_won_column.clear()
-        if self.player_turn == self.n_players:
-            self.player_turn = 1
-        else:
-            self.player_turn += 1
         # A new dice roll is done (same is done if a play is completed)
         self.current_roll = self.roll_dice()
         return True
@@ -344,11 +332,11 @@ class Game:
         """
 
         #First check if the column 'value' is already completed
-        for tuple_finished in self.finished_columns:
-            if tuple_finished[0] == tuple[0] or tuple_finished[0] == tuple[1]:
+        for col in self.finished_columns:
+            if col == tuple[0] or col == tuple[1]:
                 return False
-        for tuple_column in self.player_won_column:
-            if tuple_column[0] == tuple[0] or tuple_column[0] == tuple[1]:
+        for col in self.player_won_column:
+            if col == tuple[0] or col == tuple[1]:
                 return False
 
         # Variables to store if there is a neutral marker in tuples columns.
@@ -392,11 +380,11 @@ class Game:
         """
 
         #First check if the column 'value' is already completed
-        for tuple_finished in self.finished_columns:
-            if tuple_finished[0] == value:
+        for col in self.finished_columns:
+            if col == value:
                 return False
-        for tuple_column in self.player_won_column:
-            if tuple_column[0] == value:
+        for col in self.player_won_column:
+            if col == value:
                 return False
         
         if self.count_neutral_markers() < 3:
@@ -447,24 +435,8 @@ class Game:
         return [t for t in {x[::-1] if x[0] > x[-1] else x for x in combination}]
 
     def is_finished(self):
-        """
-        Return two values: what player won (player 1 = 1, player 2 = 2 and 
-        0 if the game is not over yet) and a boolean value representing if the 
-        game is over or not.
-        """
+        """ Return a boolean value representing if the game is over or not. """
 
-        won_columns_player_1 = 0
-        won_columns_player_2 = 0
-        for tuples in self.finished_columns:
-            if tuples[1] == 1:
-                won_columns_player_1 += 1
-            else:
-                won_columns_player_2 += 1
         # >= instead of == because the player can have 2 columns and win 
         # another 2 columns in one turn.
-        if won_columns_player_1 >= 3:
-            return 1, True
-        elif  won_columns_player_2 >= 3:
-            return 2, True
-        else:
-            return 0, False
+        return len(self.finished_columns) >= 3
