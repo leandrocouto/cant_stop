@@ -2,16 +2,16 @@ import time
 import sys
 from BottomUpSearch import BottomUpSearch
 from Evaluation import FinishesGame, DefeatsStrategy, DefeatsStrategyNonTriage
+from simulated_annealing import SimulatedAnnealing
 from DSL import *
 sys.path.insert(0,'..')
 from game import Game
 
 
 class IteratedBestResponse:
-    
+
     def self_play(self):
         start = time.time()
-        
         bus = BottomUpSearch()
         eval = FinishesGame()
         
@@ -53,17 +53,27 @@ class IteratedBestResponse:
                 print('Running Time: ', end - start, ' seconds.')
                 
                 return p
+
+
             
             
             print('Defeats more than 55%: ')
             print(br.toString())
+            print('tree')
+            br.print_tree(br, '  ')
+            print()
             #print(bus.get_closed_list())
             print('len closed = ', len(bus.get_closed_list()))
             programs_not_to_eval = bus.get_closed_list()
             p = br
+
+            SA = SimulatedAnnealing(100, 500, 100, 1, 1, False)
+            SA.run(p, p)
             
         end = time.time()
         print('Running Time: ', end - start, ' seconds.')
+
+    
         
 ibr = IteratedBestResponse()
 p = ibr.self_play()

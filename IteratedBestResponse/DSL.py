@@ -1,5 +1,7 @@
 import numpy as np
+import random
 import itertools
+import pickle
 
 class Node:
     def __init__(self):
@@ -9,6 +11,9 @@ class Node:
         self.listname = 'list'
         self.tuplename = 'tuple'
         self.statename = 'state'
+        self.parent = None
+        self.children = []
+        self.id = 0
     
     def getSize(self):
         return self.size
@@ -29,7 +34,17 @@ class Node:
         env[self.local][type(x).__name__] = x
                 
         return self.interpret(env) 
-    
+
+    def print_tree(self, node, indentation):
+        #For root
+        if indentation == '  ':
+            print(node, ' - ', node.toString(), ' - ', node.id)
+        else:
+            print(indentation, node, ' - ', node.toString(), ' - ', node.id)
+        if hasattr(node, 'children'):
+            for child in node.children:
+                self.print_tree(child, indentation + '    ')
+
     def getRulesNames(self, rules):
         raise Exception('Unimplemented method: getRulesNames')
     
@@ -41,8 +56,20 @@ class Node:
     def className(cls):
         return cls.__name__
 
+class NoneNode(Node):
+    def __init__(self):
+        super(NoneNode, self).__init__()
+        self.size = 1
+        
+    def toString(self):
+        return 'None'#type(self).__name__
+    
+    def interpret(self, env):
+        return
+
 class VarList(Node):
     def __init__(self, name):
+        super(VarList, self).__init__()
         self.name = name
         self.size = 1
         
@@ -66,6 +93,7 @@ class VarScalarFromArray(Node):
     
 class VarScalar(Node):
     def __init__(self, name):
+        super(VarScalar, self).__init__()
         self.name = name
         self.size = 1
         
@@ -132,7 +160,6 @@ class IsNewNeutral(Node):
 
         return is_new_neutral
 
-
 class NumberAdvancedThisRound(Node):
     def __init__(self):
         super(NumberAdvancedThisRound, self).__init__()
@@ -180,6 +207,10 @@ class Times(Node):
         super(Times, self).__init__()
         self.left = left
         self.right = right
+        self.children.append(self.left)
+        self.children.append(self.right)
+        self.left.parent = self
+        self.right.parent = self
         self.size = self.left.size + self.right.size + 1
         
     def toString(self):
@@ -190,14 +221,6 @@ class Times(Node):
     
     def grow(plist, size):       
         new_programs = []
-        # defines which nodes are accepted in the AST
-#         accepted_nodes = set([VarScalar.className(), 
-#                               VarScalarFromArray.className(), 
-#                               NumberAdvancedThisRound.className(),
-#                               Constant.className(),
-#                               Plus.className(),
-#                               Times.className(),
-#                               Minus.className()])
         accepted_nodes = set([VarScalar.className(), 
                               VarScalarFromArray.className(), 
                               NumberAdvancedThisRound.className(),
@@ -229,8 +252,15 @@ class Times(Node):
                             continue
                         
                         for p2 in programs2:
-    
+                            # If the nodes are "the same", they can happen to 
+                            # have the same address
+                            if p1.className() == p2.className():
+                                p2 = pickle.loads(pickle.dumps(p2, -1))
                             times = Times(p1, p2)
+                            #p1.parent = times
+                            #p2.parent = times
+                            #times.children.append(p1)
+                            #times.children.append(p2)
                             new_programs.append(times)
             
                             yield times
@@ -241,6 +271,10 @@ class Minus(Node):
         super(Minus, self).__init__()
         self.left = left
         self.right = right
+        self.children.append(self.left)
+        self.children.append(self.right)
+        self.left.parent = self
+        self.right.parent = self
         self.size = self.left.size + self.right.size + 1
         
     def toString(self):
@@ -286,8 +320,15 @@ class Minus(Node):
                             continue
                         
                         for p2 in programs2:
-    
+                            # If the nodes are "the same", they can happen to 
+                            # have the same address
+                            if p1.className() == p2.className():
+                                p2 = pickle.loads(pickle.dumps(p2, -1))
                             minus = Minus(p1, p2)
+                            #p1.parent = minus
+                            #p2.parent = minus
+                            #minus.children.append(p1)
+                            #minus.children.append(p2)
                             new_programs.append(minus)
             
                             yield minus
@@ -298,6 +339,10 @@ class Plus(Node):
         super(Plus, self).__init__()
         self.left = left
         self.right = right
+        self.children.append(self.left)
+        self.children.append(self.right)
+        self.left.parent = self
+        self.right.parent = self
         self.size = self.left.size + self.right.size + 1
         
     def toString(self):
@@ -343,18 +388,26 @@ class Plus(Node):
                             continue
                         
                         for p2 in programs2:
-    
+                            # If the nodes are "the same", they can happen to 
+                            # have the same address
+                            if p1.className() == p2.className():
+                                p2 = pickle.loads(pickle.dumps(p2, -1))
                             plus = Plus(p1, p2)
+                            #p1.parent = plus
+                            #p2.parent = plus
+                            #plus.children.append(p1)
+                            #plus.children.append(p2)
                             new_programs.append(plus)
             
                             yield plus
         return new_programs  
     
-
 class Function(Node):
     def __init__(self, expression):
         super(Function, self).__init__()
         self.expression = expression
+        self.children.append(self.expression)
+        self.expression.parent = self
         self.size = self.expression.size + 1
         
     def toString(self):
@@ -378,6 +431,8 @@ class Function(Node):
             for p1 in programs1:                       
 
                 func = Function(p1)
+                #p1.parent = func
+                #func.children.append(p1)
                 new_programs.append(func)
         
                 yield func
@@ -387,37 +442,46 @@ class Argmax(Node):
     def __init__(self, l):
         super(Argmax, self).__init__()
         self.list = l
+        self.children.append(self.list)
+        self.list.parent = self
         self.size = self.list.size + 1
         
     def toString(self):
         return 'argmax(' + self.list.toString() + ")"
     
     def interpret(self, env):
-        return np.argmax(self.list.interpret(env)) 
+        return np.argmax(self.list.interpret(env))
     
     def grow(plist, size):       
         new_programs = []
         # defines which nodes are accepted in the AST
         accepted_nodes = set([VarList.className(), Map.className()])
+        #print('accepted do argmax', accepted_nodes)
         program_set = plist.get_programs(size - 1)
+        #print('programset = ', program_set)
                     
         for t1, programs1 in program_set.items():                
             # skip if t1 isn't a node accepted by Lt
             if t1 not in accepted_nodes:
                 continue
-            
             for p1 in programs1:                       
-
+                #print('p1 = ', p1)
                 am = Argmax(p1)
+                #p1.parent = am
+                #am.children.append(p1)
+                #print('program aqui = ', am.toString(), 'parent = ', am.parent.toString())
                 new_programs.append(am)
-        
                 yield am
+        #for p in new_programs:
+        #    print(p.toString())
         return new_programs
 
 class Sum(Node):
     def __init__(self, l):
         super(Sum, self).__init__()
         self.list = l
+        self.children.append(self.list)
+        self.list.parent = self
         self.size = self.list.size + 1
         
     def toString(self):
@@ -432,7 +496,9 @@ class Sum(Node):
         accepted_nodes = set([VarList.className(), Map.className()])
         program_set = plist.get_programs(size - 1)
                     
-        for t1, programs1 in program_set.items():                
+        for t1, programs1 in program_set.items():
+            #print('t1 = ', t1)
+            #print('programs1 = ', programs1)                
             # skip if t1 isn't a node accepted by Lt
             if t1 not in accepted_nodes:
                 continue
@@ -440,9 +506,11 @@ class Sum(Node):
             for p1 in programs1:                       
 
                 sum_p = Sum(p1)
-                new_programs.append(sum_p)
-        
+                #p1.parent = sum_p
+                #sum_p.children.append(p1)
+                new_programs.append(sum_p)      
                 yield sum_p
+        #print('new_programs sum = ', new_programs)
         return new_programs
 
 class Map(Node):
@@ -450,7 +518,17 @@ class Map(Node):
         super(Map, self).__init__()
         self.function = function
         self.list = l
-        
+        if self.list is not None:
+            self.children.append(self.function)
+            self.children.append(self.list)
+            self.function.parent = self
+            self.list.parent = self
+        else:
+            none_node = NoneNode()
+            self.children.append(self.function)
+            self.children.append(none_node)
+            self.function.parent = self
+            none_node.parent = self
         if self.list is None:
             self.size = self.function.size + 1
         else:
@@ -466,8 +544,17 @@ class Map(Node):
         # if list is None, then it tries to retrieve from local variables from a lambda function
         if self.list is None:
             list_var = env[self.local][self.listname]
+            #print('self.local = ', self.local, 'env[self.local] = ', env[self.local], 'self.listname = ', self.listname)
+            #print('self.tostring = ', self.toString())
+            #print('list var = ', list_var)
+            #print('if list(map(self.function.interpret(env), list_var)) = ', list(map(self.function.interpret(env), list_var)))
+            #exit()
             return list(map(self.function.interpret(env), list_var))
-        
+
+        #print('list = ', self.list)
+        #print('list to string = ', self.list.toString())
+        #print('self.tostring = ', self.toString())
+        #print('fim list(map(self.function.interpret(env), self.list.interpret(env)))  = ', list(map(self.function.interpret(env), self.list.interpret(env))) )
         return list(map(self.function.interpret(env), self.list.interpret(env))) 
     
     def grow(plist, size):  
@@ -484,7 +571,7 @@ class Map(Node):
             if c[0] + c[1] + 1 != size:
                 continue
                     
-            # retrive bank of programs with costs c[0], c[1], and c[2]
+            # retrieve bank of programs with costs c[0], c[1], and c[2]
             program_set1 = plist.get_programs(c[0])
             program_set2 = plist.get_programs(c[1])
             
@@ -508,7 +595,20 @@ class Map(Node):
                         for p2 in programs2:
     
                             m = Map(p1, p2)
+                            '''
+                            if p1 is not None:
+                                p1.parent = m
+                                m.children.append(p1)
+                                #print('p1 = ', p1, p1.toString())
+                            if p2 is not None:
+                                p2.parent = m
+                                m.children.append(p2)
+                                #exit()
+                            else:
+                                p2 = NoneNode()
+                                p2.parent = m
+                                m.children.append(p2)
+                            '''
                             new_programs.append(m)
-            
                             yield m
         return new_programs 
