@@ -561,11 +561,8 @@ class Sum(Node):
             for p1 in programs1:                       
 
                 sum_p = Sum(p1)
-                #p1.parent = sum_p
-                #sum_p.children.append(p1)
                 new_programs.append(sum_p)      
                 yield sum_p
-        #print('new_programs sum = ', new_programs)
         return new_programs
 
 class Map(Node):
@@ -573,17 +570,9 @@ class Map(Node):
         super(Map, self).__init__()
         self.function = function
         self.list = l
-        if self.list is None:
-            print('list foi None init')
-            self.size = self.function.size + 1
-        else:
-            self.size = self.list.size + self.function.size + 1
+        self.size = self.function.size + self.list.size + 1
         
     def toString(self):
-        if self.list is None:
-            print('list foi None tostring')
-            return 'map(' + self.function.toString() + ", None)"
-        
         return 'map(' + self.function.toString() + ", " + self.list.toString() + ")"
     
     def interpret(self, env):
@@ -608,7 +597,6 @@ class Map(Node):
                 
         # generates all combinations of cost of size 2 varying from 1 to size - 1
         combinations = list(itertools.product(range(0, size), repeat=2))
-        
         for c in combinations:         
             # skip if the cost combination exceeds the limit
             if c[0] + c[1] + 1 != size:
@@ -617,11 +605,10 @@ class Map(Node):
             # retrieve bank of programs with costs c[0], c[1], and c[2]
             program_set1 = plist.get_programs(c[0])
             program_set2 = plist.get_programs(c[1])
-            
             if c[1] == 0:
                 if VarList.className() not in program_set2:
                     program_set2[VarList.className()] = []
-                program_set2[VarList.className()].append(None)
+                program_set2[VarList.className()].append(NoneNode())
                 
             for t1, programs1 in program_set1.items():                
                 # skip if t1 isn't a node accepted by Lt

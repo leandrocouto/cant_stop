@@ -14,7 +14,6 @@ class IteratedBestResponse:
         start = time.time()
         bus = BottomUpSearch()
         eval = FinishesGame()
-        
         p, num = bus.synthesize(
                                 bound = 10, 
                                 operations = [Sum, Map, Argmax, Function, Plus, Times, Minus], 
