@@ -3,6 +3,7 @@ import sys
 import pickle
 import time
 import os
+import copy
 from  random import choice
 from DSL import *
 from rule_of_28_sketch import Rule_of_28_Player_PS
@@ -19,216 +20,6 @@ class SimulatedAnnealing:
         self.init_temp = init_temp
         self.d = d
         self.curr_id = 0
-
-    def finish_tree(self, node):
-
-        parent = node.parent
-        # Check VarList
-        if node.toString() == 'actions':
-            node.name = 'neutrals'
-        elif node.toString() == 'neutrals':
-            node.name = 'actions'
-        # Check NoneNode
-        elif node.className() == 'NoneNode':
-            accepted_nodes = [VarList('neutrals'), VarList('actions')]
-            chosen = choice(accepted_nodes)
-            #node.children.append(chosen)
-            #node = chosen
-            parent.children[:] = [chosen if child==node else child for child in parent.children]
-
-        # Check VarScalarFromArray
-        elif node.className() == 'VarScalarFromArray':
-            accepted_nodes = [VarScalarFromArray('progress_value'), VarScalarFromArray('move_value')]
-            chosen = choice(accepted_nodes)
-            #node = chosen
-            #node.children.append(chosen)
-            parent.children[:] = [chosen if child==node else child for child in parent.children]
-        # Check VarScalar
-        elif node.className() == 'VarScalar':
-            accepted_nodes = [VarScalar('markers')]
-            chosen = choice(accepted_nodes)
-            #node = chosen
-            #node.children.append(chosen)
-            parent.children[:] = [chosen if child==node else child for child in parent.children]
-        # Check functions
-        elif node.className() in ['NumberAdvancedThisRound', 'NumberAdvancedByAction', 'IsNewNeutral']:
-            accepted_nodes = [NumberAdvancedThisRound(), NumberAdvancedByAction(), IsNewNeutral()]
-            chosen = choice(accepted_nodes)
-            #node = chosen
-            parent.children[:] = [chosen if child==node else child for child in parent.children]
-            #node.children.append(chosen)
-        #Check Times
-        elif node.className() == 'Times':
-            accepted_nodes = [VarScalar('markers'), VarScalarFromArray('progress_value'), 
-                                VarScalarFromArray('move_value'), NumberAdvancedThisRound(), 
-                                NumberAdvancedByAction()]
-            chosen_left = choice(accepted_nodes)
-            chosen_right = choice(accepted_nodes)
-            child = Times(chosen_left, chosen_right)
-            node.children.append(child)
-        # Check Minus
-        elif node.className() == 'Minus':
-            accepted_nodes = [VarScalar('markers'), VarScalarFromArray('progress_value'), 
-                                VarScalarFromArray('move_value'), NumberAdvancedThisRound(),
-                      NumberAdvancedByAction(), 'Plus', 'Times', 'Minus']
-            chosen_left = choice(accepted_nodes)
-            chosen_right = choice(accepted_nodes)
-            if chosen_left == 'Plus':
-                child_left = Plus(self.get_replacement('Plus'), self.get_replacement('Plus'))
-            elif chosen_left == 'Times':
-                child_left = Times(self.get_replacement('Times'), self.get_replacement('Times'))
-            elif chosen_left == 'Minus':
-                child_left = Minus(self.get_replacement('Minus'), self.get_replacement('Minus'))
-            else:
-                child_left = chosen_left
-
-            if chosen_right == 'Plus':
-                child_right = Plus(self.get_replacement('Plus'), self.get_replacement('Plus'))
-            elif chosen_right == 'Times':
-                child_right = Times(self.get_replacement('Times'), self.get_replacement('Times'))
-            elif chosen_right == 'Minus':
-                child_right = Minus(self.get_replacement('Minus'), self.get_replacement('Minus'))
-            else:
-                child_right = chosen_right
-            
-            child = Minus(child_left, child_right)
-            node.children.append(child)
-        # Check Plus
-        elif node.className() == 'Plus':
-            accepted_nodes = [VarScalar('markers'), VarScalarFromArray('progress_value'), 
-                                VarScalarFromArray('move_value'), NumberAdvancedThisRound(),
-                      NumberAdvancedByAction(), 'Plus', 'Times', 'Minus']
-            chosen_left = choice(accepted_nodes)
-            chosen_right = choice(accepted_nodes)
-            if chosen == 'Plus':
-                child = Plus(self.get_replacement('Plus'), self.get_replacement('Plus'))
-            elif chosen == 'Times':
-                child = Times(self.get_replacement('Times'), self.get_replacement('Times'))
-            elif chosen == 'Minus':
-                child = Minus(self.get_replacement('Minus'), self.get_replacement('Minus'))
-            else:
-                child = chosen
-            node.children.append(child)
-
-        elif node.className() == 'Function':
-            accepted_nodes = ['Minus', 'Plus', 'Times', 'Sum', 'Map', 'Function']
-            chosen = choice(accepted_nodes)
-            if chosen == 'Plus':
-                child = Plus(self.get_replacement('Plus'), self.get_replacement('Plus'))
-            elif chosen == 'Times':
-                child = Times(self.get_replacement('Times'), self.get_replacement('Times'))
-            elif chosen == 'Minus':
-                child = Minus(self.get_replacement('Minus'), self.get_replacement('Minus'))
-            elif chosen == 'Sum':
-                child = Sum(self.get_replacement('Sum'))
-            elif chosen == 'Map':
-                child = Map(self.get_replacement('Map_1'), self.get_replacement('Map_2'))
-            elif chosen == 'Function':
-                child = Function(self.get_replacement('Function'))
-            node.children.append(child)
-
-        elif node.className() == 'Sum':
-            accepted_nodes = [VarList('neutrals'), VarList('actions'), 'Map']
-            chosen = choice(accepted_nodes)
-            if chosen == 'Map':
-                child = Map(self.get_replacement('Map_1'), self.get_replacement('Map_2'))
-            else:
-                child = chosen
-            node.children.append(child)
-
-        elif node.className() == 'Map':
-            chosen_1 = self.get_replacement('Map_1')
-            chosen_2 = self.get_replacement('Map_2')
-            child = Map(chosen_1, chosen_2)
-            node.children.append(child)
-
-    def get_replacement(self, string):
-
-        if string == 'Times':
-            accepted_nodes = [VarScalar('markers'), VarScalarFromArray('progress_value'), 
-                                VarScalarFromArray('move_value'), NumberAdvancedThisRound(), 
-                                NumberAdvancedByAction()]
-            chosen = choice(accepted_nodes)
-            return chosen
-        # Check Minus
-        elif string == 'Minus':
-            accepted_nodes = [VarScalar('markers'), VarScalarFromArray('progress_value'), 
-                                VarScalarFromArray('move_value'), NumberAdvancedThisRound(),
-                                NumberAdvancedByAction(), 
-                                'Plus', 
-                                'Times', 
-                                'Minus'
-                                ]
-            chosen = choice(accepted_nodes)
-            if chosen == 'Plus':
-                return Plus(self.get_replacement('Plus'), self.get_replacement('Plus'))
-            elif chosen == 'Times':
-                return Times(self.get_replacement('Times'), self.get_replacement('Times'))
-            elif chosen == 'Minus':
-                return Minus(self.get_replacement('Minus'), self.get_replacement('Minus'))
-            else:
-                return chosen
-        # Check Plus
-        elif string == 'Plus':
-            accepted_nodes = [VarScalar('markers'), VarScalarFromArray('progress_value'), 
-                                VarScalarFromArray('move_value'), NumberAdvancedThisRound(),
-                                NumberAdvancedByAction(), 
-                                'Plus', 
-                                'Times', 
-                                'Minus'
-                                ]
-            chosen = choice(accepted_nodes)
-            if chosen == 'Plus':
-                return Plus(self.get_replacement('Plus'), self.get_replacement('Plus'))
-            elif chosen == 'Times':
-                return Times(self.get_replacement('Times'), self.get_replacement('Times'))
-            elif chosen == 'Minus':
-                return Minus(self.get_replacement('Minus'), self.get_replacement('Minus'))
-            else:
-                return chosen
-        elif string == 'Function':
-            accepted_nodes = ['Plus', 
-                                'Times', 
-                                'Minus', 
-                                'Sum', 
-                                'Map', 
-                                'Function'
-                                ]
-            chosen = choice(accepted_nodes)
-            if chosen == 'Plus':
-                return Plus(self.get_replacement('Plus'), self.get_replacement('Plus'))
-            elif chosen == 'Times':
-                return Times(self.get_replacement('Times'), self.get_replacement('Times'))
-            elif chosen == 'Minus':
-                return Minus(self.get_replacement('Minus'), self.get_replacement('Minus'))
-            elif chosen == 'Sum':
-                return Sum(self.get_replacement('Sum'))
-            elif chosen == 'Map':
-                return Map(self.get_replacement('Map_1'), self.get_replacement('Map_2'))
-            elif chosen == 'Function':
-                return Function(self.get_replacement('Function'))
-            else:
-                return chosen
-        elif string == 'Sum':
-            accepted_nodes = [VarList('neutrals'), 
-                                VarList('actions'), 
-                                'Map'
-                                ]
-            chosen = choice(accepted_nodes)
-            if chosen == 'Map':
-                return Map(self.get_replacement('Map_1'), self.get_replacement('Map_2'))
-            else:
-                return chosen
-        elif string == 'Map_1':
-            accepted_nodes = [Function(self.get_replacement('Function'))]
-            chosen = choice(accepted_nodes)
-            return chosen
-        elif string == 'Map_2':
-            accepted_nodes = [NoneNode(), VarList('neutrals'), VarList('actions')]
-            chosen = choice(accepted_nodes)
-            return chosen
-        else:
-            raise Exception("Unmatched string in get_replacement - string = ", string)
     
     def get_object(self, program):
         program_yes_no = Sum(Map(Function(Times(Plus(NumberAdvancedThisRound(), Constant(1)), VarScalarFromArray('progress_value'))), VarList('neutrals')))
@@ -269,13 +60,14 @@ class SimulatedAnnealing:
             self._get_traversal(child, list_of_nodes)
 
 
-    def update_program(self, program):
-        list_of_nodes = self.get_traversal(program)
-        print('list_of_nodes - size = ', len(list_of_nodes))
-        print(list_of_nodes)
-        exit()
+    def update_parent_and_children(self, program, parent):
+        program.add_parent_and_children(parent)
+        for child in program.children:
+            self.update_parent_and_children(child, program)
 
     def mutate(self, program):
+        # Update the tree node's parents and children
+        self.update_parent_and_children(program, None)
         self.curr_id = 0
         self.id_tree_nodes(program)
         print('mutated antes')
@@ -297,6 +89,9 @@ class SimulatedAnnealing:
             else:
                 break
 
+        print('node_to_mutate.parent =', node_to_mutate.parent)
+        print('node_to_mutate.parent.children =', node_to_mutate.parent.children)
+        exit()
         # delete its children and mutate it with new values
         node_to_mutate.children = []
 
@@ -314,14 +109,12 @@ class SimulatedAnnealing:
         self.finish_tree(node_to_mutate)
         print('mutated dps dps')
         program.print_tree(program, '  ')
-
-        # Update the program with the new children
-        self.update_program(program)
         exit()
         # Updating again after (possibly) finishing expanding possibly not
         # expanded nodes.
         self.current_id = 0
         self._update_nodes_ids(self.root)
+
     def run(self, initial_state, player_to_be_beaten):
         """ 
         Main routine of Simulated Annealing. SA will start mutating from
