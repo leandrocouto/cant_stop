@@ -4,22 +4,24 @@ import pickle
 import time
 import os
 import copy
-from  random import choice
+import random
+import traceback
 from DSL import *
 from rule_of_28_sketch import Rule_of_28_Player_PS
 sys.path.insert(0,'..')
 from game import Game
 from play_game_template import simplified_play_single_game
+from players.glenn_player import Glenn_Player
 
 class SimulatedAnnealing:
-    def __init__(self, n_SA_iterations, max_game_rounds, n_games, init_temp, d,
-                to_log):
+    def __init__(self, n_SA_iterations, max_game_rounds, n_games, init_temp, d):
         self.n_SA_iterations = n_SA_iterations
         self.max_game_rounds = max_game_rounds
         self.n_games = n_games
         self.init_temp = init_temp
         self.d = d
         self.curr_id = 0
+        self.wins_vs_glenn = []
     
     def get_object(self, program):
         program_yes_no = Sum(Map(Function(Times(Plus(NumberAdvancedThisRound(), Constant(1)), VarScalarFromArray('progress_value'))), VarList('neutrals')))
@@ -60,27 +62,262 @@ class SimulatedAnnealing:
             self._get_traversal(child, list_of_nodes)
 
 
-    def update_parent_and_children(self, program, parent):
-        program.add_parent_and_children(parent)
+    def update_parent(self, program, parent):
+        program.add_parent(parent)
         for child in program.children:
-            self.update_parent_and_children(child, program)
+            self.update_parent(child, program)
+
+    def update_children(self, program):
+        children = program.children
+        if children:
+            program.add_children(children)
+        for child in children:
+            self.update_children(child)
+
+    def finish_tree(self, node, chosen_node):
+        """
+        chosen_node is the DSL term (a string) that will substitute node. The 
+        remaining children will be built recursively.
+        """
+        parent = node.parent
+        if chosen_node == 'VarScalar':
+            acceptable_nodes = [VarScalar('marker')]
+            new_node = random.choice(acceptable_nodes)
+            return new_node
+        elif chosen_node == 'VarScalarFromArray':
+            acceptable_nodes = ['progress_value', 'move_value']
+            chosen = random.choice(acceptable_nodes)
+            if chosen == 'progress_value':
+                new_node = VarScalarFromArray('progress_value')
+            else:
+                new_node = VarScalarFromArray('move_value')
+            return new_node
+        elif chosen_node == 'VarList':
+            acceptable_nodes = ['actions', 'neutrals']#, 'None']
+            chosen = random.choice(acceptable_nodes)
+            if chosen == 'actions':
+                new_node =  VarList('actions')
+            elif chosen == 'neutrals':
+                new_node = VarList('neutrals')
+            else:
+                new_node = NoneNode()
+            return new_node
+        elif chosen_node == 'functions_scalars':
+            acceptable_nodes = ['NumberAdvancedThisRound', 'NumberAdvancedByAction', 'IsNewNeutral']
+            chosen = random.choice(acceptable_nodes)
+            if chosen == 'NumberAdvancedThisRound':
+                new_node = NumberAdvancedThisRound()
+            elif chosen == 'NumberAdvancedByAction':
+                new_node = NumberAdvancedByAction()
+            else:
+                new_node = IsNewNeutral()
+            return new_node
+        elif chosen_node == 'Times':
+            acceptable_nodes = ['VarScalar', 'VarScalarFromArray', 'functions_scalars']
+            chosen_left = random.choice(acceptable_nodes)
+            chosen_right = random.choice(acceptable_nodes)
+            # Left
+            if chosen_left == 'VarScalar':
+                chosen_node_left = self.finish_tree(node, 'VarScalar')
+            elif chosen_left == 'VarScalarFromArray':
+                chosen_node_left = self.finish_tree(node, 'VarScalarFromArray')
+            else:
+                chosen_node_left = self.finish_tree(node, 'functions_scalars')
+            # Right
+            if chosen_right == 'VarScalar':
+                chosen_node_right = self.finish_tree(node, 'VarScalar')
+            elif chosen_right == 'VarScalarFromArray':
+                chosen_node_right = self.finish_tree(node, 'VarScalarFromArray')
+            else:
+                chosen_node_right = self.finish_tree(node, 'functions_scalars')
+            new_node = Times(chosen_node_left, chosen_node_right)
+            return new_node
+        elif chosen_node == 'Plus':
+            acceptable_nodes = ['VarScalar', 'VarScalarFromArray', 'functions_scalars',
+                                'Times', 'Plus', 'Minus',
+                            ]
+            chosen_left = random.choice(acceptable_nodes)
+            chosen_right = random.choice(acceptable_nodes)
+            # Left
+            if chosen_left == 'VarScalar':
+                chosen_node_left = self.finish_tree(node, 'VarScalar')
+            elif chosen_left == 'VarScalarFromArray':
+                chosen_node_left = self.finish_tree(node, 'VarScalarFromArray')
+            elif chosen_left == 'functions_scalars':
+                chosen_node_left = self.finish_tree(node, 'functions_scalars')
+            elif chosen_left == 'Times':
+                chosen_node_left = self.finish_tree(node, 'Times')
+            elif chosen_left == 'Plus':
+                chosen_node_left = self.finish_tree(node, 'Plus')
+            else:
+                chosen_node_left = self.finish_tree(node, 'Minus')
+            # Right
+            if chosen_right == 'VarScalar':
+                chosen_node_right = self.finish_tree(node, 'VarScalar')
+            elif chosen_right == 'VarScalarFromArray':
+                chosen_node_right = self.finish_tree(node, 'VarScalarFromArray')
+            elif chosen_right == 'functions_scalars':
+                chosen_node_right = self.finish_tree(node, 'functions_scalars')
+            elif chosen_right == 'Times':
+                chosen_node_right = self.finish_tree(node, 'Times')
+            elif chosen_right == 'Plus':
+                chosen_node_right = self.finish_tree(node, 'Plus')
+            else:
+                chosen_node_right = self.finish_tree(node, 'Minus')
+            new_node = Plus(chosen_node_left, chosen_node_right)
+            return new_node
+        elif chosen_node == 'Minus':
+            acceptable_nodes = ['VarScalar', 'VarScalarFromArray', 'functions_scalars',
+                                'Times', 'Plus', 'Minus',
+                            ]
+            chosen_left = random.choice(acceptable_nodes)
+            chosen_right = random.choice(acceptable_nodes)
+            # Left
+            if chosen_left == 'VarScalar':
+                chosen_node_left = self.finish_tree(node, 'VarScalar')
+            elif chosen_left == 'VarScalarFromArray':
+                chosen_node_left = self.finish_tree(node, 'VarScalarFromArray')
+            elif chosen_left == 'functions_scalars':
+                chosen_node_left = self.finish_tree(node, 'functions_scalars')
+            elif chosen_left == 'Times':
+                chosen_node_left = self.finish_tree(node, 'Times')
+            elif chosen_left == 'Plus':
+                chosen_node_left = self.finish_tree(node, 'Plus')
+            else:
+                chosen_node_left = self.finish_tree(node, 'Minus')
+            # Right
+            if chosen_right == 'VarScalar':
+                chosen_node_right = self.finish_tree(node, 'VarScalar')
+            elif chosen_right == 'VarScalarFromArray':
+                chosen_node_right = self.finish_tree(node, 'VarScalarFromArray')
+            elif chosen_right == 'functions_scalars':
+                chosen_node_right = self.finish_tree(node, 'functions_scalars')
+            elif chosen_right == 'Times':
+                chosen_node_right = self.finish_tree(node, 'Times')
+            elif chosen_right == 'Plus':
+                chosen_node_right = self.finish_tree(node, 'Plus')
+            else:
+                chosen_node_right = self.finish_tree(node, 'Minus')
+            new_node = Minus(chosen_node_left, chosen_node_right)
+            return new_node
+        elif chosen_node == 'Sum':
+            acceptable_nodes = ['VarList', 'Map']
+            chosen = random.choice(acceptable_nodes)
+            if chosen == 'VarList':
+                chosen_node = self.finish_tree(node, 'VarList')
+            else:
+                chosen_node = self.finish_tree(node, 'Map')
+            new_node = Sum(chosen_node)
+            return new_node
+        elif chosen_node == 'Map':
+            # Function
+            acceptable_nodes_1 = ['Function']
+            # VarList
+            acceptable_nodes_2 = ['VarList']
+            chosen_left = random.choice(acceptable_nodes_1)
+            chosen_right = random.choice(acceptable_nodes_2)
+            if chosen_left == 'Function':
+                chosen_node_left = self.finish_tree(node, 'Function')
+            if chosen_right == 'VarList':
+                chosen_node_right = self.finish_tree(node, 'VarList')
+            new_node = Map(chosen_node_left, chosen_node_right)
+            return new_node
+        elif chosen_node == 'Function':
+            acceptable_nodes = ['Times', 'Plus', 'Minus', 'Sum', 'Map', 'Function']
+            chosen = random.choice(acceptable_nodes)
+            if chosen == 'Times':
+                chosen_node = self.finish_tree(node, 'Times')
+            elif chosen == 'Plus':
+                chosen_node = self.finish_tree(node, 'Plus')
+            elif chosen == 'Minus':
+                chosen_node = self.finish_tree(node, 'Minus')
+            elif chosen == 'Sum':
+                chosen_node = self.finish_tree(node, 'Sum')
+            elif chosen == 'Map':
+                chosen_node = self.finish_tree(node, 'Map')
+            else:
+                chosen_node = self.finish_tree(node, 'Function')
+            new_node = Function(chosen_node)
+            return new_node
+        else:
+            raise Exception('Unhandled DSL term at finish_tree. DSL term = ', chosen_node)
+
+    def find_replacement(self, node):
+        """
+        Find a replacement for node according to the DSL. In this implementation,
+        this node will also be deleted; therefore, it is needed to look at this
+        node's parent and apply the appropriate changes. 
+        """
+
+        parent = node.parent
+        # Check for Times
+        if parent.className() == 'Times':
+            acceptable_nodes = ['VarScalar', 
+                                'VarScalarFromArray',
+                                'functions_scalars'
+                            ]
+            chosen_node = random.choice(acceptable_nodes)
+            # Finish the tree with the chosen substitute
+            new_node = self.finish_tree(node, chosen_node)
+        elif parent.className() == 'Plus' or parent.className() == 'Minus':
+            print('IF 2')
+            acceptable_nodes = ['VarScalar', 
+                                'VarScalarFromArray', 
+                                'functions_scalars',
+                                #'Constant',
+                                'Times',
+                                'Plus',
+                                'Minus'
+                                ]
+            chosen_node = random.choice(acceptable_nodes)
+            # Finish the tree with the chosen substitute
+            new_node = self.finish_tree(node, chosen_node)
+        elif parent.className() == 'Function':
+            acceptable_nodes = ['Times', 
+                                'Plus', 
+                                'Minus', 
+                                'Sum', 
+                                'Map', 
+                                'Function'
+                            ]
+            chosen_node = random.choice(acceptable_nodes)
+            # Finish the tree with the chosen substitute
+            new_node = self.finish_tree(node, chosen_node)
+        elif parent.className() == 'Argmax' or parent.className() == 'Sum':
+            acceptable_nodes = ['VarList', 
+                                'Map'
+                            ]
+            chosen_node = random.choice(acceptable_nodes)
+            # Finish the tree with the chosen substitute
+            new_node = self.finish_tree(node, chosen_node)
+        elif parent.className() == 'Map':
+            # Map is a little different because it has two distinctive children,
+            # so it must be done checked separately
+            if node.className() == 'Function':
+                # Finish the tree with the chosen substitute
+                new_node = self.finish_tree(node, 'Function')
+            else:
+                # It is a VarList
+                new_node = self.finish_tree(node, 'VarList')
+        else:
+            raise Exception('Unhandled parent at find_replacement. parent = ', parent)
+
+        # Add replacement to the original tree
+        self.update_parent(new_node, None)
+        return new_node
+
 
     def mutate(self, program):
         # Update the tree node's parents and children
-        self.update_parent_and_children(program, None)
+        self.update_parent(program, None)
         self.curr_id = 0
         self.id_tree_nodes(program)
-        print('mutated antes')
-        program.print_tree(program, '  ')
-        print()
         max_tries = 1000
         while True:
             max_tries -= 1
             # Start from id 1 to not choose Argmax
             index_node = random.randint(1, self.curr_id-1)
-            print('index = ', index_node)
             node_to_mutate = self.find_node(program, index_node)
-            print('no encontrado = ', node_to_mutate)
             if node_to_mutate == None:
                 raise Exception('Node randomly selected does not exist.' + \
                     ' Index sampled = ' + str(index_node))
@@ -88,13 +325,6 @@ class SimulatedAnnealing:
                 return
             else:
                 break
-
-        print('node_to_mutate.parent =', node_to_mutate.parent)
-        print('node_to_mutate.parent.children =', node_to_mutate.parent.children)
-        exit()
-        # delete its children and mutate it with new values
-        node_to_mutate.children = []
-
         # Update the nodes ids. This is needed because when mutating a single 
         # node it is possible to create many other nodes (and not just one).
         # So a single id swap is not possible. This also prevents id "holes"
@@ -103,19 +333,19 @@ class SimulatedAnnealing:
         self.curr_id = 0
         self.id_tree_nodes(program)
 
-        print('mutated dps')
-        program.print_tree(program, '  ')
-        print()
-        self.finish_tree(node_to_mutate)
-        print('mutated dps dps')
-        program.print_tree(program, '  ')
-        exit()
-        # Updating again after (possibly) finishing expanding possibly not
-        # expanded nodes.
-        self.current_id = 0
-        self._update_nodes_ids(self.root)
+        # Mutate it
+        replacement = self.find_replacement(node_to_mutate)
 
-    def run(self, initial_state, player_to_be_beaten):
+        self.curr_id = 0
+        self.id_tree_nodes(program)
+        # Add replacement to the original tree
+        node_to_mutate.parent.children[:] = [replacement if child==node_to_mutate else child for child in node_to_mutate.parent.children]
+        # Update the node's ids
+        self.curr_id = 0
+        self.id_tree_nodes(program)
+        return program
+
+    def run(self, initial_state):
         """ 
         Main routine of Simulated Annealing. SA will start mutating from
         initial_state and the first player to be beaten is player_to_be_beaten.
@@ -124,77 +354,111 @@ class SimulatedAnnealing:
         """
 
         # Original program
-        curr_state = pickle.loads(pickle.dumps(initial_state, -1))
-        curr_player = self.get_object(initial_state)
-        # Program to be beaten is given from selfplay
-        best_tree = None
-        best_player = pickle.loads(pickle.dumps(curr_player, -1))
-
+        curr_tree = pickle.loads(pickle.dumps(initial_state, -1))
+        # Update the parent of the nodes
+        self.update_parent(curr_tree, None)
+        # Transform into a "playable" player
+        curr_player = self.get_object(curr_tree)
+        '''
         # Evaluate the starting program against the program from selfplay
         try:
-            victories, _, _ = self.evaluate(curr_player, best_player)
+            victories, _, _ = self.evaluate(curr_player, curr_player)
         # If the program gives an error during evaluation, this program should
         # be 'discarded/bad' -> set victory to 0.
         except Exception as e:
             victories = 0
-        
-        print('victories = ', victories)
         best_score = victories
-            
+        print('Victory to be beaten = ', victories)
+        '''
         # Number of "successful" iterations
         successful = 0 
         curr_temp = self.init_temp
         for i in range(2, self.n_SA_iterations + 2):
+            print('Iteration - ', i)
             start = time.time()
             #print('sa ite', i)
-            # Make a copy of curr_state
-            mutated_tree = pickle.loads(pickle.dumps(curr_state, -1))
+            # Make a copy of curr_tree
+            mutated_tree = pickle.loads(pickle.dumps(curr_tree, -1))
             # Mutate it
-            self.mutate(mutated_tree)
+            mutated_tree = self.mutate(mutated_tree)
+            # Update the children of the nodes in a top-down approach
+            self.update_children(mutated_tree)
             # Get the object of the mutated program
             mutated_player = self.get_object(mutated_tree)
+
+            #print('curr    = ', curr_tree.toString())
+            #print('mutated = ', mutated_tree.toString())
+            #exit()
             # Evaluates the mutated program against best_program
             try:
                 victories_mut, losses_mut, draws_mut = self.evaluate(mutated_player, curr_player)
             except Exception as e:
+                error_message = traceback.format_exc()
+                #print('Mutated program = ', mutated_tree.toString())
+                #print('Exception')
+                #print(error_message)
+                #print()
+                '''
+                print('arvore mutated')
+                mutated_tree.print_tree(mutated_tree, '  ')
+
+                print('printando list of nodes com info')
+                all_nodes = self.get_traversal(mutated_tree)
+                for node in all_nodes:
+                    node.print_log_info()
+                    print()
+                '''
+                #exit()
                 victories_mut = 0
                 losses_mut = 0
                 draws_mut = 0
 
-            print('v/l/d = ', victories_mut, losses_mut, draws_mut)
-            exit()
-            new_score = victories_mut
+            
 
+            #new_score = victories_mut
+            '''
             # Update score given the temperature parameters
             updated_score_best, updated_score_mutated = self.update_score(
-                                                                best_score, 
-                                                                new_score, 
+                                                                losses_mut, 
+                                                                victories_mut, 
                                                                 curr_temp
                                                             )
             if updated_score_mutated > updated_score_best:
+            '''
+            vic_needed = math.floor(0.55 * self.n_games)
+            if victories_mut >= vic_needed:
                 successful += 1
 
                 elapsed = time.time() - start
-                print('SA - Iteration = ',i, '- Mutated player was better - Victories =', victories_mut)
-                best_score = new_score
+                print('SA - Iteration = ',i, '- Mutated player was better - V/L/D =', victories_mut, losses_mut, draws_mut)
+                print('Current program = ', curr_tree.toString())
+                print('Mutated program = ', mutated_tree.toString())
+                glenn = Glenn_Player()
+                v, l, d = self.evaluate(mutated_player, glenn)
+                print('V/L/D against Glenn = ', v, l, d)
+                self.wins_vs_glenn.append(v)
+                print('self.wins_vs_glenn = ', self.wins_vs_glenn)
+                #best_score = new_score
                 # Copy the trees
-                best_tree = mutated_tree
+                curr_tree = mutated_tree
                 # Copy the script
-                best_player = mutated_player
+                curr_player = mutated_player
             # update temperature according to schedule
             else:
                 elapsed = time.time() - start
-                print('SA - Iteration = ',i, '- Mutated player was worse - Victories =', victories_mut)
+                print('SA - Iteration = ',i, '- Mutated player was worse - V/L/D =', victories_mut, losses_mut, draws_mut)
+                print('Current program = ', curr_tree.toString())
+                print('Mutated program = ', mutated_tree.toString())
+                print()
             curr_temp = self.temperature_schedule(i)
-
         # It can happen that the mutated state is never better than 
         # player_to_be_beaten, therefore we set best_tree and best_player to the 
         # original initial_state.
-        if best_tree is None:
-            best_tree = curr_tree
-            best_player = curr_player
+        #if best_tree is None:
+        #    best_tree = curr_tree
+        #    best_player = curr_player
         print('Successful iterations of this SA = ', successful, 'out of', self.n_SA_iterations, 'iterations.')
-        return best_tree, best_player
+        return curr_tree, curr_player
 
     def temperature_schedule(self, iteration):
         """ Calculate the next temperature used for the score calculation. """

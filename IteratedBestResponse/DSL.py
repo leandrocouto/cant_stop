@@ -45,11 +45,17 @@ class Node:
             for child in node.children:
                 self.print_tree(child, indentation + '    ')
 
+    def print_log_info(self):
+        raise Exception('Unimplemented method: print_log_info - class:', self)
+
     def getRulesNames(self, rules):
         raise Exception('Unimplemented method: getRulesNames')
 
-    def add_parent_and_children(self, parent):
-        raise Exception('Unimplemented method: add_parent_and_children - class:', self, 'parent:', parent)
+    def add_parent(self, parent):
+        raise Exception('Unimplemented method: add_parent - class:', self, 'parent:', parent)
+
+    def add_children(self, children):
+        raise Exception('Unimplemented method: add_children - class:', self, 'children:', children)
     
     @classmethod
     def grow(plist, new_plist):
@@ -70,8 +76,14 @@ class NoneNode(Node):
     def interpret(self, env):
         return
 
-    def add_parent_and_children(self, parent):
+    def add_parent(self, parent):
         self.parent = parent
+
+    def print_log_info(self):
+        print('self = ', self)
+        print('self.size = ', self.size)
+        print('self.parent = ', self.parent)
+        print('self.children = ', self.children)
 
 class VarList(Node):
     def __init__(self, name):
@@ -85,8 +97,15 @@ class VarList(Node):
     def interpret(self, env):
         return env[self.name]
 
-    def add_parent_and_children(self, parent):
+    def add_parent(self, parent):
         self.parent = parent
+
+    def print_log_info(self):
+        print('self = ', self)
+        print('self.name = ', self.name)
+        print('self.size = ', self.size)
+        print('self.parent = ', self.parent)
+        print('self.children = ', self.children)
     
 class VarScalarFromArray(Node):
     def __init__(self, name):
@@ -100,8 +119,15 @@ class VarScalarFromArray(Node):
     def interpret(self, env):
         return env[self.name][env[self.local][self.intname]]
 
-    def add_parent_and_children(self, parent):
+    def add_parent(self, parent):
         self.parent = parent
+
+    def print_log_info(self):
+        print('self = ', self)
+        print('self.name = ', self.name)
+        print('self.size = ', self.size)
+        print('self.parent = ', self.parent)
+        print('self.children = ', self.children)
     
 class VarScalar(Node):
     def __init__(self, name):
@@ -115,8 +141,15 @@ class VarScalar(Node):
     def interpret(self, env):
         return env[self.name]
 
-    def add_parent_and_children(self, parent):
+    def add_parent(self, parent):
         self.parent = parent
+
+    def print_log_info(self):
+        print('self = ', self)
+        print('self.name = ', self.name)
+        print('self.size = ', self.size)
+        print('self.parent = ', self.parent)
+        print('self.children = ', self.children)
     
 class Constant(Node):
     def __init__(self, value):
@@ -129,8 +162,15 @@ class Constant(Node):
     def interpret(self, env):
         return self.value
 
-    def add_parent_and_children(self, parent):
+    def add_parent(self, parent):
         self.parent = parent
+
+    def print_log_info(self):
+        print('self = ', self)
+        print('self.value = ', self.value)
+        print('self.size = ', self.size)
+        print('self.parent = ', self.parent)
+        print('self.children = ', self.children)
 
 class NumberAdvancedByAction(Node):
     def __init__(self):
@@ -154,8 +194,14 @@ class NumberAdvancedByAction(Node):
         else:
             return 1
 
-    def add_parent_and_children(self, parent):
+    def add_parent(self, parent):
         self.parent = parent
+
+    def print_log_info(self):
+        print('self = ', self)
+        print('self.size = ', self.size)
+        print('self.parent = ', self.parent)
+        print('self.children = ', self.children)
 
 class IsNewNeutral(Node):
     def __init__(self):
@@ -181,8 +227,14 @@ class IsNewNeutral(Node):
 
         return is_new_neutral
 
-    def add_parent_and_children(self, parent):
+    def add_parent(self, parent):
         self.parent = parent
+
+    def print_log_info(self):
+        print('self = ', self)
+        print('self.size = ', self.size)
+        print('self.parent = ', self.parent)
+        print('self.children = ', self.children)
 
 class NumberAdvancedThisRound(Node):
     def __init__(self):
@@ -226,8 +278,14 @@ class NumberAdvancedThisRound(Node):
                     counter += len(list_of_cells) - previously_conquered
         return counter
 
-    def add_parent_and_children(self, parent):
+    def add_parent(self, parent):
         self.parent = parent
+
+    def print_log_info(self):
+        print('self = ', self)
+        print('self.size = ', self.size)
+        print('self.parent = ', self.parent)
+        print('self.children = ', self.children)
 
 class Times(Node):
     def __init__(self, left, right):
@@ -242,12 +300,16 @@ class Times(Node):
     def interpret(self, env):
         return self.left.interpret(env) * self.right.interpret(env)
 
-    def add_parent_and_children(self, parent):
+    def add_parent(self, parent):
         self.parent = parent
         # In case there's already data in there
         self.children = []
         self.children.append(self.left)
         self.children.append(self.right)
+
+    def add_children(self, children):
+        self.left = children[0]
+        self.right = children[1]
     
     def grow(plist, size):       
         new_programs = []
@@ -255,6 +317,7 @@ class Times(Node):
                               VarScalarFromArray.className(), 
                               NumberAdvancedThisRound.className(),
                               NumberAdvancedByAction.className(),
+                              IsNewNeutral.className(),
                               Constant.className()])
         
         # generates all combinations of cost of size 2 varying from 1 to size - 1
@@ -300,7 +363,15 @@ class Times(Node):
                             new_programs.append(times)
             
                             yield times
-        return new_programs  
+        return new_programs 
+
+    def print_log_info(self):
+        print('self = ', self)
+        print('self.left = ', self.left)
+        print('self.right = ', self.right)
+        print('self.size = ', self.size)
+        print('self.parent = ', self.parent)
+        print('self.children = ', self.children) 
 
 class Minus(Node):
     def __init__(self, left, right):
@@ -315,12 +386,16 @@ class Minus(Node):
     def interpret(self, env):
         return self.left.interpret(env) - self.right.interpret(env)
 
-    def add_parent_and_children(self, parent):
+    def add_parent(self, parent):
         self.parent = parent
         # In case there's already data in there
         self.children = []
         self.children.append(self.left)
         self.children.append(self.right)
+
+    def add_children(self, children):
+        self.left = children[0]
+        self.right = children[1]
     
     def grow(plist, size):               
         new_programs = []
@@ -329,6 +404,7 @@ class Minus(Node):
                       VarScalarFromArray.className(), 
                       NumberAdvancedThisRound.className(),
                       NumberAdvancedByAction.className(),
+                      IsNewNeutral.className(),
                       Constant.className(),
                       Plus.className(),
                       Times.className(),
@@ -379,6 +455,14 @@ class Minus(Node):
                             yield minus
         return new_programs  
 
+    def print_log_info(self):
+        print('self = ', self)
+        print('self.left = ', self.left)
+        print('self.right = ', self.right)
+        print('self.size = ', self.size)
+        print('self.parent = ', self.parent)
+        print('self.children = ', self.children) 
+
 class Plus(Node):
     def __init__(self, left, right):
         super(Plus, self).__init__()
@@ -392,12 +476,16 @@ class Plus(Node):
     def interpret(self, env):
         return self.left.interpret(env) + self.right.interpret(env)
 
-    def add_parent_and_children(self, parent):
+    def add_parent(self, parent):
         self.parent = parent
         # In case there's already data in there
         self.children = []
         self.children.append(self.left)
         self.children.append(self.right)
+
+    def add_children(self, children):
+        self.left = children[0]
+        self.right = children[1]
     
     def grow(plist, size):               
         new_programs = []
@@ -406,6 +494,7 @@ class Plus(Node):
                       VarScalarFromArray.className(), 
                       NumberAdvancedThisRound.className(),
                       NumberAdvancedByAction.className(),
+                      IsNewNeutral.className(),
                       Constant.className(),
                       Plus.className(),
                       Times.className(),
@@ -454,14 +543,20 @@ class Plus(Node):
                             new_programs.append(plus)
             
                             yield plus
-        return new_programs  
+        return new_programs
+
+    def print_log_info(self):
+        print('self = ', self)
+        print('self.left = ', self.left)
+        print('self.right = ', self.right)
+        print('self.size = ', self.size)
+        print('self.parent = ', self.parent)
+        print('self.children = ', self.children)  
     
 class Function(Node):
     def __init__(self, expression):
         super(Function, self).__init__()
         self.expression = expression
-        #self.children.append(self.expression)
-        #self.expression.parent = self
         self.size = self.expression.size + 1
         
     def toString(self):
@@ -470,11 +565,14 @@ class Function(Node):
     def interpret(self, env):
         return lambda x : self.expression.interpret_local_variables(env, x)
 
-    def add_parent_and_children(self, parent):
+    def add_parent(self, parent):
         self.parent = parent
         # In case there's already data in there
         self.children = []
         self.children.append(self.expression)
+
+    def add_children(self, children):
+        self.expression = children[0]
     
     def grow(plist, size):
         new_programs = []
@@ -493,7 +591,14 @@ class Function(Node):
                 new_programs.append(func)
         
                 yield func
-        return new_programs    
+        return new_programs  
+
+    def print_log_info(self):
+        print('self = ', self)
+        print('self.expression = ', self.expression)
+        print('self.size = ', self.size)
+        print('self.parent = ', self.parent)
+        print('self.children = ', self.children)   
 
 class Argmax(Node):
     def __init__(self, l):
@@ -507,11 +612,14 @@ class Argmax(Node):
     def interpret(self, env):
         return np.argmax(self.list.interpret(env))
 
-    def add_parent_and_children(self, parent):
+    def add_parent(self, parent):
         self.parent = parent
         # In case there's already data in there
         self.children = []
         self.children.append(self.list)
+
+    def add_children(self, children):
+        self.list = children[0]
     
     def grow(plist, size):       
         new_programs = []
@@ -529,6 +637,13 @@ class Argmax(Node):
                 yield am
         return new_programs
 
+    def print_log_info(self):
+        print('self = ', self)
+        print('self.list = ', self.list)
+        print('self.size = ', self.size)
+        print('self.parent = ', self.parent)
+        print('self.children = ', self.children) 
+
 class Sum(Node):
     def __init__(self, l):
         super(Sum, self).__init__()
@@ -541,11 +656,14 @@ class Sum(Node):
     def interpret(self, env):
         return np.sum(self.list.interpret(env))
 
-    def add_parent_and_children(self, parent):
+    def add_parent(self, parent):
         self.parent = parent
         # In case there's already data in there
         self.children = []
         self.children.append(self.list)
+
+    def add_children(self, children):
+        self.list = children[0]
     
     def grow(plist, size):       
         new_programs = []
@@ -565,6 +683,13 @@ class Sum(Node):
                 yield sum_p
         return new_programs
 
+    def print_log_info(self):
+        print('self = ', self)
+        print('self.list = ', self.list)
+        print('self.size = ', self.size)
+        print('self.parent = ', self.parent)
+        print('self.children = ', self.children) 
+
 class Map(Node):
     def __init__(self, function, l):
         super(Map, self).__init__()
@@ -582,12 +707,16 @@ class Map(Node):
             return list(map(self.function.interpret(env), list_var))
         return list(map(self.function.interpret(env), self.list.interpret(env))) 
 
-    def add_parent_and_children(self, parent):
+    def add_parent(self, parent):
         self.parent = parent
         # In case there's already data in there
         self.children = []
         self.children.append(self.function)
         self.children.append(self.list)
+
+    def add_children(self, children):
+        self.function = children[0]
+        self.list = children[1]
     
     def grow(plist, size):  
         new_programs = []
@@ -630,3 +759,11 @@ class Map(Node):
                             new_programs.append(m)
                             yield m
         return new_programs 
+
+    def print_log_info(self):
+        print('self = ', self)
+        print('self.function = ', self.function)
+        print('self.list = ', self.list)
+        print('self.size = ', self.size)
+        print('self.parent = ', self.parent)
+        print('self.children = ', self.children) 

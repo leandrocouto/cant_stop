@@ -30,7 +30,7 @@ class IteratedBestResponse:
         
         programs_not_to_eval = set()
         
-        for _ in range(5):
+        for _ in range(1):
             eval = DefeatsStrategy(p)
 #             eval = DefeatsStrategyNonTriage(p)
             
@@ -67,7 +67,7 @@ class IteratedBestResponse:
             p = br
 
             SA = SimulatedAnnealing(100, 500, 100, 1, 1, False)
-            SA.run(p, p)
+            return SA.run(p, p)
             
         end = time.time()
         print('Running Time: ', end - start, ' seconds.')
