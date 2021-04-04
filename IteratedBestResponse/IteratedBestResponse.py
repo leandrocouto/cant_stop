@@ -30,7 +30,7 @@ class IteratedBestResponse:
         
         programs_not_to_eval = set()
         
-        for _ in range(1):
+        for _ in range(10):
             eval = DefeatsStrategy(p)
 #             eval = DefeatsStrategyNonTriage(p)
             
@@ -66,15 +66,35 @@ class IteratedBestResponse:
             programs_not_to_eval = bus.get_closed_list()
             p = br
 
-            SA = SimulatedAnnealing(100, 500, 100, 1, 1, False)
-            return SA.run(p, p)
+            #SA = SimulatedAnnealing(100, 500, 100, 1, 1, False)
+            #return SA.run(p)
+            #return p
             
         end = time.time()
         print('Running Time: ', end - start, ' seconds.')
+        return p
 
     
-        
+'''
 ibr = IteratedBestResponse()
 p = ibr.self_play()
 
 print('Program encountered: ', p.toString())
+'''
+start_IBR = time.time()
+ibr = IteratedBestResponse()
+p = ibr.self_play()
+end_IBR = time.time() - start_IBR
+print('IBR - Time elapsed = ', end_IBR)
+print(p.toString())
+n_SA_iterations = 2000
+max_game_rounds = 500
+n_games = 100   
+init_temp = 1
+d = 1
+start_SA = time.time()
+#SA = SimulatedAnnealing(n_SA_iterations, max_game_rounds, n_games, init_temp, d)
+#best_program, _ = SA.run(p)
+end_SA = time.time() - start_SA
+print('Best program after SA - Time elapsed = ', end_SA)
+#print(best_program.toString())

@@ -317,7 +317,7 @@ class Times(Node):
                               VarScalarFromArray.className(), 
                               NumberAdvancedThisRound.className(),
                               NumberAdvancedByAction.className(),
-                              IsNewNeutral.className(),
+                              #IsNewNeutral.className(),
                               Constant.className()])
         
         # generates all combinations of cost of size 2 varying from 1 to size - 1
@@ -404,7 +404,7 @@ class Minus(Node):
                       VarScalarFromArray.className(), 
                       NumberAdvancedThisRound.className(),
                       NumberAdvancedByAction.className(),
-                      IsNewNeutral.className(),
+                      #IsNewNeutral.className(),
                       Constant.className(),
                       Plus.className(),
                       Times.className(),
@@ -494,7 +494,7 @@ class Plus(Node):
                       VarScalarFromArray.className(), 
                       NumberAdvancedThisRound.className(),
                       NumberAdvancedByAction.className(),
-                      IsNewNeutral.className(),
+                      #IsNewNeutral.className(),
                       Constant.className(),
                       Plus.className(),
                       Times.className(),
@@ -695,14 +695,18 @@ class Map(Node):
         super(Map, self).__init__()
         self.function = function
         self.list = l
-        self.size = self.function.size + self.list.size + 1
+        if isinstance(self.list, NoneNode) or self.list is None:
+            self.size = self.function.size + 1
+        else:
+            self.size = self.function.size + self.list.size + 1
         
     def toString(self):
         return 'map(' + self.function.toString() + ", " + self.list.toString() + ")"
     
     def interpret(self, env):
         # if list is None, then it tries to retrieve from local variables from a lambda function
-        if self.list is None:
+        #if self.list is None:
+        if isinstance(self.list, NoneNode):
             list_var = env[self.local][self.listname]
             return list(map(self.function.interpret(env), list_var))
         return list(map(self.function.interpret(env), self.list.interpret(env))) 
@@ -737,7 +741,8 @@ class Map(Node):
             if c[1] == 0:
                 if VarList.className() not in program_set2:
                     program_set2[VarList.className()] = []
-                program_set2[VarList.className()].append(NoneNode())
+                #program_set2[VarList.className()].append(NoneNode())
+                program_set2[VarList.className()].append(None)
                 
             for t1, programs1 in program_set1.items():                
                 # skip if t1 isn't a node accepted by Lt
