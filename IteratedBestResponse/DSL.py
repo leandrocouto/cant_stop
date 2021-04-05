@@ -14,6 +14,7 @@ class Node:
         self.parent = None
         self.children = []
         self.id = 0
+        self.can_mutate = True
     
     def getSize(self):
         return self.size
@@ -45,9 +46,6 @@ class Node:
             for child in node.children:
                 self.print_tree(child, indentation + '    ')
 
-    def print_log_info(self):
-        raise Exception('Unimplemented method: print_log_info - class:', self)
-
     def getRulesNames(self, rules):
         raise Exception('Unimplemented method: getRulesNames')
 
@@ -65,6 +63,21 @@ class Node:
     def className(cls):
         return cls.__name__
 
+class HoleNode(Node):
+    def __init__(self):
+        super(HoleNode, self).__init__()
+        self.size = 1
+        self.can_mutate = False
+        
+    def toString(self):
+        return '?'
+    
+    def interpret(self, env):
+        return
+
+    def add_parent(self, parent):
+        self.parent = parent
+
 class NoneNode(Node):
     def __init__(self):
         super(NoneNode, self).__init__()
@@ -78,12 +91,6 @@ class NoneNode(Node):
 
     def add_parent(self, parent):
         self.parent = parent
-
-    def print_log_info(self):
-        print('self = ', self)
-        print('self.size = ', self.size)
-        print('self.parent = ', self.parent)
-        print('self.children = ', self.children)
 
 class VarList(Node):
     def __init__(self, name):
@@ -99,13 +106,6 @@ class VarList(Node):
 
     def add_parent(self, parent):
         self.parent = parent
-
-    def print_log_info(self):
-        print('self = ', self)
-        print('self.name = ', self.name)
-        print('self.size = ', self.size)
-        print('self.parent = ', self.parent)
-        print('self.children = ', self.children)
     
 class VarScalarFromArray(Node):
     def __init__(self, name):
@@ -121,13 +121,6 @@ class VarScalarFromArray(Node):
 
     def add_parent(self, parent):
         self.parent = parent
-
-    def print_log_info(self):
-        print('self = ', self)
-        print('self.name = ', self.name)
-        print('self.size = ', self.size)
-        print('self.parent = ', self.parent)
-        print('self.children = ', self.children)
     
 class VarScalar(Node):
     def __init__(self, name):
@@ -143,13 +136,6 @@ class VarScalar(Node):
 
     def add_parent(self, parent):
         self.parent = parent
-
-    def print_log_info(self):
-        print('self = ', self)
-        print('self.name = ', self.name)
-        print('self.size = ', self.size)
-        print('self.parent = ', self.parent)
-        print('self.children = ', self.children)
     
 class Constant(Node):
     def __init__(self, value):
@@ -164,13 +150,6 @@ class Constant(Node):
 
     def add_parent(self, parent):
         self.parent = parent
-
-    def print_log_info(self):
-        print('self = ', self)
-        print('self.value = ', self.value)
-        print('self.size = ', self.size)
-        print('self.parent = ', self.parent)
-        print('self.children = ', self.children)
 
 class NumberAdvancedByAction(Node):
     def __init__(self):
@@ -196,12 +175,6 @@ class NumberAdvancedByAction(Node):
 
     def add_parent(self, parent):
         self.parent = parent
-
-    def print_log_info(self):
-        print('self = ', self)
-        print('self.size = ', self.size)
-        print('self.parent = ', self.parent)
-        print('self.children = ', self.children)
 
 class IsNewNeutral(Node):
     def __init__(self):
@@ -229,12 +202,6 @@ class IsNewNeutral(Node):
 
     def add_parent(self, parent):
         self.parent = parent
-
-    def print_log_info(self):
-        print('self = ', self)
-        print('self.size = ', self.size)
-        print('self.parent = ', self.parent)
-        print('self.children = ', self.children)
 
 class NumberAdvancedThisRound(Node):
     def __init__(self):
@@ -280,12 +247,6 @@ class NumberAdvancedThisRound(Node):
 
     def add_parent(self, parent):
         self.parent = parent
-
-    def print_log_info(self):
-        print('self = ', self)
-        print('self.size = ', self.size)
-        print('self.parent = ', self.parent)
-        print('self.children = ', self.children)
 
 class Times(Node):
     def __init__(self, left, right):
@@ -364,14 +325,6 @@ class Times(Node):
             
                             yield times
         return new_programs 
-
-    def print_log_info(self):
-        print('self = ', self)
-        print('self.left = ', self.left)
-        print('self.right = ', self.right)
-        print('self.size = ', self.size)
-        print('self.parent = ', self.parent)
-        print('self.children = ', self.children) 
 
 class Minus(Node):
     def __init__(self, left, right):
@@ -455,14 +408,6 @@ class Minus(Node):
                             yield minus
         return new_programs  
 
-    def print_log_info(self):
-        print('self = ', self)
-        print('self.left = ', self.left)
-        print('self.right = ', self.right)
-        print('self.size = ', self.size)
-        print('self.parent = ', self.parent)
-        print('self.children = ', self.children) 
-
 class Plus(Node):
     def __init__(self, left, right):
         super(Plus, self).__init__()
@@ -544,14 +489,6 @@ class Plus(Node):
             
                             yield plus
         return new_programs
-
-    def print_log_info(self):
-        print('self = ', self)
-        print('self.left = ', self.left)
-        print('self.right = ', self.right)
-        print('self.size = ', self.size)
-        print('self.parent = ', self.parent)
-        print('self.children = ', self.children)  
     
 class Function(Node):
     def __init__(self, expression):
@@ -591,14 +528,7 @@ class Function(Node):
                 new_programs.append(func)
         
                 yield func
-        return new_programs  
-
-    def print_log_info(self):
-        print('self = ', self)
-        print('self.expression = ', self.expression)
-        print('self.size = ', self.size)
-        print('self.parent = ', self.parent)
-        print('self.children = ', self.children)   
+        return new_programs 
 
 class Argmax(Node):
     def __init__(self, l):
@@ -636,13 +566,6 @@ class Argmax(Node):
                 new_programs.append(am)
                 yield am
         return new_programs
-
-    def print_log_info(self):
-        print('self = ', self)
-        print('self.list = ', self.list)
-        print('self.size = ', self.size)
-        print('self.parent = ', self.parent)
-        print('self.children = ', self.children) 
 
 class Sum(Node):
     def __init__(self, l):
@@ -682,13 +605,6 @@ class Sum(Node):
                 new_programs.append(sum_p)      
                 yield sum_p
         return new_programs
-
-    def print_log_info(self):
-        print('self = ', self)
-        print('self.list = ', self.list)
-        print('self.size = ', self.size)
-        print('self.parent = ', self.parent)
-        print('self.children = ', self.children) 
 
 class Map(Node):
     def __init__(self, function, l):
@@ -764,11 +680,3 @@ class Map(Node):
                             new_programs.append(m)
                             yield m
         return new_programs 
-
-    def print_log_info(self):
-        print('self = ', self)
-        print('self.function = ', self.function)
-        print('self.list = ', self.list)
-        print('self.size = ', self.size)
-        print('self.parent = ', self.parent)
-        print('self.children = ', self.children) 
