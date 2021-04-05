@@ -11,7 +11,6 @@ from rule_of_28_sketch import Rule_of_28_Player_PS
 sys.path.insert(0,'..')
 from game import Game
 from play_game_template import simplified_play_single_game
-from players.glenn_player import Glenn_Player
 
 class SimulatedAnnealing:
     def __init__(self, n_SA_iterations, max_game_rounds, n_games, init_temp, d):
@@ -26,6 +25,13 @@ class SimulatedAnnealing:
     def get_object(self, program):
         program_yes_no = Sum(Map(Function(Times(Plus(NumberAdvancedThisRound(), Constant(1)), VarScalarFromArray('progress_value'))), VarList('neutrals')))
         return Rule_of_28_Player_PS(program_yes_no, program)
+
+    def get_glenn(self):
+        program_yes_no = Sum(Map(Function(Times(Plus(NumberAdvancedThisRound(), Constant(1)), VarScalarFromArray('progress_value'))), VarList('neutrals')))
+        program_decide_column = Argmax(Map(Function(Sum(Map(Function(Minus(Times(NumberAdvancedByAction(), VarScalarFromArray('move_value')), Times(VarScalar('marker'), IsNewNeutral()))), NoneNode()))), VarList('actions')))
+        return Rule_of_28_Player_PS(program_yes_no, program_decide_column)
+
+
 
     def id_tree_nodes(self, node):
 
@@ -93,7 +99,7 @@ class SimulatedAnnealing:
                 new_node = VarScalarFromArray('move_value')
             return new_node
         elif chosen_node == 'VarList':
-            acceptable_nodes = ['actions', 'neutrals']#, 'None']
+            acceptable_nodes = ['actions', 'neutrals', 'None']
             chosen = random.choice(acceptable_nodes)
             if chosen == 'actions':
                 new_node =  VarList('actions')
@@ -103,7 +109,7 @@ class SimulatedAnnealing:
                 new_node = NoneNode()
             return new_node
         elif chosen_node == 'functions_scalars':
-            acceptable_nodes = ['NumberAdvancedThisRound', 'NumberAdvancedByAction', 'IsNewNeutral']
+            acceptable_nodes = ['NumberAdvancedThisRound', 'NumberAdvancedByAction']#, 'IsNewNeutral']
             chosen = random.choice(acceptable_nodes)
             if chosen == 'NumberAdvancedThisRound':
                 new_node = NumberAdvancedThisRound()
@@ -319,8 +325,9 @@ class SimulatedAnnealing:
             index_node = random.randint(1, self.curr_id-1)
             node_to_mutate = self.find_node(program, index_node)
             if node_to_mutate == None:
-                raise Exception('Node randomly selected does not exist.' + \
-                    ' Index sampled = ' + str(index_node))
+                print('Tree')
+                program.print_tree(program.root, '  ')
+                raise Exception('Node randomly selected does not exist.' + ' Index sampled = ' + str(index_node))
             elif max_tries == 0:
                 return
             else:
@@ -359,24 +366,16 @@ class SimulatedAnnealing:
         self.update_parent(curr_tree, None)
         # Transform into a "playable" player
         curr_player = self.get_object(curr_tree)
-        '''
-        # Evaluate the starting program against the program from selfplay
-        try:
-            victories, _, _ = self.evaluate(curr_player, curr_player)
-        # If the program gives an error during evaluation, this program should
-        # be 'discarded/bad' -> set victory to 0.
-        except Exception as e:
-            victories = 0
-        best_score = victories
-        print('Victory to be beaten = ', victories)
-        '''
+
+        glenn = self.get_glenn()
+        v, l, d = self.evaluate(curr_player, glenn)
+        print('Initial script SA - V/L/D against Glenn = ', v, l, d)
         # Number of "successful" iterations
         successful = 0 
         curr_temp = self.init_temp
         for i in range(2, self.n_SA_iterations + 2):
             print('Iteration - ', i)
             start = time.time()
-            #print('sa ite', i)
             # Make a copy of curr_tree
             mutated_tree = pickle.loads(pickle.dumps(curr_tree, -1))
             # Mutate it
@@ -385,46 +384,14 @@ class SimulatedAnnealing:
             self.update_children(mutated_tree)
             # Get the object of the mutated program
             mutated_player = self.get_object(mutated_tree)
-
-            #print('curr    = ', curr_tree.toString())
-            #print('mutated = ', mutated_tree.toString())
-            #exit()
             # Evaluates the mutated program against best_program
             try:
                 victories_mut, losses_mut, draws_mut = self.evaluate(mutated_player, curr_player)
             except Exception as e:
-                error_message = traceback.format_exc()
-                #print('Mutated program = ', mutated_tree.toString())
-                #print('Exception')
-                #print(error_message)
-                #print()
-                '''
-                print('arvore mutated')
-                mutated_tree.print_tree(mutated_tree, '  ')
-
-                print('printando list of nodes com info')
-                all_nodes = self.get_traversal(mutated_tree)
-                for node in all_nodes:
-                    node.print_log_info()
-                    print()
-                '''
-                #exit()
                 victories_mut = 0
                 losses_mut = 0
                 draws_mut = 0
 
-            
-
-            #new_score = victories_mut
-            '''
-            # Update score given the temperature parameters
-            updated_score_best, updated_score_mutated = self.update_score(
-                                                                losses_mut, 
-                                                                victories_mut, 
-                                                                curr_temp
-                                                            )
-            if updated_score_mutated > updated_score_best:
-            '''
             vic_needed = math.floor(0.55 * self.n_games)
             if victories_mut >= vic_needed:
                 successful += 1
@@ -433,12 +400,11 @@ class SimulatedAnnealing:
                 print('SA - Iteration = ',i, '- Mutated player was better - V/L/D =', victories_mut, losses_mut, draws_mut)
                 print('Current program = ', curr_tree.toString())
                 print('Mutated program = ', mutated_tree.toString())
-                glenn = Glenn_Player()
+                glenn = self.get_glenn()
                 v, l, d = self.evaluate(mutated_player, glenn)
                 print('V/L/D against Glenn = ', v, l, d)
                 self.wins_vs_glenn.append(v)
                 print('self.wins_vs_glenn = ', self.wins_vs_glenn)
-                #best_score = new_score
                 # Copy the trees
                 curr_tree = mutated_tree
                 # Copy the script
@@ -451,12 +417,6 @@ class SimulatedAnnealing:
                 print('Mutated program = ', mutated_tree.toString())
                 print()
             curr_temp = self.temperature_schedule(i)
-        # It can happen that the mutated state is never better than 
-        # player_to_be_beaten, therefore we set best_tree and best_player to the 
-        # original initial_state.
-        #if best_tree is None:
-        #    best_tree = curr_tree
-        #    best_player = curr_player
         print('Successful iterations of this SA = ', successful, 'out of', self.n_SA_iterations, 'iterations.')
         return curr_tree, curr_player
 
