@@ -36,15 +36,19 @@ class Node:
                 
         return self.interpret(env) 
 
-    def print_tree(self, node, indentation):
+    def print_tree(self):
+        indentation = '  '
+        self._print_tree(self, indentation)
+
+    def _print_tree(self, node, indentation):
         #For root
         if indentation == '  ':
-            print(node, ' - ', node.toString(), ' - ', node.id)
+            print(node, ' - ', node.toString(), ' - ', node.id, ' - can mutate = ', node.can_mutate)
         else:
-            print(indentation, node, ' - ', node.toString(), ' - ', node.id)
+            print(indentation, node, ' - ', node.toString(), ' - ', node.id, ' - can mutate = ', node.can_mutate)
         if hasattr(node, 'children'):
             for child in node.children:
-                self.print_tree(child, indentation + '    ')
+                self._print_tree(child, indentation + '    ')
 
     def getRulesNames(self, rules):
         raise Exception('Unimplemented method: getRulesNames')
@@ -67,7 +71,7 @@ class HoleNode(Node):
     def __init__(self):
         super(HoleNode, self).__init__()
         self.size = 1
-        self.can_mutate = False
+        self.can_mutate = True
         
     def toString(self):
         return '?'
@@ -312,6 +316,10 @@ class Times(Node):
                                 p1 = NumberAdvancedByAction()
                             elif isinstance(p1, IsNewNeutral):
                                 p1 = IsNewNeutral()
+                            elif isinstance(p1, VarScalarFromArray):
+                                p1 = VarScalarFromArray(p1.name)
+                            elif isinstance(p1, VarScalar):
+                                p1 = VarScalar(p1.name)
 
                             if isinstance(p2, NumberAdvancedThisRound):
                                 p2 = NumberAdvancedThisRound()
@@ -319,6 +327,10 @@ class Times(Node):
                                 p2 = NumberAdvancedByAction()
                             elif isinstance(p2, IsNewNeutral):
                                 p2 = IsNewNeutral()
+                            elif isinstance(p2, VarScalarFromArray):
+                                p2 = VarScalarFromArray(p2.name)
+                            elif isinstance(p2, VarScalar):
+                                p2 = VarScalar(p2.name)
 
                             times = Times(p1, p2)
                             new_programs.append(times)
@@ -394,6 +406,10 @@ class Minus(Node):
                                 p1 = NumberAdvancedByAction()
                             elif isinstance(p1, IsNewNeutral):
                                 p1 = IsNewNeutral()
+                            elif isinstance(p1, VarScalarFromArray):
+                                p1 = VarScalarFromArray(p1.name)
+                            elif isinstance(p1, VarScalar):
+                                p1 = VarScalar(p1.name)
 
                             if isinstance(p2, NumberAdvancedThisRound):
                                 p2 = NumberAdvancedThisRound()
@@ -401,6 +417,10 @@ class Minus(Node):
                                 p2 = NumberAdvancedByAction()
                             elif isinstance(p2, IsNewNeutral):
                                 p2 = IsNewNeutral()
+                            elif isinstance(p2, VarScalarFromArray):
+                                p2 = VarScalarFromArray(p2.name)
+                            elif isinstance(p2, VarScalar):
+                                p2 = VarScalar(p2.name)
 
                             minus = Minus(p1, p2)
                             new_programs.append(minus)
@@ -476,6 +496,10 @@ class Plus(Node):
                                 p1 = NumberAdvancedByAction()
                             elif isinstance(p1, IsNewNeutral):
                                 p1 = IsNewNeutral()
+                            elif isinstance(p1, VarScalarFromArray):
+                                p1 = VarScalarFromArray(p1.name)
+                            elif isinstance(p1, VarScalar):
+                                p1 = VarScalar(p1.name)
 
                             if isinstance(p2, NumberAdvancedThisRound):
                                 p2 = NumberAdvancedThisRound()
@@ -483,6 +507,10 @@ class Plus(Node):
                                 p2 = NumberAdvancedByAction()
                             elif isinstance(p2, IsNewNeutral):
                                 p2 = IsNewNeutral()
+                            elif isinstance(p2, VarScalarFromArray):
+                                p2 = VarScalarFromArray(p2.name)
+                            elif isinstance(p2, VarScalar):
+                                p2 = VarScalar(p2.name)
 
                             plus = Plus(p1, p2)
                             new_programs.append(plus)
