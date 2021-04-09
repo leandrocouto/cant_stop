@@ -31,8 +31,6 @@ class SimulatedAnnealing:
         program_decide_column = Argmax(Map(Function(Sum(Map(Function(Minus(Times(NumberAdvancedByAction(), VarScalarFromArray('move_value')), Times(VarScalar('marker'), IsNewNeutral()))), NoneNode()))), VarList('actions')))
         return Rule_of_28_Player_PS(program_yes_no, program_decide_column)
 
-
-
     def id_tree_nodes(self, node):
 
         node.id = self.curr_id
@@ -266,7 +264,6 @@ class SimulatedAnnealing:
             # Finish the tree with the chosen substitute
             new_node = self.finish_tree(node, chosen_node)
         elif parent.className() == 'Plus' or parent.className() == 'Minus':
-            print('IF 2')
             acceptable_nodes = ['VarScalar', 
                                 'VarScalarFromArray', 
                                 'functions_scalars',
@@ -299,7 +296,17 @@ class SimulatedAnnealing:
         elif parent.className() == 'Map':
             # Map is a little different because it has two distinctive children,
             # so it must be done checked separately
-            if node.className() == 'Function':
+
+            # Check the special case "HoleNode"
+            if node.className() == 'HoleNode':
+                chosen_node = random.choice(['Function', 'VarList'])
+                if chosen_node == 'Function':
+                    # Finish the tree with the chosen substitute
+                    new_node = self.finish_tree(node, 'Function')
+                else:
+                    # It is a VarList
+                    new_node = self.finish_tree(node, 'VarList')
+            elif node.className() == 'Function':
                 # Finish the tree with the chosen substitute
                 new_node = self.finish_tree(node, 'Function')
             else:
@@ -326,8 +333,10 @@ class SimulatedAnnealing:
             node_to_mutate = self.find_node(program, index_node)
             if node_to_mutate == None:
                 print('Tree')
-                program.print_tree(program.root, '  ')
+                program.print_tree(program, '  ')
                 raise Exception('Node randomly selected does not exist.' + ' Index sampled = ' + str(index_node))
+            if not node_to_mutate.can_mutate:
+                continue
             elif max_tries == 0:
                 return
             else:
@@ -352,6 +361,18 @@ class SimulatedAnnealing:
         self.id_tree_nodes(program)
         return program
 
+    def finish_holes(self, initial_node):
+        """ Finish HoleNodes randomly. """
+
+        list_of_nodes = self.get_traversal(initial_node)
+        for node in list_of_nodes:
+            if isinstance(node, HoleNode):
+                replacement = self.find_replacement(node)
+                # Add replacement to the original tree
+                node.parent.children[:] = [replacement if child==node else child for child in node.parent.children]
+            else:
+                node.can_mutate = False
+
     def run(self, initial_state):
         """ 
         Main routine of Simulated Annealing. SA will start mutating from
@@ -360,15 +381,39 @@ class SimulatedAnnealing:
         beaten in the next iteration. 
         """
 
-        # Original program
-        curr_tree = pickle.loads(pickle.dumps(initial_state, -1))
-        # Update the parent of the nodes
-        self.update_parent(curr_tree, None)
-        # Transform into a "playable" player
-        curr_player = self.get_object(curr_tree)
+        # In case the experiment is to fill HoleNodes, generate a script
+        # that is compilable
+        tries = 0
+        while True:
+            tries += 1
+            # Original program
+            curr_tree = pickle.loads(pickle.dumps(initial_state, -1))
+            # Fill HoleNodes
+            self.finish_holes(curr_tree)
+            # Update the children of the nodes in a top-down approach
+            self.update_children(curr_tree)
+            self.curr_id = 0
+            self.id_tree_nodes(curr_tree)
+            print('programa inicial')
+            print(curr_tree.toString())
+            print('arvore inicial')
+            curr_tree.print_tree()
+            print()
+            # Update the parent of the nodes
+            self.update_parent(curr_tree, None)
+            # Transform into a "playable" player
+            curr_player = self.get_object(curr_tree)
 
-        glenn = self.get_glenn()
-        v, l, d = self.evaluate(curr_player, glenn)
+            glenn = self.get_glenn()
+            try:
+                v, l, d = self.evaluate(curr_player, glenn)
+                #The program is compilable, break the loop
+                break
+            except Exception as e:
+                v = 0
+                l = 0
+                d = 0
+        print('tries = ', tries)
         print('Initial script SA - V/L/D against Glenn = ', v, l, d)
         # Number of "successful" iterations
         successful = 0 
@@ -400,6 +445,8 @@ class SimulatedAnnealing:
                 print('SA - Iteration = ',i, '- Mutated player was better - V/L/D =', victories_mut, losses_mut, draws_mut)
                 print('Current program = ', curr_tree.toString())
                 print('Mutated program = ', mutated_tree.toString())
+                print('Mutated tree')
+                mutated_tree.print_tree()
                 glenn = self.get_glenn()
                 v, l, d = self.evaluate(mutated_player, glenn)
                 print('V/L/D against Glenn = ', v, l, d)
@@ -409,6 +456,7 @@ class SimulatedAnnealing:
                 curr_tree = mutated_tree
                 # Copy the script
                 curr_player = mutated_player
+                print()
             # update temperature according to schedule
             else:
                 elapsed = time.time() - start
