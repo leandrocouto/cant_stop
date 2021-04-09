@@ -19,8 +19,8 @@ class Node:
     def getSize(self):
         return self.size
     
-    def toString(self):
-        raise Exception('Unimplemented method: toString')
+    def to_string(self):
+        raise Exception('Unimplemented method: to_string')
     
     def interpret(self):
         raise Exception('Unimplemented method: interpret')
@@ -43,9 +43,9 @@ class Node:
     def _print_tree(self, node, indentation):
         #For root
         if indentation == '  ':
-            print(node, ' - ', node.toString(), ' - ', node.id, ' - can mutate = ', node.can_mutate)
+            print(node, ' - ', node.to_string(), ' - ', node.id, ' - can mutate = ', node.can_mutate)
         else:
-            print(indentation, node, ' - ', node.toString(), ' - ', node.id, ' - can mutate = ', node.can_mutate)
+            print(indentation, node, ' - ', node.to_string(), ' - ', node.id, ' - can mutate = ', node.can_mutate)
         if hasattr(node, 'children'):
             for child in node.children:
                 self._print_tree(child, indentation + '    ')
@@ -60,7 +60,7 @@ class Node:
         raise Exception('Unimplemented method: add_children - class:', self, 'children:', children)
     
     @classmethod
-    def grow(plist, new_plist):
+    def grow(p_list, new_p_list):
         pass
     
     @classmethod
@@ -73,7 +73,7 @@ class HoleNode(Node):
         self.size = 1
         self.can_mutate = True
         
-    def toString(self):
+    def to_string(self):
         return '?'
     
     def interpret(self, env):
@@ -87,7 +87,7 @@ class NoneNode(Node):
         super(NoneNode, self).__init__()
         self.size = 1
         
-    def toString(self):
+    def to_string(self):
         return 'None'
     
     def interpret(self, env):
@@ -102,7 +102,7 @@ class VarList(Node):
         self.name = name
         self.size = 1
         
-    def toString(self):
+    def to_string(self):
         return self.name
     
     def interpret(self, env):
@@ -117,7 +117,7 @@ class VarScalarFromArray(Node):
         self.name = name
         self.size = 1
         
-    def toString(self):
+    def to_string(self):
         return self.name
     
     def interpret(self, env):
@@ -132,7 +132,7 @@ class VarScalar(Node):
         self.name = name
         self.size = 1
         
-    def toString(self):
+    def to_string(self):
         return self.name
     
     def interpret(self, env):
@@ -146,7 +146,7 @@ class Constant(Node):
         self.value = value
         self.size = 1
         
-    def toString(self):
+    def to_string(self):
         return str(self.value)
     
     def interpret(self, env):
@@ -160,7 +160,7 @@ class NumberAdvancedByAction(Node):
         super(NumberAdvancedByAction, self).__init__()
         self.size = 1
         
-    def toString(self):
+    def to_string(self):
         return type(self).__name__
     
     def interpret(self, env):
@@ -185,7 +185,7 @@ class IsNewNeutral(Node):
         super(IsNewNeutral, self).__init__()
         self.size = 1
         
-    def toString(self):
+    def to_string(self):
         return type(self).__name__
     
     def interpret(self, env):
@@ -212,7 +212,7 @@ class NumberAdvancedThisRound(Node):
         super(NumberAdvancedThisRound, self).__init__()
         self.size = 1
         
-    def toString(self):
+    def to_string(self):
         return type(self).__name__
     
     def interpret(self, env):
@@ -259,8 +259,8 @@ class Times(Node):
         self.right = right
         self.size = self.left.size + self.right.size + 1
         
-    def toString(self):
-        return "(" + self.left.toString() + " * " + self.right.toString() + ")"
+    def to_string(self):
+        return "(" + self.left.to_string() + " * " + self.right.to_string() + ")"
     
     def interpret(self, env):
         return self.left.interpret(env) * self.right.interpret(env)
@@ -276,7 +276,7 @@ class Times(Node):
         self.left = children[0]
         self.right = children[1]
     
-    def grow(plist, size):       
+    def grow(p_list, size):       
         new_programs = []
         accepted_nodes = set([VarScalar.className(), 
                               VarScalarFromArray.className(), 
@@ -294,8 +294,8 @@ class Times(Node):
                 continue
                     
             # retrive bank of programs with costs c[0], c[1], and c[2]
-            program_set1 = plist.get_programs(c[0])
-            program_set2 = plist.get_programs(c[1])
+            program_set1 = p_list.get_programs(c[0])
+            program_set2 = p_list.get_programs(c[1])
                 
             for t1, programs1 in program_set1.items():                
                 # skip if t1 isn't a node accepted by Lt
@@ -345,8 +345,8 @@ class Minus(Node):
         self.right = right
         self.size = self.left.size + self.right.size + 1
         
-    def toString(self):
-        return "(" + self.left.toString() + " - " + self.right.toString() + ")"
+    def to_string(self):
+        return "(" + self.left.to_string() + " - " + self.right.to_string() + ")"
     
     def interpret(self, env):
         return self.left.interpret(env) - self.right.interpret(env)
@@ -362,7 +362,7 @@ class Minus(Node):
         self.left = children[0]
         self.right = children[1]
     
-    def grow(plist, size):               
+    def grow(p_list, size):               
         new_programs = []
         # defines which nodes are accepted in the AST
         accepted_nodes = set([VarScalar.className(), 
@@ -384,8 +384,8 @@ class Minus(Node):
                 continue
                 
             # retrive bank of programs with costs c[0], c[1], and c[2]
-            program_set1 = plist.get_programs(c[0])
-            program_set2 = plist.get_programs(c[1])
+            program_set1 = p_list.get_programs(c[0])
+            program_set2 = p_list.get_programs(c[1])
                 
             for t1, programs1 in program_set1.items():                
                 # skip if t1 isn't a node accepted by Lt
@@ -435,8 +435,8 @@ class Plus(Node):
         self.right = right
         self.size = self.left.size + self.right.size + 1
         
-    def toString(self):
-        return "(" + self.left.toString() + " + " + self.right.toString() + ")"
+    def to_string(self):
+        return "(" + self.left.to_string() + " + " + self.right.to_string() + ")"
     
     def interpret(self, env):
         return self.left.interpret(env) + self.right.interpret(env)
@@ -452,7 +452,7 @@ class Plus(Node):
         self.left = children[0]
         self.right = children[1]
     
-    def grow(plist, size):               
+    def grow(p_list, size):               
         new_programs = []
         # defines which nodes are accepted in the AST
         accepted_nodes = set([VarScalar.className(), 
@@ -474,8 +474,8 @@ class Plus(Node):
                 continue
                 
             # retrieve bank of programs with costs c[0], c[1], and c[2]
-            program_set1 = plist.get_programs(c[0])
-            program_set2 = plist.get_programs(c[1])
+            program_set1 = p_list.get_programs(c[0])
+            program_set2 = p_list.get_programs(c[1])
                 
             for t1, programs1 in program_set1.items():                
                 # skip if t1 isn't a node accepted by Lt
@@ -524,8 +524,8 @@ class Function(Node):
         self.expression = expression
         self.size = self.expression.size + 1
         
-    def toString(self):
-        return "(lambda x : " + self.expression.toString() + ")"
+    def to_string(self):
+        return "(lambda x : " + self.expression.to_string() + ")"
     
     def interpret(self, env):
         return lambda x : self.expression.interpret_local_variables(env, x)
@@ -539,12 +539,12 @@ class Function(Node):
     def add_children(self, children):
         self.expression = children[0]
     
-    def grow(plist, size):
+    def grow(p_list, size):
         new_programs = []
         # defines which nodes are accepted in the AST
         accepted_nodes = set([Minus.className(), Plus.className(), Times.className(), Sum.className(), Map.className(), Function.className()])
          
-        program_set = plist.get_programs(size - 1)
+        program_set = p_list.get_programs(size - 1)
                     
         for t1, programs1 in program_set.items():                
             # skip if t1 isn't a node accepted by Lt
@@ -564,8 +564,8 @@ class Argmax(Node):
         self.list = l
         self.size = self.list.size + 1
         
-    def toString(self):
-        return 'argmax(' + self.list.toString() + ")"
+    def to_string(self):
+        return 'argmax(' + self.list.to_string() + ")"
     
     def interpret(self, env):
         return np.argmax(self.list.interpret(env))
@@ -579,11 +579,11 @@ class Argmax(Node):
     def add_children(self, children):
         self.list = children[0]
     
-    def grow(plist, size):       
+    def grow(p_list, size):       
         new_programs = []
         # defines which nodes are accepted in the AST
         accepted_nodes = set([VarList.className(), Map.className()])
-        program_set = plist.get_programs(size - 1)
+        program_set = p_list.get_programs(size - 1)
                     
         for t1, programs1 in program_set.items():                
             # skip if t1 isn't a node accepted by Lt
@@ -601,8 +601,8 @@ class Sum(Node):
         self.list = l
         self.size = self.list.size + 1
         
-    def toString(self):
-        return 'sum(' + self.list.toString() + ")"
+    def to_string(self):
+        return 'sum(' + self.list.to_string() + ")"
     
     def interpret(self, env):
         return np.sum(self.list.interpret(env))
@@ -616,11 +616,11 @@ class Sum(Node):
     def add_children(self, children):
         self.list = children[0]
     
-    def grow(plist, size):       
+    def grow(p_list, size):       
         new_programs = []
         # defines which nodes are accepted in the AST
         accepted_nodes = set([VarList.className(), Map.className()])
-        program_set = plist.get_programs(size - 1)
+        program_set = p_list.get_programs(size - 1)
                     
         for t1, programs1 in program_set.items():             
             # skip if t1 isn't a node accepted by Lt
@@ -644,8 +644,8 @@ class Map(Node):
         else:
             self.size = self.function.size + self.list.size + 1
         
-    def toString(self):
-        return 'map(' + self.function.toString() + ", " + self.list.toString() + ")"
+    def to_string(self):
+        return 'map(' + self.function.to_string() + ", " + self.list.to_string() + ")"
     
     def interpret(self, env):
         # if list is None, then it tries to retrieve from local variables from a lambda function
@@ -666,7 +666,7 @@ class Map(Node):
         self.function = children[0]
         self.list = children[1]
     
-    def grow(plist, size):  
+    def grow(p_list, size):  
         new_programs = []
         # defines which nodes are accepted in the AST
         accepted_nodes_function = set([Function.className()])
@@ -680,8 +680,8 @@ class Map(Node):
                 continue
                     
             # retrieve bank of programs with costs c[0], c[1], and c[2]
-            program_set1 = plist.get_programs(c[0])
-            program_set2 = plist.get_programs(c[1])
+            program_set1 = p_list.get_programs(c[0])
+            program_set2 = p_list.get_programs(c[1])
             if c[1] == 0:
                 if VarList.className() not in program_set2:
                     program_set2[VarList.className()] = []

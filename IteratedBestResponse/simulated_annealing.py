@@ -8,6 +8,7 @@ import random
 import traceback
 from DSL import *
 from rule_of_28_sketch import Rule_of_28_Player_PS
+from evaluation import Evaluation
 sys.path.insert(0,'..')
 from game import Game
 from play_game_template import simplified_play_single_game
@@ -381,39 +382,31 @@ class SimulatedAnnealing:
         beaten in the next iteration. 
         """
 
-        # In case the experiment is to fill HoleNodes, generate a script
-        # that is compilable
-        tries = 0
-        while True:
-            tries += 1
-            # Original program
-            curr_tree = pickle.loads(pickle.dumps(initial_state, -1))
-            # Fill HoleNodes
-            self.finish_holes(curr_tree)
-            # Update the children of the nodes in a top-down approach
-            self.update_children(curr_tree)
-            self.curr_id = 0
-            self.id_tree_nodes(curr_tree)
-            print('programa inicial')
-            print(curr_tree.toString())
-            print('arvore inicial')
-            curr_tree.print_tree()
-            print()
-            # Update the parent of the nodes
-            self.update_parent(curr_tree, None)
-            # Transform into a "playable" player
-            curr_player = self.get_object(curr_tree)
+        # Original program
+        curr_tree = pickle.loads(pickle.dumps(initial_state, -1))
+        # Fill HoleNodes
+        self.finish_holes(curr_tree)
+        # Update the children of the nodes in a top-down approach
+        self.update_children(curr_tree)
+        self.curr_id = 0
+        self.id_tree_nodes(curr_tree)
+        print('programa inicial')
+        print(curr_tree.to_string())
+        print('arvore inicial')
+        curr_tree.print_tree()
+        print()
+        # Update the parent of the nodes
+        self.update_parent(curr_tree, None)
+        # Transform into a "playable" player
+        curr_player = self.get_object(curr_tree)
 
-            glenn = self.get_glenn()
-            try:
-                v, l, d = self.evaluate(curr_player, glenn)
-                #The program is compilable, break the loop
-                break
-            except Exception as e:
-                v = 0
-                l = 0
-                d = 0
-        print('tries = ', tries)
+        glenn = self.get_glenn()
+        try:
+            v, l, d = self.evaluate(curr_player, glenn)
+        except Exception as e:
+            v = 0
+            l = 0
+            d = 0
         print('Initial script SA - V/L/D against Glenn = ', v, l, d)
         # Number of "successful" iterations
         successful = 0 
@@ -429,6 +422,9 @@ class SimulatedAnnealing:
             self.update_children(mutated_tree)
             # Get the object of the mutated program
             mutated_player = self.get_object(mutated_tree)
+            # First evaluates the mutated program against itself to check if the
+            # resulting program is compilable
+
             # Evaluates the mutated program against best_program
             try:
                 victories_mut, losses_mut, draws_mut = self.evaluate(mutated_player, curr_player)
@@ -443,8 +439,8 @@ class SimulatedAnnealing:
 
                 elapsed = time.time() - start
                 print('SA - Iteration = ',i, '- Mutated player was better - V/L/D =', victories_mut, losses_mut, draws_mut)
-                print('Current program = ', curr_tree.toString())
-                print('Mutated program = ', mutated_tree.toString())
+                print('Current program = ', curr_tree.to_string())
+                print('Mutated program = ', mutated_tree.to_string())
                 print('Mutated tree')
                 mutated_tree.print_tree()
                 glenn = self.get_glenn()
@@ -461,8 +457,8 @@ class SimulatedAnnealing:
             else:
                 elapsed = time.time() - start
                 print('SA - Iteration = ',i, '- Mutated player was worse - V/L/D =', victories_mut, losses_mut, draws_mut)
-                print('Current program = ', curr_tree.toString())
-                print('Mutated program = ', mutated_tree.toString())
+                print('Current program = ', curr_tree.to_string())
+                print('Mutated program = ', mutated_tree.to_string())
                 print()
             curr_temp = self.temperature_schedule(i)
         print('Successful iterations of this SA = ', successful, 'out of', self.n_SA_iterations, 'iterations.')

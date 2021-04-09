@@ -1,6 +1,6 @@
 import random
 import sys
-from DSL import Sum, VarList, Function, VarScalar, VarScalarFromArray, Plus, Map, Constant
+from DSL import *
 sys.path.insert(0,'..')
 from game import Board, Game
 
@@ -8,18 +8,18 @@ class ProgramList:
     
     def __init__(self):
 
-        self.plist = {}
+        self.p_list = {}
         self.number_programs = 0
     
     def insert(self, program):
 
-        if program.getSize() not in self.plist:
-            self.plist[program.getSize()] = {}
+        if program.getSize() not in self.p_list:
+            self.p_list[program.getSize()] = {}
         
-        if program.className() not in self.plist[program.getSize()]:
-            self.plist[program.getSize()][program.className()] = []
+        if program.className() not in self.p_list[program.getSize()]:
+            self.p_list[program.getSize()][program.className()] = []
         
-        self.plist[program.getSize()][program.className()].append(program)
+        self.p_list[program.getSize()][program.className()].append(program)
         self.number_programs += 1
         
     def init_plist(self, constant_values, variables_list, variables_scalar_from_array, 
@@ -43,8 +43,8 @@ class ProgramList:
                                                 
     def get_programs(self, size):
         
-        if size in self.plist: 
-            return self.plist[size]
+        if size in self.p_list: 
+            return self.p_list[size]
         return {}
     
     def get_number_programs(self):
@@ -55,13 +55,13 @@ class BottomUpSearch:
     def grow(self, operations, size):
         new_programs = []
         for op in operations:
-            for p in op.grow(self.plist, size):
-                if p.toString() not in self.closed_list:
-                    self.closed_list.add(p.toString())
+            for p in op.grow(self.p_list, size):
+                if p.to_string() not in self.closed_list:
+                    self.closed_list.add(p.to_string())
                     new_programs.append(p)
                     yield p 
         for p in new_programs:
-            self.plist.insert(p)
+            self.p_list.insert(p)
 
             
     def get_closed_list(self):
@@ -74,8 +74,8 @@ class BottomUpSearch:
         self.closed_list = set()
         self._outputs = set()
         
-        self.plist = ProgramList()
-        self.plist.init_plist(constant_values, variables_list, variables_scalar_from_array, functions_scalars)
+        self.p_list = ProgramList()
+        self.p_list.init_plist(constant_values, variables_list, variables_scalar_from_array, functions_scalars)
         
         self._variables_list = variables_list
         self._variables_scalar_from_array = variables_scalar_from_array
@@ -91,7 +91,7 @@ class BottomUpSearch:
                 number_evaluations += 1
                 number_evaluations_bound += 1
 
-                if p.toString() in programs_to_not_eval or type(p).__name__ != 'Argmax':
+                if p.to_string() in programs_to_not_eval or type(p).__name__ != 'Argmax':
                     continue
                 correct, error = self.eval_function.eval(p)
        

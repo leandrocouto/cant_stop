@@ -5,7 +5,7 @@ from rule_of_28_sketch import Rule_of_28_Player_PS
 
 class Evaluation:
     def eval(self):
-        raise Exception('Unimplemented method: toString')
+        raise Exception('Unimplemented method: to_string')
     
     def play_match(self, p1, p2):
         game = Game(n_players = 2, dice_number = 4, dice_value = 6, column_range = [2,12],
@@ -114,7 +114,7 @@ class DefeatsStrategy(Evaluation):
         
     def eval(self, program):
         
-        if program.toString() == self.player_program.toString():
+        if program.to_string() == self.player_program.to_string():
             return False, False
         
         br = Rule_of_28_Player_PS(self.program_yes_no, program)
@@ -198,7 +198,7 @@ class DefeatsStrategyNonTriage(Evaluation):
         
     def eval(self, program):
         
-        if program.toString() == self.player_program.toString():
+        if program.to_string() == self.player_program.to_string():
             return False, False
         
         br = Rule_of_28_Player_PS(self.program_yes_no, program)

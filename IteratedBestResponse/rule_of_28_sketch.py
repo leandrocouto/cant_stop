@@ -72,38 +72,6 @@ class Rule_of_28_Player_PS(Player):
             
             return action_chosen
 
-    def number_advanced_this_round_2(self, state, column):
-        """
-        Return the number of positions advanced in this round for a given
-        column by the player.
-        """
-        counter = 0
-        previously_conquered = -1
-        neutral_position = -1
-        list_of_cells = state.board_game.board[column]
-
-        for i in range(len(list_of_cells)):
-            if state.player_turn in list_of_cells[i].markers:
-                previously_conquered = i
-            if 0 in list_of_cells[i].markers:
-                neutral_position = i
-        if previously_conquered == -1 and neutral_position != -1:
-            counter += neutral_position + 1
-            for won_column in state.player_won_column:
-                if won_column[0] == column:
-                    counter += 1
-        elif previously_conquered != -1 and neutral_position != -1:
-            counter += neutral_position - previously_conquered
-            for won_column in state.player_won_column:
-                if won_column[0] == column:
-                    counter += 1
-        elif previously_conquered != -1 and neutral_position == -1:
-            for won_column in state.player_won_column:
-                if won_column[0] == column:
-                    counter += len(list_of_cells) - previously_conquered
-        return counter
-
-
     def number_advanced_this_round(self, column):
         """
         Return the number of positions advanced in this round for a given

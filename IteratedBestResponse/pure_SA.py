@@ -1,7 +1,7 @@
 import time
 import sys
-from BottomUpSearch import BottomUpSearch
-from Evaluation import FinishesGame, DefeatsStrategy, DefeatsStrategyNonTriage
+from bottom_up_search import BottomUpSearch
+from evaluation import FinishesGame, DefeatsStrategy, DefeatsStrategyNonTriage
 from simulated_annealing import SimulatedAnnealing
 from DSL import *
 sys.path.insert(0,'..')
