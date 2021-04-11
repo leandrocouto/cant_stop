@@ -5,7 +5,7 @@ import time
 import os
 import copy
 import random
-import traceback
+import matplotlib.pyplot as plt
 from DSL import *
 from rule_of_28_sketch import Rule_of_28_Player_PS
 from evaluation import Evaluation
@@ -14,14 +14,20 @@ from game import Game
 from play_game_template import simplified_play_single_game
 
 class SimulatedAnnealing:
-    def __init__(self, n_SA_iterations, max_game_rounds, n_games, init_temp, d):
+    def __init__(self, n_SA_iterations, max_game_rounds, n_games, init_temp, d, algo_name):
         self.n_SA_iterations = n_SA_iterations
         self.max_game_rounds = max_game_rounds
         self.n_games = n_games
         self.init_temp = init_temp
         self.d = d
         self.curr_id = 0
-        self.wins_vs_glenn = []
+        self.wins_vs_glenn_x = []
+        self.wins_vs_glenn_y = []
+        self.algo_name = algo_name
+        self.folder = algo_name + '_SA' + str(self.n_SA_iterations) + '/'
+        if not os.path.exists(self.folder):
+            os.makedirs(self.folder)
+        self.log_file = self.folder + 'log.txt'
     
     def get_object(self, program):
         program_yes_no = Sum(Map(Function(Times(Plus(NumberAdvancedThisRound(), Constant(1)), VarScalarFromArray('progress_value'))), VarList('neutrals')))
@@ -390,16 +396,14 @@ class SimulatedAnnealing:
         self.update_children(curr_tree)
         self.curr_id = 0
         self.id_tree_nodes(curr_tree)
-        print('programa inicial')
-        print(curr_tree.to_string())
-        print('arvore inicial')
-        curr_tree.print_tree()
-        print()
+        with open(self.log_file, 'a') as f:
+            print('Initial SA program below', file=f)
+            print(curr_tree.to_string(), file=f)
         # Update the parent of the nodes
         self.update_parent(curr_tree, None)
         # Transform into a "playable" player
         curr_player = self.get_object(curr_tree)
-
+        is_curr_compilable = True
         glenn = self.get_glenn()
         try:
             v, l, d = self.evaluate(curr_player, glenn)
@@ -407,12 +411,16 @@ class SimulatedAnnealing:
             v = 0
             l = 0
             d = 0
-        print('Initial script SA - V/L/D against Glenn = ', v, l, d)
+            is_curr_compilable = False
+        with open(self.log_file, 'a') as f:
+            print('Initial script SA - V/L/D against Glenn = ', v, l, d, file=f)
+            print(file=f)
         # Number of "successful" iterations
         successful = 0 
         curr_temp = self.init_temp
         for i in range(2, self.n_SA_iterations + 2):
-            print('Iteration - ', i)
+            with open(self.log_file, 'a') as f:
+                print('SA Iteration - ', i, file=f)
             start = time.time()
             # Make a copy of curr_tree
             mutated_tree = pickle.loads(pickle.dumps(curr_tree, -1))
@@ -422,8 +430,27 @@ class SimulatedAnnealing:
             self.update_children(mutated_tree)
             # Get the object of the mutated program
             mutated_player = self.get_object(mutated_tree)
-            # First evaluates the mutated program against itself to check if the
-            # resulting program is compilable
+
+            # If curr is not compilable, then checks if mutated program is. If 
+            # it is compilable, sets it as the current program and continues to
+            # the next SA iteration
+            if not is_curr_compilable:
+                # Evaluates the mutated program against itself to check if it is
+                # compilable
+                is_mut_compilable = True
+                try:
+                    _, _, _ = self.evaluate(mutated_player, mutated_player)
+                except Exception as e:
+                    is_mut_compilable = False
+                # If it is not compilable, tries again in the next iteration
+                if not is_mut_compilable:
+                    continue
+                else:
+                    # Sets it as current program and continues the next iteration
+                    # Copy the tree
+                    curr_tree = mutated_tree
+                    # Copy the script
+                    curr_player = mutated_player
 
             # Evaluates the mutated program against best_program
             try:
@@ -433,35 +460,43 @@ class SimulatedAnnealing:
                 losses_mut = 0
                 draws_mut = 0
 
+
             vic_needed = math.floor(0.55 * self.n_games)
-            if victories_mut >= vic_needed:
+            new_best, new_mutated_score = self.update_score(vic_needed, victories_mut, curr_temp)
+            if new_mutated_score >= new_best:
                 successful += 1
 
                 elapsed = time.time() - start
-                print('SA - Iteration = ',i, '- Mutated player was better - V/L/D =', victories_mut, losses_mut, draws_mut)
-                print('Current program = ', curr_tree.to_string())
-                print('Mutated program = ', mutated_tree.to_string())
-                print('Mutated tree')
-                mutated_tree.print_tree()
                 glenn = self.get_glenn()
                 v, l, d = self.evaluate(mutated_player, glenn)
-                print('V/L/D against Glenn = ', v, l, d)
-                self.wins_vs_glenn.append(v)
-                print('self.wins_vs_glenn = ', self.wins_vs_glenn)
-                # Copy the trees
+                self.wins_vs_glenn_x.append(i)
+                self.wins_vs_glenn_y.append(v)
+                with open(self.log_file, 'a') as f:
+                    print('SA - Iteration = ',i, '- Mutated player was better - V/L/D =', victories_mut, losses_mut, draws_mut, file=f)
+                    print('Current program = ', curr_tree.to_string(), file=f)
+                    print('Mutated program = ', mutated_tree.to_string(), file=f)
+                    print('V/L/D of mutated against Glenn = ', v, l, d, file=f)
+                    print('self.wins_vs_glenn_x = ', self.wins_vs_glenn_x, file=f)
+                    print('self.wins_vs_glenn_y = ', self.wins_vs_glenn_y, file=f)
+                    print(file=f)
+
+                # Generath the graph against Glenn
+                self.generath_graph()
+                # Copy the tree
                 curr_tree = mutated_tree
                 # Copy the script
                 curr_player = mutated_player
-                print()
             # update temperature according to schedule
             else:
                 elapsed = time.time() - start
-                print('SA - Iteration = ',i, '- Mutated player was worse - V/L/D =', victories_mut, losses_mut, draws_mut)
-                print('Current program = ', curr_tree.to_string())
-                print('Mutated program = ', mutated_tree.to_string())
-                print()
+                with open(self.log_file, 'a') as f:
+                    print('SA - Iteration = ',i, '- Mutated player was worse - V/L/D =', victories_mut, losses_mut, draws_mut, file=f)
+                    print('Current program = ', curr_tree.to_string(), file=f)
+                    print('Mutated program = ', mutated_tree.to_string(), file=f)
+                    print(file=f)
             curr_temp = self.temperature_schedule(i)
-        print('Successful iterations of this SA = ', successful, 'out of', self.n_SA_iterations, 'iterations.')
+        with open(self.log_file, 'a') as f:
+            print('Successful iterations of this SA = ', successful, 'out of', self.n_SA_iterations, 'iterations.', file=f)
         return curr_tree, curr_player
 
     def temperature_schedule(self, iteration):
@@ -517,3 +552,16 @@ class SimulatedAnnealing:
                     draws += 1
 
         return victories, losses, draws
+
+    def generath_graph(self):
+        axes = plt.gca()
+        axes.set_ylim([0,100])
+
+        X = self.wins_vs_glenn_x
+        Y = self.wins_vs_glenn_y
+        plt.plot(X, Y)
+        plt.xlabel('Successful iterations')
+        plt.ylabel('Victories')
+        plt.suptitle('Games against Glenn (' + str(self.n_SA_iterations) + ' SA iterations)')
+        plt.grid()
+        plt.savefig(self.folder + self.algo_name + '_vs_glenn' + '.jpg')

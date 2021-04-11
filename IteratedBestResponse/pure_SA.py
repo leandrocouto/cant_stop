@@ -24,15 +24,16 @@ if __name__ == "__main__":
                         )
     end_BUS = time.time() - start_BUS
     print('BUS program that finishes a match - Time elapsed = ', end_BUS)
-    print(p.toString())
+    print(p.to_string())
     n_SA_iterations = 2000
     max_game_rounds = 500
     n_games = 100   
     init_temp = 1
     d = 1
+    algo_name = 'PURESA'
     start_SA = time.time()
-    SA = SimulatedAnnealing(n_SA_iterations, max_game_rounds, n_games, init_temp, d)
+    SA = SimulatedAnnealing(n_SA_iterations, max_game_rounds, n_games, init_temp, d, algo_name)
     best_program, _ = SA.run(p)
     end_SA = time.time() - start_SA
     print('Best program after SA - Time elapsed = ', end_SA)
-    print(best_program.toString())
+    print(best_program.to_string())
