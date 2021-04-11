@@ -444,6 +444,8 @@ class SimulatedAnnealing:
                     is_mut_compilable = False
                 # If it is not compilable, tries again in the next iteration
                 if not is_mut_compilable:
+                    with open(self.log_file, 'a') as f:
+                        print('Both current and mutated program are not compilable.', file=f)
                     continue
                 else:
                     # Sets it as current program and continues the next iteration
@@ -451,6 +453,10 @@ class SimulatedAnnealing:
                     curr_tree = mutated_tree
                     # Copy the script
                     curr_player = mutated_player
+                    is_curr_compilable = True
+                    is_mut_compilable = True
+                    with open(self.log_file, 'a') as f:
+                        print('Mutated program is compilable. Setting it to current.', file=f)
 
             # Evaluates the mutated program against best_program
             try:
