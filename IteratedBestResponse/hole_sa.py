@@ -8,16 +8,17 @@ from game import Game
 
 if __name__ == "__main__":
     program_yes_no = Sum(Map(Function(Times(Plus(NumberAdvancedThisRound(), Constant(1)), VarScalarFromArray('progress_value'))), VarList('neutrals')))
-    incomplete = Argmax(Map(Function(Sum(Map(Function(Minus(Times(HoleNode(), HoleNode()), HoleNode())), NoneNode()))), VarList('actions')))
+    #incomplete = Argmax(Map(Function(Sum(Map(Function(Minus(Times(HoleNode(), HoleNode()), HoleNode())), NoneNode()))), VarList('actions')))
     #incomplete = Argmax(Map(Function(HoleNode()), VarList('actions')))
     #incomplete = Argmax(Map(Function(Sum(HoleNode())), VarList('actions')))
     #incomplete = Argmax(Map(Function(Sum(Map(Function(HoleNode()), NoneNode()))), VarList('actions')))
     #incomplete = Argmax(Map(Function(Sum(Map(Function(Minus(Times(HoleNode(), HoleNode()), HoleNode())), NoneNode()))), VarList('actions')))
     #incomplete = Argmax(Map(HoleNode(), HoleNode()))
     #incomplete = Argmax(HoleNode())
+    incomplete = HoleNode()
 
     #initial_program = Rule_of_28_Player_PS(program_yes_no, incomplete)
-    n_SA_iterations = 1001
+    n_SA_iterations = 1000
     max_game_rounds = 500
     n_games = 100   
     init_temp = 1

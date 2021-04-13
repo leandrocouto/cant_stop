@@ -250,6 +250,15 @@ class SimulatedAnnealing:
                 chosen_node = self.finish_tree(node, 'Function')
             new_node = Function(chosen_node)
             return new_node
+        elif chosen_node == 'Argmax':
+            acceptable_nodes = ['VarList', 'Map']
+            chosen = random.choice(acceptable_nodes)
+            if chosen == 'VarList':
+                chosen_node = self.finish_tree(node, 'VarList')
+            elif chosen == 'Map':
+                chosen_node = self.finish_tree(node, 'Map')
+            new_node = Argmax(chosen_node)
+            return new_node
         else:
             raise Exception('Unhandled DSL term at finish_tree. DSL term = ', chosen_node)
 
@@ -261,8 +270,22 @@ class SimulatedAnnealing:
         """
 
         parent = node.parent
+
+        # Check if HoleNode is the root
+        if node.parent is None:
+            acceptable_nodes = ['Argmax',
+                                'Map',
+                                'Sum', 
+                                'Function',
+                                'Plus',
+                                'Minus',
+                                'Times'
+                            ]
+            chosen_node = random.choice(acceptable_nodes)
+            # Finish the tree with the chosen substitute
+            new_node = self.finish_tree(node, chosen_node)
         # Check for Times
-        if parent.className() == 'Times':
+        elif parent.className() == 'Times':
             acceptable_nodes = ['VarScalar', 
                                 'VarScalarFromArray',
                                 'functions_scalars'
@@ -336,7 +359,7 @@ class SimulatedAnnealing:
         while True:
             max_tries -= 1
             # Start from id 1 to not choose Argmax
-            index_node = random.randint(1, self.curr_id-1)
+            index_node = random.randint(0, self.curr_id-1)
             node_to_mutate = self.find_node(program, index_node)
             if node_to_mutate == None:
                 print('Tree')
@@ -348,6 +371,26 @@ class SimulatedAnnealing:
                 return
             else:
                 break
+
+        # Mutate it
+        replacement = self.find_replacement(node_to_mutate)
+
+        #self.curr_id = 0
+        #self.id_tree_nodes(program)
+        # Add replacement to the original tree
+        if node_to_mutate.parent is not None:
+            node_to_mutate.parent.children[:] = [replacement if child==node_to_mutate else child for child in node_to_mutate.parent.children]
+        else:
+            '''
+            print('index = ', index_node)
+            print('program = ', program.to_string())
+            print('replacement = ', replacement.to_string())
+            replacement.print_tree()
+            print()
+            '''
+            self.curr_id = 0
+            self.id_tree_nodes(replacement)
+            return replacement
         # Update the nodes ids. This is needed because when mutating a single 
         # node it is possible to create many other nodes (and not just one).
         # So a single id swap is not possible. This also prevents id "holes"
@@ -355,30 +398,26 @@ class SimulatedAnnealing:
         # tree.
         self.curr_id = 0
         self.id_tree_nodes(program)
-
-        # Mutate it
-        replacement = self.find_replacement(node_to_mutate)
-
-        self.curr_id = 0
-        self.id_tree_nodes(program)
-        # Add replacement to the original tree
-        node_to_mutate.parent.children[:] = [replacement if child==node_to_mutate else child for child in node_to_mutate.parent.children]
-        # Update the node's ids
-        self.curr_id = 0
-        self.id_tree_nodes(program)
         return program
 
     def finish_holes(self, initial_node):
         """ Finish HoleNodes randomly. """
 
-        list_of_nodes = self.get_traversal(initial_node)
-        for node in list_of_nodes:
-            if isinstance(node, HoleNode):
-                replacement = self.find_replacement(node)
-                # Add replacement to the original tree
-                node.parent.children[:] = [replacement if child==node else child for child in node.parent.children]
-            else:
-                node.can_mutate = False
+        # Special case: root is a HoleNode
+        if isinstance(initial_node, HoleNode):
+            replacement = self.find_replacement(initial_node)
+            replacement.parent = None
+            return replacement
+        else:
+            list_of_nodes = self.get_traversal(initial_node)
+            for node in list_of_nodes:
+                if isinstance(node, HoleNode):
+                    replacement = self.find_replacement(node)
+                    # Add replacement to the original tree
+                    node.parent.children[:] = [replacement if child==node else child for child in node.parent.children]
+                else:
+                    node.can_mutate = False
+            return initial_node
 
     def run(self, initial_state):
         """ 
@@ -391,11 +430,12 @@ class SimulatedAnnealing:
         # Original program
         curr_tree = pickle.loads(pickle.dumps(initial_state, -1))
         # Fill HoleNodes
-        self.finish_holes(curr_tree)
+        curr_tree = self.finish_holes(curr_tree)
         # Update the children of the nodes in a top-down approach
         self.update_children(curr_tree)
         self.curr_id = 0
         self.id_tree_nodes(curr_tree)
+        #print('curr_tree dps = ', curr_tree.to_string(), curr_tree)
         with open(self.log_file, 'a') as f:
             print('Initial SA program below', file=f)
             print(curr_tree.to_string(), file=f)
@@ -446,6 +486,15 @@ class SimulatedAnnealing:
                 if not is_mut_compilable:
                     with open(self.log_file, 'a') as f:
                         print('Both current and mutated program are not compilable.', file=f)
+                        print('Current program = ', curr_tree.to_string(), file=f)
+                        print('Mutated program = ', mutated_tree.to_string(), file=f)
+                        print(file=f)
+                    #print('curr tree')
+                    #curr_tree.print_tree()
+
+                    #print('mut tree')
+                    #mutated_tree.print_tree()
+                    #print()
                     continue
                 else:
                     # Sets it as current program and continues the next iteration
@@ -457,6 +506,9 @@ class SimulatedAnnealing:
                     is_mut_compilable = True
                     with open(self.log_file, 'a') as f:
                         print('Mutated program is compilable. Setting it to current.', file=f)
+                        print('Current program = ', curr_tree.to_string(), file=f)
+                        print('Mutated program = ', mutated_tree.to_string(), file=f)
+                        print(file=f)
 
             # Evaluates the mutated program against best_program
             try:
@@ -571,3 +623,4 @@ class SimulatedAnnealing:
         plt.suptitle('Games against Glenn (' + str(self.n_SA_iterations) + ' SA iterations)')
         plt.grid()
         plt.savefig(self.folder + self.algo_name + '_vs_glenn' + '.jpg')
+        plt.close()
