@@ -123,14 +123,10 @@ class Rule_of_28_Player_PS(Player):
         if they choose to stop playing the current round (i.e.: choose the 
         'n' action). 
         """
-        clone_state = self._state.clone()
-        clone_state.play('n')
-        won_columns = 0
-        for won_column in clone_state.finished_columns:
-            if self._state.player_turn == won_column[1]:
-                won_columns += 1
-        #This means if the player stop playing now, they will win the game
-        if won_columns == 3:
+
+        won_columns_by_player = [won[0] for won in self._state.finished_columns if self._state.player_turn == won[1]]
+        won_columns_by_player_this_round = [won[0] for won in self._state.player_won_column if self._state.player_turn == won[1]]
+        if len(won_columns_by_player) + len(won_columns_by_player_this_round) >= 3:
             return True
         else:
             return False
@@ -141,6 +137,7 @@ class Rule_of_28_Player_PS(Player):
         to choose. That is, if the does not yet have all three neutral markers
         used AND there are available columns that are not finished/won yet.
         """
+        
         available_columns = self.get_available_columns()
         return self._state.n_neutral_markers != 3 and len(available_columns) > 0
 
