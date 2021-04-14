@@ -20,7 +20,7 @@ class IteratedBestResponse:
                                 constant_values = [], 
                                 variables_list = ['neutrals', 'actions'], 
                                 variables_scalar_from_array = ['progress_value', 'move_value'], 
-                                functions_scalars = [NumberAdvancedThisRound, NumberAdvancedByAction, IsNewNeutral],
+                                functions_scalars = [NumberAdvancedThisRound, NumberAdvancedByAction, IsNewNeutral, PlayerColumnAdvance, OpponentColumnAdvance],
                                 eval_function = eval,
                                 programs_to_not_eval = set()
                             )
@@ -39,7 +39,7 @@ class IteratedBestResponse:
                         constant_values = [], 
                         variables_list = ['neutrals', 'actions'], 
                         variables_scalar_from_array = ['progress_value', 'move_value'], 
-                        functions_scalars = [NumberAdvancedThisRound, NumberAdvancedByAction, IsNewNeutral],
+                        functions_scalars = [NumberAdvancedThisRound, NumberAdvancedByAction, IsNewNeutral, PlayerColumnAdvance, OpponentColumnAdvance],
                         eval_function = eval,
                         programs_to_not_eval = programs_not_to_eval
                     )
@@ -86,6 +86,7 @@ p = IBR.self_play()
 end_IBR = time.time() - start_IBR
 print('IBR - Time elapsed = ', end_IBR)
 print(p.to_string())
+exit()
 n_SA_iterations = 10
 max_game_rounds = 500
 n_games = 100   

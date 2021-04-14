@@ -252,6 +252,100 @@ class NumberAdvancedThisRound(Node):
     def add_parent(self, parent):
         self.parent = parent
 
+class PlayerColumnAdvance(Node):
+    def __init__(self):
+        super(PlayerColumnAdvance, self).__init__()
+        self.size = 1
+        
+    def to_string(self):
+        return type(self).__name__
+    
+    def interpret(self, env):
+        """ 
+        Get the number of cells advanced in a specific column by the player. 
+        """
+
+        state = env[self.statename]
+        column = env[self.local][self.intname]
+
+        if column not in list(range(2,13)):
+            raise Exception('Out of range column passed to PlayerColumnAdvance()')
+        counter = 0
+        player = state.player_turn
+        # First check if the column is already won
+        for won_column in state.finished_columns:
+            if won_column[0] == column and won_column[1] == player:
+                return len(state.board_game.board[won_column[0]]) + 1
+            elif won_column[0] == column and won_column[1] != player:
+                return 0
+        # If not, 'manually' count it while taking note of the neutral position
+        previously_conquered = -1
+        neutral_position = -1
+        list_of_cells = state.board_game.board[column]
+
+        for i in range(len(list_of_cells)):
+            if player in list_of_cells[i].markers:
+                previously_conquered = i
+            if 0 in list_of_cells[i].markers:
+                neutral_position = i
+        if neutral_position != -1:
+            counter += neutral_position + 1
+            for won_column in state.player_won_column:
+                if won_column[0] == column:
+                    counter += 1
+        elif previously_conquered != -1 and neutral_position == -1:
+            counter += previously_conquered + 1
+            for won_column in state.player_won_column:
+                if won_column[0] == column:
+                    counter += len(list_of_cells) - previously_conquered
+        return counter
+
+    def add_parent(self, parent):
+        self.parent = parent
+
+class OpponentColumnAdvance(Node):
+    def __init__(self):
+        super(OpponentColumnAdvance, self).__init__()
+        self.size = 1
+        
+    def to_string(self):
+        return type(self).__name__
+    
+    def interpret(self, env):
+        """ 
+        Get the number of cells advanced in a specific column by the opponent. 
+        """
+
+        state = env[self.statename]
+        column = env[self.local][self.intname]
+
+        if column not in list(range(2,13)):
+            raise Exception('Out of range column passed to OpponentColumnAdvance()')
+        counter = 0
+        if state.player_turn == 1:
+            player = 2
+        else:
+            player = 1
+        # First check if the column is already won
+        for won_column in state.finished_columns:
+            if won_column[0] == column and won_column[1] == player:
+                return len(state.board_game.board[won_column[0]]) + 1
+            elif won_column[0] == column and won_column[1] != player:
+                return 0
+        # If not, 'manually' count it
+        previously_conquered = -1
+        neutral_position = -1
+        list_of_cells = state.board_game.board[column]
+
+        for i in range(len(list_of_cells)):
+            if player in list_of_cells[i].markers:
+                previously_conquered = i
+
+        return previously_conquered + 1
+
+    def add_parent(self, parent):
+        self.parent = parent
+
 class Times(Node):
     def __init__(self, left, right):
         super(Times, self).__init__()
@@ -282,7 +376,9 @@ class Times(Node):
                               VarScalarFromArray.className(), 
                               NumberAdvancedThisRound.className(),
                               NumberAdvancedByAction.className(),
-                              #IsNewNeutral.className(),
+                              IsNewNeutral.className(),
+                              PlayerColumnAdvance.className(),
+                              OpponentColumnAdvance.className(),
                               Constant.className()])
         
         # generates all combinations of cost of size 2 varying from 1 to size - 1
@@ -316,6 +412,10 @@ class Times(Node):
                                 p1 = NumberAdvancedByAction()
                             elif isinstance(p1, IsNewNeutral):
                                 p1 = IsNewNeutral()
+                            elif isinstance(p1, PlayerColumnAdvance):
+                                p1 = PlayerColumnAdvance()
+                            elif isinstance(p1, OpponentColumnAdvance):
+                                p1 = OpponentColumnAdvance()
                             elif isinstance(p1, VarScalarFromArray):
                                 p1 = VarScalarFromArray(p1.name)
                             elif isinstance(p1, VarScalar):
@@ -327,6 +427,10 @@ class Times(Node):
                                 p2 = NumberAdvancedByAction()
                             elif isinstance(p2, IsNewNeutral):
                                 p2 = IsNewNeutral()
+                            elif isinstance(p2, PlayerColumnAdvance):
+                                p2 = PlayerColumnAdvance()
+                            elif isinstance(p2, OpponentColumnAdvance):
+                                p2 = OpponentColumnAdvance()
                             elif isinstance(p2, VarScalarFromArray):
                                 p2 = VarScalarFromArray(p2.name)
                             elif isinstance(p2, VarScalar):
@@ -369,7 +473,9 @@ class Minus(Node):
                       VarScalarFromArray.className(), 
                       NumberAdvancedThisRound.className(),
                       NumberAdvancedByAction.className(),
-                      #IsNewNeutral.className(),
+                      IsNewNeutral.className(),
+                      PlayerColumnAdvance.className(),
+                      OpponentColumnAdvance.className(),
                       Constant.className(),
                       Plus.className(),
                       Times.className(),
@@ -406,6 +512,10 @@ class Minus(Node):
                                 p1 = NumberAdvancedByAction()
                             elif isinstance(p1, IsNewNeutral):
                                 p1 = IsNewNeutral()
+                            elif isinstance(p1, PlayerColumnAdvance):
+                                p1 = PlayerColumnAdvance()
+                            elif isinstance(p1, OpponentColumnAdvance):
+                                p1 = OpponentColumnAdvance()
                             elif isinstance(p1, VarScalarFromArray):
                                 p1 = VarScalarFromArray(p1.name)
                             elif isinstance(p1, VarScalar):
@@ -417,6 +527,10 @@ class Minus(Node):
                                 p2 = NumberAdvancedByAction()
                             elif isinstance(p2, IsNewNeutral):
                                 p2 = IsNewNeutral()
+                            elif isinstance(p2, PlayerColumnAdvance):
+                                p2 = PlayerColumnAdvance()
+                            elif isinstance(p2, OpponentColumnAdvance):
+                                p2 = OpponentColumnAdvance()
                             elif isinstance(p2, VarScalarFromArray):
                                 p2 = VarScalarFromArray(p2.name)
                             elif isinstance(p2, VarScalar):
@@ -459,7 +573,9 @@ class Plus(Node):
                       VarScalarFromArray.className(), 
                       NumberAdvancedThisRound.className(),
                       NumberAdvancedByAction.className(),
-                      #IsNewNeutral.className(),
+                      IsNewNeutral.className(),
+                      PlayerColumnAdvance.className(),
+                      OpponentColumnAdvance.className(),
                       Constant.className(),
                       Plus.className(),
                       Times.className(),
@@ -496,6 +612,10 @@ class Plus(Node):
                                 p1 = NumberAdvancedByAction()
                             elif isinstance(p1, IsNewNeutral):
                                 p1 = IsNewNeutral()
+                            elif isinstance(p1, PlayerColumnAdvance):
+                                p1 = PlayerColumnAdvance()
+                            elif isinstance(p1, OpponentColumnAdvance):
+                                p1 = OpponentColumnAdvance()
                             elif isinstance(p1, VarScalarFromArray):
                                 p1 = VarScalarFromArray(p1.name)
                             elif isinstance(p1, VarScalar):
@@ -507,6 +627,10 @@ class Plus(Node):
                                 p2 = NumberAdvancedByAction()
                             elif isinstance(p2, IsNewNeutral):
                                 p2 = IsNewNeutral()
+                            elif isinstance(p2, PlayerColumnAdvance):
+                                p2 = PlayerColumnAdvance()
+                            elif isinstance(p2, OpponentColumnAdvance):
+                                p2 = OpponentColumnAdvance()
                             elif isinstance(p2, VarScalarFromArray):
                                 p2 = VarScalarFromArray(p2.name)
                             elif isinstance(p2, VarScalar):

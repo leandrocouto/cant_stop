@@ -114,14 +114,18 @@ class SimulatedAnnealing:
                 new_node = NoneNode()
             return new_node
         elif chosen_node == 'functions_scalars':
-            acceptable_nodes = ['NumberAdvancedThisRound', 'NumberAdvancedByAction']#, 'IsNewNeutral']
+            acceptable_nodes = ['NumberAdvancedThisRound', 'NumberAdvancedByAction', 'IsNewNeutral', 'PlayerColumnAdvance', 'OpponentColumnAdvance']
             chosen = random.choice(acceptable_nodes)
             if chosen == 'NumberAdvancedThisRound':
                 new_node = NumberAdvancedThisRound()
             elif chosen == 'NumberAdvancedByAction':
                 new_node = NumberAdvancedByAction()
-            else:
+            elif chosen == 'IsNewNeutral':
                 new_node = IsNewNeutral()
+            elif chosen == 'PlayerColumnAdvance':
+                new_node = PlayerColumnAdvance()
+            elif chosen == 'OpponentColumnAdvance':
+                new_node = OpponentColumnAdvance()
             return new_node
         elif chosen_node == 'Times':
             acceptable_nodes = ['VarScalar', 'VarScalarFromArray', 'functions_scalars']
