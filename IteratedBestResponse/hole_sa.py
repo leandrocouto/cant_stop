@@ -8,36 +8,28 @@ from game import Game
 
 if __name__ == "__main__":
     program_yes_no = Sum(Map(Function(Times(Plus(NumberAdvancedThisRound(), Constant(1)), VarScalarFromArray('progress_value'))), VarList('neutrals')))
-    #incomplete = Argmax(Map(Function(Sum(Map(Function(Minus(Times(HoleNode(), HoleNode()), HoleNode())), NoneNode()))), VarList('actions')))
-    #incomplete = Argmax(Map(Function(HoleNode()), VarList('actions')))
-    #incomplete = Argmax(Map(Function(Sum(HoleNode())), VarList('actions')))
-    #incomplete = Argmax(Map(Function(Sum(Map(Function(HoleNode()), NoneNode()))), VarList('actions')))
-    #incomplete = Argmax(Map(Function(Sum(Map(Function(Minus(Times(HoleNode(), HoleNode()), HoleNode())), NoneNode()))), VarList('actions')))
-    #incomplete = Argmax(Map(HoleNode(), HoleNode()))
-    #incomplete = Argmax(HoleNode())
-    incomplete = HoleNode()
 
-    #initial_program = Rule_of_28_Player_PS(program_yes_no, incomplete)
-    n_SA_iterations = 1000
+    incomplete = [
+                    HoleNode(),
+                    Argmax(HoleNode()),
+                    Argmax(Map(HoleNode(), HoleNode())),
+                    Argmax(Map(Function(HoleNode()), VarList('actions'))),
+                    Argmax(Map(Function(Sum(HoleNode())), VarList('actions'))),
+                    Argmax(Map(Function(Sum(Map(Function(HoleNode()), NoneNode()))), VarList('actions'))),
+                    Argmax(Map(Function(Sum(Map(Function(Minus(Times(HoleNode(), HoleNode()), HoleNode())), NoneNode()))), VarList('actions'))),
+                ]
+    
+    chosen = 3
+    n_SA_iterations = 300
     max_game_rounds = 500
-    n_games = 100   
+    n_games = 100
     init_temp = 1
     d = 1
-    algo_name = 'HOLESA'
+    algo_name = 'HOLESA_' + str(chosen)
     start_SA = time.time()
     SA = SimulatedAnnealing(n_SA_iterations, max_game_rounds, n_games, init_temp, d, algo_name)
 
-    print('incomplete')
-    print(incomplete)
-    print(incomplete.to_string())
-    SA.update_parent(incomplete, None)
-    SA.curr_id = 0
-    SA.id_tree_nodes(incomplete)
-    print('arvore')
-    incomplete.print_tree()
-    print('iniciando sa run')
-
-    best_program, _ = SA.run(incomplete)
+    best_program, _ = SA.run(incomplete[chosen])
     end_SA = time.time() - start_SA
     print('Best program after SA - Time elapsed = ', end_SA)
     print(best_program.to_string())

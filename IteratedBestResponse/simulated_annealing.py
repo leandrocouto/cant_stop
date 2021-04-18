@@ -21,6 +21,7 @@ class SimulatedAnnealing:
         self.init_temp = init_temp
         self.d = d
         self.curr_id = 0
+        self.time_elapsed = []
         self.wins_vs_glenn_x = []
         self.wins_vs_glenn_y = []
         self.algo_name = algo_name
@@ -33,7 +34,7 @@ class SimulatedAnnealing:
         program_yes_no = Sum(Map(Function(Times(Plus(NumberAdvancedThisRound(), Constant(1)), VarScalarFromArray('progress_value'))), VarList('neutrals')))
         return Rule_of_28_Player_PS(program_yes_no, program)
 
-    def get_glenn(self):
+    def get_glenn_player(self):
         program_yes_no = Sum(Map(Function(Times(Plus(NumberAdvancedThisRound(), Constant(1)), VarScalarFromArray('progress_value'))), VarList('neutrals')))
         program_decide_column = Argmax(Map(Function(Sum(Map(Function(Minus(Times(NumberAdvancedByAction(), VarScalarFromArray('move_value')), Times(VarScalar('marker'), IsNewNeutral()))), NoneNode()))), VarList('actions')))
         return Rule_of_28_Player_PS(program_yes_no, program_decide_column)
@@ -379,19 +380,10 @@ class SimulatedAnnealing:
         # Mutate it
         replacement = self.find_replacement(node_to_mutate)
 
-        #self.curr_id = 0
-        #self.id_tree_nodes(program)
         # Add replacement to the original tree
         if node_to_mutate.parent is not None:
             node_to_mutate.parent.children[:] = [replacement if child==node_to_mutate else child for child in node_to_mutate.parent.children]
         else:
-            '''
-            print('index = ', index_node)
-            print('program = ', program.to_string())
-            print('replacement = ', replacement.to_string())
-            replacement.print_tree()
-            print()
-            '''
             self.curr_id = 0
             self.id_tree_nodes(replacement)
             return replacement
@@ -430,6 +422,11 @@ class SimulatedAnnealing:
         If this player is beaten, the player that beat it will be the one to be
         beaten in the next iteration. 
         """
+        start_SA = time.time()
+
+        self.update_parent(initial_state, None)
+        self.curr_id = 0
+        self.id_tree_nodes(initial_state)
 
         # Original program
         curr_tree = pickle.loads(pickle.dumps(initial_state, -1))
@@ -439,7 +436,7 @@ class SimulatedAnnealing:
         self.update_children(curr_tree)
         self.curr_id = 0
         self.id_tree_nodes(curr_tree)
-        #print('curr_tree dps = ', curr_tree.to_string(), curr_tree)
+
         with open(self.log_file, 'a') as f:
             print('Initial SA program below', file=f)
             print(curr_tree.to_string(), file=f)
@@ -448,7 +445,7 @@ class SimulatedAnnealing:
         # Transform into a "playable" player
         curr_player = self.get_object(curr_tree)
         is_curr_compilable = True
-        glenn = self.get_glenn()
+        glenn = self.get_glenn_player()
         try:
             v, l, d = self.evaluate(curr_player, glenn)
         except Exception as e:
@@ -465,7 +462,7 @@ class SimulatedAnnealing:
         for i in range(2, self.n_SA_iterations + 2):
             with open(self.log_file, 'a') as f:
                 print('SA Iteration - ', i, file=f)
-            start = time.time()
+            start_ite = time.time()
             # Make a copy of curr_tree
             mutated_tree = pickle.loads(pickle.dumps(curr_tree, -1))
             # Mutate it
@@ -493,12 +490,6 @@ class SimulatedAnnealing:
                         print('Current program = ', curr_tree.to_string(), file=f)
                         print('Mutated program = ', mutated_tree.to_string(), file=f)
                         print(file=f)
-                    #print('curr tree')
-                    #curr_tree.print_tree()
-
-                    #print('mut tree')
-                    #mutated_tree.print_tree()
-                    #print()
                     continue
                 else:
                     # Sets it as current program and continues the next iteration
@@ -528,9 +519,11 @@ class SimulatedAnnealing:
             if new_mutated_score >= new_best:
                 successful += 1
 
-                elapsed = time.time() - start
-                glenn = self.get_glenn()
+                elapsed_ite = time.time() - start_ite
+                elapsed_SA = time.time() - start_SA
+                glenn = self.get_glenn_player()
                 v, l, d = self.evaluate(mutated_player, glenn)
+                self.time_elapsed.append(elapsed_SA)
                 self.wins_vs_glenn_x.append(i)
                 self.wins_vs_glenn_y.append(v)
                 with open(self.log_file, 'a') as f:
@@ -540,6 +533,8 @@ class SimulatedAnnealing:
                     print('V/L/D of mutated against Glenn = ', v, l, d, file=f)
                     print('self.wins_vs_glenn_x = ', self.wins_vs_glenn_x, file=f)
                     print('self.wins_vs_glenn_y = ', self.wins_vs_glenn_y, file=f)
+                    print('self.time_elapsed = ', self.time_elapsed, file=f)
+                    print('Time elapsed of this SA iteration = ', elapsed_ite, file=f)
                     print(file=f)
 
                 # Generath the graph against Glenn
@@ -550,15 +545,17 @@ class SimulatedAnnealing:
                 curr_player = mutated_player
             # update temperature according to schedule
             else:
-                elapsed = time.time() - start
+                elapsed_ite = time.time() - start_ite
                 with open(self.log_file, 'a') as f:
                     print('SA - Iteration = ',i, '- Mutated player was worse - V/L/D =', victories_mut, losses_mut, draws_mut, file=f)
                     print('Current program = ', curr_tree.to_string(), file=f)
                     print('Mutated program = ', mutated_tree.to_string(), file=f)
+                    print('Time elapsed of this SA iteration = ', elapsed_ite, file=f)
                     print(file=f)
             curr_temp = self.temperature_schedule(i)
         with open(self.log_file, 'a') as f:
             print('Successful iterations of this SA = ', successful, 'out of', self.n_SA_iterations, 'iterations.', file=f)
+            print('Total time elapsed of this SA = ', time.time() - start_SA, file=f)
         return curr_tree, curr_player
 
     def temperature_schedule(self, iteration):
@@ -616,15 +613,23 @@ class SimulatedAnnealing:
         return victories, losses, draws
 
     def generath_graph(self):
-        axes = plt.gca()
-        axes.set_ylim([0,100])
+
+        fig = plt.figure()
+        plt.grid()
+        ax1 = fig.add_subplot(111)
+        ax2 = ax1.twiny()
 
         X = self.wins_vs_glenn_x
         Y = self.wins_vs_glenn_y
-        plt.plot(X, Y)
-        plt.xlabel('Successful iterations')
-        plt.ylabel('Victories')
-        plt.suptitle('Games against Glenn (' + str(self.n_SA_iterations) + ' SA iterations)')
-        plt.grid()
-        plt.savefig(self.folder + self.algo_name + '_vs_glenn' + '.jpg')
+        X2 = [round(elem, 2) for elem in self.time_elapsed]
+
+        ax1.plot(X,Y)
+        ax1.set_xlabel('Iteration')
+        ax1.set_ylabel('Victories')
+        ax1.set_ylim([0, self.n_games])
+        ax2.set_xlim(ax1.get_xlim())
+        ax2.set_xticklabels(X2)
+        ax2.set_xlabel('Time elapsed (s)')
+        ax1.set_title('Games against Glenn (' + str(self.n_SA_iterations) + ' SA iterations)', y=1.15)
+        plt.savefig(self.folder + self.algo_name + '_vs_glenn' + '.jpg', bbox_inches='tight')
         plt.close()
