@@ -38,7 +38,7 @@ class MonteCarloSimulation:
         program_yes_no = Sum(Map(Function(Times(Plus(NumberAdvancedThisRound(), Constant(1)), VarScalarFromArray('progress_value'))), VarList('neutrals')))
         return Rule_of_28_Player_PS(program_yes_no, program)
 
-    def get_glenn(self):
+    def get_glenn_player(self):
 
         program_yes_no = Sum(Map(Function(Times(Plus(NumberAdvancedThisRound(), Constant(1)), VarScalarFromArray('progress_value'))), VarList('neutrals')))
         program_decide_column = Argmax(Map(Function(Sum(Map(Function(Minus(Times(NumberAdvancedByAction(), VarScalarFromArray('move_value')), Times(VarScalar('marker'), IsNewNeutral()))), NoneNode()))), VarList('actions')))
@@ -367,6 +367,7 @@ class MonteCarloSimulation:
             print('Program to be MC simulated:', self.hole_program.to_string(), file=f)
             print(file=f)
         for i in range(self.n_simulations):
+            start_sim = time.time()
             curr_hole_program = pickle.loads(pickle.dumps(self.hole_program, -1))
             # Fill HoleNodes
             curr_hole_program = self.finish_holes(curr_hole_program)
@@ -379,47 +380,60 @@ class MonteCarloSimulation:
             with open(self.log_file, 'a') as f:
                 print('MC simulations - Iteration -', i, file=f)
                 print('Program finished randomly:', curr_hole_program.to_string(), file=f)
-            #print('curr_hole_program = ', curr_hole_program.to_string())
             # Transform into a "playable" player
             curr_player = self.get_object(curr_hole_program)
-            glenn_player = self.get_glenn()
-            vic, loss, draw = [], [], []
-            for j in range(self.n_games):
-                try:
-                    if self.to_parallel:
-                        v, l, d = self.evaluate_parallel(curr_player, glenn_player)
-                    else:
-                        v, l, d = self.evaluate(curr_player, glenn_player)
-                    vic.append(v)
-                    loss.append(l)
-                    draw.append(d)
-                # If program generates an exception, do not 'accept' it by
-                # giving a 0 score
-                except Exception as e:
-                    with open(self.log_file, 'a') as f:
-                        print('Invalid program (exception).', file=f)
-                    vic, loss, draw = [0], [0], [0]
-                    break
-            avg_vic = sum(vic)/self.n_games
-            avg_loss = sum(loss)/self.n_games
-            avg_draw = sum(draw)/self.n_games
+            glenn_player = self.get_glenn_player()
+            try:
+                if self.to_parallel:
+                    v, l, d = self.evaluate_parallel(curr_player, glenn_player)
+                else:
+                    v, l, d = self.evaluate(curr_player, glenn_player)
+            # If program generates an exception, do not 'accept' it by
+            # giving a 0 score
+            except Exception as e:
+                with open(self.log_file, 'a') as f:
+                    print('Invalid program (exception).', file=f)
+                v, l, d = 0, 0, 0
+            average_victories.append(v)
+            average_losses.append(l)
+            average_draws.append(d)
+
+            # Average
+            final_average_vic = sum(average_victories)/len(average_victories)
+            final_average_loss = sum(average_losses)/len(average_losses)
+            final_average_draw = sum(average_draws)/len(average_draws)
+            # Standard deviation
+            final_std_vic = math.sqrt( sum([abs(value - final_average_vic) for value in average_victories]) / len(average_victories))
+            final_std_loss = math.sqrt( sum([abs(value - final_average_loss) for value in average_losses]) / len(average_losses))
+            final_std_draw = math.sqrt( sum([abs(value - final_average_draw) for value in average_draws]) / len(average_draws))
+
+            end_sim = time.time() - start_sim
+
             with open(self.log_file, 'a') as f:
                 print('End of simulation.', file=f)
-                print('Victories against Glenn = ', vic, file=f)
-                print('Losses against Glenn = ', loss, file=f)
-                print('Draws against Glenn = ', draw, file=f)
-                print('Average V/L/D = ', avg_vic, avg_loss, avg_draw, file=f)
+                print('Info on this simulation', file=f)
+                print('V/L/D against Glenn = ', v, l, d, file=f)
+                print('Info so far', file=f)
+                print('Avg vics = ', average_victories, file=f)
+                print('Avg losses = ', average_losses, file=f)
+                print('Avg draws = ', average_draws, file=f)
+                print('Final victories avg and std = ', final_average_vic, final_std_vic, file=f)
+                print('Final losses avg and std = ', final_average_loss, final_std_loss, file=f)
+                print('Final draws avg and std = ', final_average_draw, final_std_draw, file=f)
+                print('Time elapsed of this simulation = ', end_sim, file=f)
+                print('Time elapsed so far = ', time.time() - start, file=f)
                 print(file=f)
 
-            average_victories.append(avg_vic)
-            average_losses.append(avg_loss)
-            average_draws.append(avg_draw)
+
+
 
         # End of MC
+
+        # Average
         final_average_vic = sum(average_victories)/len(average_victories)
         final_average_loss = sum(average_losses)/len(average_losses)
         final_average_draw = sum(average_draws)/len(average_draws)
-
+        # Standard deviation
         final_std_vic = math.sqrt( sum([abs(value - final_average_vic) for value in average_victories]) / len(average_victories))
         final_std_loss = math.sqrt( sum([abs(value - final_average_loss) for value in average_losses]) / len(average_losses))
         final_std_draw = math.sqrt( sum([abs(value - final_average_draw) for value in average_draws]) / len(average_draws))
@@ -540,24 +554,26 @@ class MonteCarloSimulation:
         return victories, losses, draws
 
 if __name__ == "__main__":
-    program_yes_no = Sum(Map(Function(Times(Plus(NumberAdvancedThisRound(), Constant(1)), VarScalarFromArray('progress_value'))), VarList('neutrals')))
     
-    #hole_program = HoleNode()
-    #hole_program = Argmax(HoleNode())
-    #hole_program = Argmax(Map(HoleNode(), HoleNode()))
-    #hole_program = Argmax(Map(Function(HoleNode()), VarList('actions')))
-    #hole_program = Argmax(Map(Function(Sum(HoleNode())), VarList('actions')))
-    #hole_program = Argmax(Map(Function(Sum(Map(Function(HoleNode()), NoneNode()))), VarList('actions')))
-    hole_program = Argmax(Map(Function(Sum(Map(Function(Minus(Times(HoleNode(), HoleNode()), HoleNode())), NoneNode()))), VarList('actions')))
+    hole_program = [
+                    HoleNode(),
+                    Argmax(HoleNode()),
+                    Argmax(Map(HoleNode(), HoleNode())),
+                    Argmax(Map(Function(HoleNode()), VarList('actions'))),
+                    Argmax(Map(Function(Sum(HoleNode())), VarList('actions'))),
+                    Argmax(Map(Function(Sum(Map(Function(HoleNode()), NoneNode()))), VarList('actions'))),
+                    Argmax(Map(Function(Sum(Map(Function(Minus(Times(HoleNode(), HoleNode()), HoleNode())), NoneNode()))), VarList('actions'))),
+                ]
+    
+    chosen = 6
 
-    #initial_program = Rule_of_28_Player_PS(program_yes_no, hole_program)
     n_simulations = 500
     n_games = 100
     max_game_rounds = 500
     to_parallel = False
-    hole_number = 7
 
     start_MC = time.time()
-    MC = MonteCarloSimulation(hole_program, n_simulations, n_games, max_game_rounds, to_parallel, hole_number)
+    MC = MonteCarloSimulation(hole_program[chosen], n_simulations, n_games, max_game_rounds, to_parallel, chosen)
     MC.run()
     end_MC = time.time() - start_MC
+    print('Time elapsed = ', end_MC)
