@@ -7,7 +7,6 @@ from game import Game
 
 
 if __name__ == "__main__":
-    program_yes_no = Sum(Map(Function(Times(Plus(NumberAdvancedThisRound(), Constant(1)), VarScalarFromArray('progress_value'))), VarList('neutrals')))
 
     incomplete = [
                     HoleNode(),
@@ -19,10 +18,10 @@ if __name__ == "__main__":
                     Argmax(Map(Function(Sum(Map(Function(Minus(Times(HoleNode(), HoleNode()), HoleNode())), NoneNode()))), VarList('actions'))),
                 ]
     
-    chosen = 3
-    n_SA_iterations = 300
+    chosen = int(sys.argv[1])
+    n_SA_iterations = 3000
     max_game_rounds = 500
-    n_games = 100
+    n_games = 1000
     init_temp = 1
     d = 1
     algo_name = 'HOLESA_' + str(chosen)

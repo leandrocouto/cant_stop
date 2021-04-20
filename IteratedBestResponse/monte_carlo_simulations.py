@@ -565,9 +565,9 @@ if __name__ == "__main__":
                     Argmax(Map(Function(Sum(Map(Function(Minus(Times(HoleNode(), HoleNode()), HoleNode())), NoneNode()))), VarList('actions'))),
                 ]
     
-    chosen = 6
+    chosen = int(sys.argv[1])
 
-    n_simulations = 500
+    n_simulations = 5000
     n_games = 100
     max_game_rounds = 500
     to_parallel = False
