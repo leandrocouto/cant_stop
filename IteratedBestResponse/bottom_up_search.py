@@ -26,20 +26,16 @@ class ProgramList:
         functions_scalars):
 
         for i in variables_scalar_from_array:
-            p = VarScalarFromArray(i)
-            self.insert(p)
+            self.insert(i)
                 
         for i in variables_list:
-            p = VarList(i)
-            self.insert(p)
+            self.insert(i)
 
         for i in constant_values:
-            constant = Constant(i)
-            self.insert(constant)
+            self.insert(i)
             
         for i in functions_scalars:
-            p = i()
-            self.insert(p)
+            self.insert(i)
                                                 
     def get_programs(self, size):
         

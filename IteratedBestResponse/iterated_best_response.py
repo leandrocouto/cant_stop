@@ -18,9 +18,9 @@ class IteratedBestResponse:
                                 bound = 10, 
                                 operations = [Sum, Map, Argmax, Function, Plus, Times, Minus], 
                                 constant_values = [], 
-                                variables_list = ['neutrals', 'actions'], 
-                                variables_scalar_from_array = ['progress_value', 'move_value'], 
-                                functions_scalars = [NumberAdvancedThisRound, NumberAdvancedByAction, IsNewNeutral, PlayerColumnAdvance, OpponentColumnAdvance],
+                                variables_list = [VarList('neutrals'), VarList('actions')], 
+                                variables_scalar_from_array = [VarScalarFromArray('progress_value'), VarScalarFromArray('move_value')], 
+                                functions_scalars = [NumberAdvancedThisRound(), NumberAdvancedByAction(), IsNewNeutral(), PlayerColumnAdvance(), OpponentColumnAdvance()],
                                 eval_function = eval,
                                 programs_to_not_eval = set()
                             )
@@ -34,15 +34,15 @@ class IteratedBestResponse:
             eval = DefeatsStrategy(p)
             
             br, num = BUS.synthesize(
-                        bound = 10, 
-                        operations = [Sum, Map, Argmax, Function, Plus, Times, Minus], 
-                        constant_values = [], 
-                        variables_list = ['neutrals', 'actions'], 
-                        variables_scalar_from_array = ['progress_value', 'move_value'], 
-                        functions_scalars = [NumberAdvancedThisRound, NumberAdvancedByAction, IsNewNeutral, PlayerColumnAdvance, OpponentColumnAdvance],
-                        eval_function = eval,
-                        programs_to_not_eval = programs_not_to_eval
-                    )
+                                bound = 10, 
+                                operations = [Sum, Map, Argmax, Function, Plus, Times, Minus], 
+                                constant_values = [], 
+                                variables_list = [VarList('neutrals'), VarList('actions')], 
+                                variables_scalar_from_array = [VarScalarFromArray('progress_value'), VarScalarFromArray('move_value')], 
+                                functions_scalars = [NumberAdvancedThisRound(), NumberAdvancedByAction(), IsNewNeutral(), PlayerColumnAdvance(), OpponentColumnAdvance()],
+                                eval_function = eval,
+                                programs_to_not_eval = set()
+                            )
             
             if br is None:
                 print('Failed to defeat current strategy... returning current BR.')
