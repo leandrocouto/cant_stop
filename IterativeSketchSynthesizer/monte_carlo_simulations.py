@@ -404,19 +404,18 @@ class MonteCarloSimulation:
 			average_losses.append(l)
 			average_draws.append(d)
 
-			#if self.to_log:
-			# Average
-			final_average_vic = sum(average_victories)/len(average_victories)
-			final_average_loss = sum(average_losses)/len(average_losses)
-			final_average_draw = sum(average_draws)/len(average_draws)
-			# Standard deviation
-			final_std_vic = math.sqrt( sum([abs(value - final_average_vic) for value in average_victories]) / len(average_victories))
-			final_std_loss = math.sqrt( sum([abs(value - final_average_loss) for value in average_losses]) / len(average_losses))
-			final_std_draw = math.sqrt( sum([abs(value - final_average_draw) for value in average_draws]) / len(average_draws))
-
-			end_sim = time.time() - start_sim
-
 			if self.to_log:
+				# Average
+				final_average_vic = sum(average_victories)/len(average_victories)
+				final_average_loss = sum(average_losses)/len(average_losses)
+				final_average_draw = sum(average_draws)/len(average_draws)
+				# Standard deviation
+				final_std_vic = math.sqrt( sum([abs(value - final_average_vic) for value in average_victories]) / len(average_victories))
+				final_std_loss = math.sqrt( sum([abs(value - final_average_loss) for value in average_losses]) / len(average_losses))
+				final_std_draw = math.sqrt( sum([abs(value - final_average_draw) for value in average_draws]) / len(average_draws))
+
+				end_sim = time.time() - start_sim
+
 				with open(self.log_file, 'a') as f:
 					print('End of simulation.', file=f)
 					print('Info on this simulation', file=f)

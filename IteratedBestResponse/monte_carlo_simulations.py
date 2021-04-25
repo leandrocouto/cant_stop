@@ -7,13 +7,12 @@ from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
 from DSL import *
 from rule_of_28_sketch import Rule_of_28_Player_PS
-
 sys.path.insert(0,'..')
 from game import Game
 from play_game_template import simplified_play_single_game
 
 class MonteCarloSimulation:
-    def __init__(self, hole_program, n_simulations, n_games, max_game_rounds, to_parallel, hole_number):
+    def __init__(self, hole_program, n_simulations, n_games, max_game_rounds, to_parallel, hole_number, to_log):
         self.hole_program = hole_program
         self.n_simulations = n_simulations
         self.n_games = n_games
@@ -21,8 +20,10 @@ class MonteCarloSimulation:
         self.to_parallel = to_parallel
         self.hole_number = hole_number
         self.folder = str(self.hole_number) + 'hole_MCsim' + str(self.n_simulations) + '_Ngames' + str(self.n_games) + '/'
-        if not os.path.exists(self.folder):
-            os.makedirs(self.folder)
+        self.to_log = to_log
+        if to_log:
+            if not os.path.exists(self.folder):
+                os.makedirs(self.folder)
         self.log_file = self.folder + 'log.txt'
         self.curr_id = 0
 
@@ -363,9 +364,10 @@ class MonteCarloSimulation:
         self.update_parent(self.hole_program, None)
         self.curr_id = 0
         self.id_tree_nodes(self.hole_program)
-        with open(self.log_file, 'a') as f:
-            print('Program to be MC simulated:', self.hole_program.to_string(), file=f)
-            print(file=f)
+        if self.to_log:
+            with open(self.log_file, 'a') as f:
+                print('Program to be MC simulated:', self.hole_program.to_string(), file=f)
+                print(file=f)
         for i in range(self.n_simulations):
             start_sim = time.time()
             curr_hole_program = pickle.loads(pickle.dumps(self.hole_program, -1))
@@ -377,9 +379,10 @@ class MonteCarloSimulation:
             self.id_tree_nodes(curr_hole_program)
             # Update the parent of the nodes
             #self.update_parent(curr_hole_program, None)
-            with open(self.log_file, 'a') as f:
-                print('MC simulations - Iteration -', i, file=f)
-                print('Program finished randomly:', curr_hole_program.to_string(), file=f)
+            if self.to_log:
+                with open(self.log_file, 'a') as f:
+                    print('MC simulations - Iteration -', i, file=f)
+                    print('Program finished randomly:', curr_hole_program.to_string(), file=f)
             # Transform into a "playable" player
             curr_player = self.get_object(curr_hole_program)
             glenn_player = self.get_glenn_player()
@@ -391,38 +394,42 @@ class MonteCarloSimulation:
             # If program generates an exception, do not 'accept' it by
             # giving a 0 score
             except Exception as e:
-                with open(self.log_file, 'a') as f:
-                    print('Invalid program (exception).', file=f)
+                if self.to_log:
+                    with open(self.log_file, 'a') as f:
+                        print('Invalid program (exception).', file=f)
                 v, l, d = 0, 0, 0
             average_victories.append(v)
             average_losses.append(l)
             average_draws.append(d)
 
-            # Average
-            final_average_vic = sum(average_victories)/len(average_victories)
-            final_average_loss = sum(average_losses)/len(average_losses)
-            final_average_draw = sum(average_draws)/len(average_draws)
-            # Standard deviation
-            final_std_vic = math.sqrt( sum([abs(value - final_average_vic) for value in average_victories]) / len(average_victories))
-            final_std_loss = math.sqrt( sum([abs(value - final_average_loss) for value in average_losses]) / len(average_losses))
-            final_std_draw = math.sqrt( sum([abs(value - final_average_draw) for value in average_draws]) / len(average_draws))
+            if self.to_log:
+                # Average
+                final_average_vic = sum(average_victories)/len(average_victories)
+                final_average_loss = sum(average_losses)/len(average_losses)
+                final_average_draw = sum(average_draws)/len(average_draws)
+                # Standard deviation
+                final_std_vic = math.sqrt( sum([abs(value - final_average_vic) for value in average_victories]) / len(average_victories))
+                final_std_loss = math.sqrt( sum([abs(value - final_average_loss) for value in average_losses]) / len(average_losses))
+                final_std_draw = math.sqrt( sum([abs(value - final_average_draw) for value in average_draws]) / len(average_draws))
 
-            end_sim = time.time() - start_sim
+                end_sim = time.time() - start_sim
+                
+                with open(self.log_file, 'a') as f:
+                    print('End of simulation.', file=f)
+                    print('Info on this simulation', file=f)
+                    print('V/L/D against Glenn = ', v, l, d, file=f)
+                    print('Info so far', file=f)
+                    print('Avg vics = ', average_victories, file=f)
+                    print('Avg losses = ', average_losses, file=f)
+                    print('Avg draws = ', average_draws, file=f)
+                    print('Final victories avg and std = ', final_average_vic, final_std_vic, file=f)
+                    print('Final losses avg and std = ', final_average_loss, final_std_loss, file=f)
+                    print('Final draws avg and std = ', final_average_draw, final_std_draw, file=f)
+                    print('Time elapsed of this simulation = ', end_sim, file=f)
+                    print('Time elapsed so far = ', time.time() - start, file=f)
+                    print(file=f)
 
-            with open(self.log_file, 'a') as f:
-                print('End of simulation.', file=f)
-                print('Info on this simulation', file=f)
-                print('V/L/D against Glenn = ', v, l, d, file=f)
-                print('Info so far', file=f)
-                print('Avg vics = ', average_victories, file=f)
-                print('Avg losses = ', average_losses, file=f)
-                print('Avg draws = ', average_draws, file=f)
-                print('Final victories avg and std = ', final_average_vic, final_std_vic, file=f)
-                print('Final losses avg and std = ', final_average_loss, final_std_loss, file=f)
-                print('Final draws avg and std = ', final_average_draw, final_std_draw, file=f)
-                print('Time elapsed of this simulation = ', end_sim, file=f)
-                print('Time elapsed so far = ', time.time() - start, file=f)
-                print(file=f)
+            
 
 
 
@@ -440,18 +447,21 @@ class MonteCarloSimulation:
 
         end = time.time() - start
 
-        with open(self.log_file, 'a') as f:
-            print('End of MC simulations of the program = ', self.hole_program.to_string(), file=f)
-            print(file=f)
-            print('Avg vics = ', average_victories, file=f)
-            print('Avg losses = ', average_losses, file=f)
-            print('Avg draws = ', average_draws, file=f)
-            print(file=f)
-            print('Final victories avg and std = ', final_average_vic, final_std_vic, file=f)
-            print('Final losses avg and std = ', final_average_loss, final_std_loss, file=f)
-            print('Final draws avg and std = ', final_average_draw, final_std_draw, file=f)
-            print(file=f)
-            print('Time elapsed = ', end, file=f)
+        if self.to_log:
+            with open(self.log_file, 'a') as f:
+                print('End of MC simulations of the program = ', self.hole_program.to_string(), file=f)
+                print(file=f)
+                print('Avg vics = ', average_victories, file=f)
+                print('Avg losses = ', average_losses, file=f)
+                print('Avg draws = ', average_draws, file=f)
+                print(file=f)
+                print('Final victories avg and std = ', final_average_vic, final_std_vic, file=f)
+                print('Final losses avg and std = ', final_average_loss, final_std_loss, file=f)
+                print('Final draws avg and std = ', final_average_draw, final_std_draw, file=f)
+                print(file=f)
+                print('Time elapsed = ', end, file=f)
+
+        return final_average_vic, final_average_draw, final_average_loss
 
     def evaluate(self, player_1, player_2):
         """ 
@@ -567,13 +577,13 @@ if __name__ == "__main__":
     
     chosen = int(sys.argv[1])
 
-    n_simulations = 5000
+    n_simulations = 100
     n_games = 100
     max_game_rounds = 500
     to_parallel = False
-
+    to_log = True
     start_MC = time.time()
-    MC = MonteCarloSimulation(hole_program[chosen], n_simulations, n_games, max_game_rounds, to_parallel, chosen)
-    MC.run()
+    MC = MonteCarloSimulation(hole_program[chosen], n_simulations, n_games, max_game_rounds, to_parallel, chosen, to_log)
+    v, l, d = MC.run()
     end_MC = time.time() - start_MC
     print('Time elapsed = ', end_MC)
