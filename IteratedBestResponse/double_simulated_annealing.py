@@ -451,9 +451,12 @@ class DoubleSimulatedAnnealing:
         # Transform into a "playable" player
         curr_player = self.get_object(curr_tree_1, curr_tree_2)
         is_curr_compilable = True
-        glenn = self.get_glenn_player()
+        
+        # Program to be beaten
+        to_be_beaten = self.get_glenn_player()
+
         try:
-            v, l, d = self.evaluate(curr_player, glenn)
+            v, l, d = self.evaluate(curr_player, to_be_beaten)
         except Exception as e:
             v = 0
             l = 0
@@ -462,6 +465,8 @@ class DoubleSimulatedAnnealing:
         with open(self.log_file, 'a') as f:
             print('Initial script SA - V/L/D against Glenn = ', v, l, d, file=f)
             print(file=f)
+
+        best_J = self.n_games - v
         # Number of "successful" iterations
         successful = 0 
         curr_temp = self.init_temp
@@ -471,28 +476,6 @@ class DoubleSimulatedAnnealing:
             start_ite = time.time()
             # Decides which tree to mutate
             tree_to_mutate = random.randint(1, 2)
-            '''
-            if tree_to_mutate == 1:     
-                # Make a copy of curr_tree
-                mutated_tree = pickle.loads(pickle.dumps(curr_tree_1, -1))
-                # Mutate it
-                mutated_tree = self.mutate(mutated_tree)
-                # Update the children of the nodes in a top-down approach
-                self.update_children(mutated_tree)
-                # Get the object of the mutated program
-                mutated_player = self.get_object(mutated_tree, curr_tree_2)
-            else:
-                # Make a copy of curr_tree
-                mutated_tree = pickle.loads(pickle.dumps(curr_tree_2, -1))
-                # Mutate it
-                mutated_tree = self.mutate(mutated_tree)
-                # Update the children of the nodes in a top-down approach
-                self.update_children(mutated_tree)
-                # Get the object of the mutated program
-                mutated_player = self.get_object(curr_tree_1, mutated_tree)
-            '''
-
-
 
             # Make a copy of curr_tree
             mutated_tree_1 = pickle.loads(pickle.dumps(curr_tree_1, -1))
@@ -510,14 +493,8 @@ class DoubleSimulatedAnnealing:
             # Update the children of the nodes in a top-down approach
             self.update_children(mutated_tree_2)
 
-
             # Get the object of the mutated program
             mutated_player = self.get_object(mutated_tree_1, mutated_tree_2)
-
-
-
-
-
 
             # If curr is not compilable, then checks if mutated program is. If 
             # it is compilable, sets it as the current program and continues to
@@ -527,7 +504,7 @@ class DoubleSimulatedAnnealing:
                 # compilable
                 is_mut_compilable = True
                 try:
-                    _, _, _ = self.evaluate(mutated_player, mutated_player)
+                    v, l, d = self.evaluate(mutated_player, mutated_player)
                 except Exception as e:
                     is_mut_compilable = False
                 # If it is not compilable, tries again in the next iteration
@@ -550,6 +527,7 @@ class DoubleSimulatedAnnealing:
                     curr_player = mutated_player
                     is_curr_compilable = True
                     is_mut_compilable = True
+                    best_J = self.n_games - v
                     with open(self.log_file, 'a') as f:
                         print('Mutated program is compilable. Setting it to current.', file=f)
                         print('Current program 1 = ', curr_tree_1.to_string(), file=f)
@@ -561,33 +539,30 @@ class DoubleSimulatedAnnealing:
 
             # Evaluates the mutated program against best_program
             try:
-                victories_mut, losses_mut, draws_mut = self.evaluate(mutated_player, curr_player)
+                victories_mut, losses_mut, draws_mut = self.evaluate(mutated_player, to_be_beaten)
             except Exception as e:
                 victories_mut = 0
                 losses_mut = 0
                 draws_mut = 0
 
+            mutated_J = self.n_games - victories_mut
 
-            vic_needed = math.floor(0.55 * self.n_games)
-            new_best, new_mutated_score = self.update_score(vic_needed, victories_mut, curr_temp)
-            if new_mutated_score >= new_best:
+            if self.acceptance_function(best_J, mutated_J, curr_temp):
                 successful += 1
 
                 elapsed_ite = time.time() - start_ite
                 elapsed_SA = time.time() - start_SA
-                glenn = self.get_glenn_player()
-                v, l, d = self.evaluate(mutated_player, glenn)
                 self.time_elapsed.append(elapsed_SA)
                 self.wins_vs_glenn_x.append(i)
-                self.wins_vs_glenn_y.append(v)
+                self.wins_vs_glenn_y.append(victories_mut)
                 with open(self.log_file, 'a') as f:
                     print('SA - Iteration = ',i, '- Mutated player was better - V/L/D =', victories_mut, losses_mut, draws_mut, file=f)
+                    print('Losses by best = ', best_J, file=f)
+                    print('Losses by the mutated = ', mutated_J, file=f)
                     print('Current program 1 = ', curr_tree_1.to_string(), file=f)
                     print('Current program 2 = ', curr_tree_2.to_string(), file=f)
-                    #print('Mutated ', tree_to_mutate, 'program = ', mutated_tree.to_string(), file=f)
                     print('Mutated program 1 = ', mutated_tree_1.to_string(), file=f)
                     print('Mutated program 2 = ', mutated_tree_2.to_string(), file=f)
-                    print('V/L/D of mutated against Glenn = ', v, l, d, file=f)
                     print('self.wins_vs_glenn_x = ', self.wins_vs_glenn_x, file=f)
                     print('self.wins_vs_glenn_y = ', self.wins_vs_glenn_y, file=f)
                     print('self.time_elapsed = ', self.time_elapsed, file=f)
@@ -601,6 +576,8 @@ class DoubleSimulatedAnnealing:
                 curr_tree_2 = mutated_tree_2
                 # Copy the script
                 curr_player = mutated_player
+                # Copy the score
+                best_J = mutated_J
             # update temperature according to schedule
             else:
                 elapsed_ite = time.time() - start_ite
@@ -608,7 +585,6 @@ class DoubleSimulatedAnnealing:
                     print('SA - Iteration = ',i, '- Mutated player was worse - V/L/D =', victories_mut, losses_mut, draws_mut, file=f)
                     print('Current program 1 = ', curr_tree_1.to_string(), file=f)
                     print('Current program 2 = ', curr_tree_2.to_string(), file=f)
-                    #print('Mutated ', tree_to_mutate, 'program = ', mutated_tree.to_string(), file=f)
                     print('Mutated program 1 = ', mutated_tree_1.to_string(), file=f)
                     print('Mutated program 2 = ', mutated_tree_2.to_string(), file=f)
                     print('Time elapsed of this SA iteration = ', elapsed_ite, file=f)
@@ -624,12 +600,20 @@ class DoubleSimulatedAnnealing:
 
         return self.d/math.log(iteration)
 
-    def update_score(self, score_best, score_mutated, curr_temp):
-        """ Update the score according to the current temperature. """
-        
-        new_score_best = score_best**(1 / curr_temp)
-        new_score_mutated = score_mutated**(1 / curr_temp)
-        return new_score_best, new_score_mutated
+    def acceptance_function(self, best_J, mutated_J, curr_temp):
+        """ 
+        Return a boolean representing whether the mutated program will be 
+        accepted.
+        """
+        best_C = math.exp(-0.5 * best_J / curr_temp)
+        mutated_C = math.exp(-0.5 * mutated_J / curr_temp)
+        chosen_value = min(1, mutated_C / best_C)
+
+        sampled_value = random.uniform(0, 1)
+        if sampled_value <= chosen_value:
+            return True
+        else:
+            return False
 
     def evaluate(self, player_1, player_2):
         """ 
