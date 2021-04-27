@@ -55,11 +55,13 @@ class IterativeSketchSynthesizer:
 								functions_scalars = [NumberAdvancedThisRound(), NumberAdvancedByAction(), IsNewNeutral(), PlayerColumnAdvance(), OpponentColumnAdvance()]
 							)
 		all_terms = full_DSL.get_all_terms()
-		PBUS = BottomUpSearch()
-		all_closed_lists = PBUS.synthesize(
+		BUS = BottomUpSearch()
+		n_terms = 5
+		all_closed_lists = BUS.synthesize(
 								bound = 10, 
 								partial_DSL=partial_DSL,
-								full_DSL=full_DSL
+								full_DSL=full_DSL,
+								n_terms=n_terms
 							)
 		
 		merged_closed_list = list(set([p for closed_list in all_closed_lists for p in closed_list[1]]))

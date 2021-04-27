@@ -89,13 +89,10 @@ class HoleNode(Node):
 		self.parent = parent
 
 	def grow(p_list, size, partial_DSL, is_root=False):
-		#for p in p_list.p_list:
-			#print('p = ', p)
-			#print('[p] = ', p_list.p_list[p])
-			#print()
 		if is_root:
 			new_programs = []
-			accepted_nodes = set([Argmax(HoleNode()), 
+			accepted_nodes = set([HoleNode(),
+								  Argmax(HoleNode()), 
 								  Map(HoleNode(), HoleNode()), 
 								  Sum(HoleNode()),
 								  Function(HoleNode()),

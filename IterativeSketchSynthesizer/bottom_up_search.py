@@ -84,16 +84,16 @@ class BottomUpSearch:
 		
 		return self.closed_list, self.closed_list_objects
 
-	def synthesize(self, bound, partial_DSL, full_DSL):
+	def synthesize(self, bound, partial_DSL, full_DSL, n_terms):
 
 		all_terms = full_DSL.get_all_terms()
 		i = -1
 		all_closed_lists = []
 		length_all_terms = len(all_terms) 
 		for i in range(length_all_terms + 1):
-			if i > 10:
+			if i > n_terms:
 				return all_closed_lists
-			with open('PBUS_' + str(i) + '.txt', 'a') as f:
+			with open('PBUS_' + str(i) + '_' + str(n_terms) + 'DSLTerms.txt', 'a') as f:
 				print('Partial DSL used', file=f)
 				print(partial_DSL.get_all_terms(), file=f)
 				print(file=f)
@@ -102,7 +102,7 @@ class BottomUpSearch:
 
 			all_closed_lists.append((closed_list, closed_list_objects))
 
-			with open('PBUS_' + str(i) + '.txt', 'a') as f:
+			with open('PBUS_' + str(i) + '_' + str(n_terms) + 'DSLTerms.txt', 'a') as f:
 				print('Closed list collected - Length = ', len(closed_list),  file=f)
 				for p in closed_list:
 					print(p, file=f)
