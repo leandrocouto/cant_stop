@@ -64,7 +64,7 @@ class IterativeSketchSynthesizer:
 								n_terms=n_terms
 							)
 		
-		merged_closed_list = list(set([p for closed_list in all_closed_lists for p in closed_list[1]]))
+		merged_closed_list = all_closed_lists[-1]
 		n_simulations = 5
 		n_games = 10
 		max_game_rounds = 500

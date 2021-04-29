@@ -15,12 +15,13 @@ class Node:
 		self.children = []
 		self.id = 0
 		self.can_mutate = True
-
+	'''
 	def __eq__(self, other):
 		return self.to_string() == other.to_string()
 
 	def __hash__(self):
 		return hash(('to_string', self.to_string(),))
+	'''
 	
 	def getSize(self):
 		return self.size
