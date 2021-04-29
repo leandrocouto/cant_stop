@@ -13,14 +13,16 @@ from game import Game
 from play_game_template import simplified_play_single_game
 
 class MonteCarloSimulation:
-	def __init__(self, hole_program, n_simulations, n_games, max_game_rounds, to_parallel, hole_number, to_log):
-		self.hole_program = hole_program
+	def __init__(self, hole_program_1, hole_program_2, n_simulations, n_games, max_game_rounds, to_parallel, hole_number_1, hole_number_2, to_log):
+		self.hole_program_1 = hole_program_1
+		self.hole_program_2 = hole_program_2
 		self.n_simulations = n_simulations
 		self.n_games = n_games
 		self.max_game_rounds = max_game_rounds
 		self.to_parallel = to_parallel
-		self.hole_number = hole_number
-		self.folder = str(self.hole_number) + 'hole_MCsim' + str(self.n_simulations) + '_Ngames' + str(self.n_games) + '/'
+		self.hole_number_1 = hole_number_1
+		self.hole_number_2 = hole_number_2
+		self.folder = str(self.hole_number_1) + str(self.hole_number_2) + 'hole_MCsim' + str(self.n_simulations) + '_Ngames' + str(self.n_games) + '/'
 		self.to_log = to_log
 		if to_log:
 			if not os.path.exists(self.folder):
@@ -35,10 +37,8 @@ class MonteCarloSimulation:
 		for child in node.children:
 			self.id_tree_nodes(child)
 
-	def get_object(self, program):
-
-		program_yes_no = Sum(Map(Function(Times(Plus(NumberAdvancedThisRound(), Constant(1)), VarScalarFromArray('progress_value'))), VarList('neutrals')))
-		return Rule_of_28_Player_PS(program_yes_no, program)
+	def get_object(self, program_1, program_2):
+		return Rule_of_28_Player_PS(program_1, program_2)
 
 	def get_glenn_player(self):
 
@@ -362,30 +362,35 @@ class MonteCarloSimulation:
 		average_victories = []
 		average_losses = []
 		average_draws = []
-		self.update_parent(self.hole_program, None)
+		self.update_parent(self.hole_program_1, None)
 		self.curr_id = 0
-		self.id_tree_nodes(self.hole_program)
+		self.id_tree_nodes(self.hole_program_1)
 		if self.to_log:
 			with open(self.log_file, 'a') as f:
-				print('Program to be MC simulated:', self.hole_program.to_string(), file=f)
+				print('Program to be MC simulated:', self.hole_program_1.to_string(), file=f)
 				print(file=f)
 		for i in range(self.n_simulations):
 			start_sim = time.time()
-			curr_hole_program = pickle.loads(pickle.dumps(self.hole_program, -1))
+			curr_hole_program_1 = pickle.loads(pickle.dumps(self.hole_program_1, -1))
+			curr_hole_program_2 = pickle.loads(pickle.dumps(self.hole_program_2, -1))
 			# Fill HoleNodes
-			curr_hole_program = self.finish_holes(curr_hole_program)
+			curr_hole_program_1 = self.finish_holes(curr_hole_program_1)
+			curr_hole_program_2 = self.finish_holes(curr_hole_program_2)
 			# Update the children of the nodes in a top-down approach
-			self.update_children(curr_hole_program)
+			self.update_children(curr_hole_program_1)
 			self.curr_id = 0
-			self.id_tree_nodes(curr_hole_program)
-			# Update the parent of the nodes
-			#self.update_parent(curr_hole_program, None)
+			self.id_tree_nodes(curr_hole_program_1)
+
+			self.update_children(curr_hole_program_2)
+			self.curr_id = 0
+			self.id_tree_nodes(curr_hole_program_2)
 			if self.to_log:
 				with open(self.log_file, 'a') as f:
 					print('MC simulations - Iteration -', i, file=f)
-					print('Program finished randomly:', curr_hole_program.to_string(), file=f)
+					print('Program 1 finished randomly:', curr_hole_program_1.to_string(), file=f)
+					print('Program 2 finished randomly:', curr_hole_program_2.to_string(), file=f)
 			# Transform into a "playable" player
-			curr_player = self.get_object(curr_hole_program)
+			curr_player = self.get_object(curr_hole_program_1, curr_hole_program_2)
 			glenn_player = self.get_glenn_player()
 			try:
 				if self.to_parallel:
@@ -449,7 +454,9 @@ class MonteCarloSimulation:
 
 		if self.to_log:
 			with open(self.log_file, 'a') as f:
-				print('End of MC simulations of the program = ', self.hole_program.to_string(), file=f)
+				print('End of MC simulations of the program:', file=f)
+				print(self.hole_program_1.to_string(), file=f)
+				print(self.hole_program_2.to_string(), file=f)
 				print(file=f)
 				print('Avg vics = ', average_victories, file=f)
 				print('Avg losses = ', average_losses, file=f)
@@ -574,15 +581,17 @@ if __name__ == "__main__":
 					Argmax(Map(Function(Sum(Map(Function(Minus(Times(HoleNode(), HoleNode()), HoleNode())), NoneNode()))), VarList('actions'))),
 				]
 	
-	chosen = int(sys.argv[1])
+	chosen_1 = int(sys.argv[1])
+	chosen_2 = int(sys.argv[2])
 
-	n_simulations = 10
+	n_simulations = 1000
 	n_games = 100
 	max_game_rounds = 500
 	to_parallel = False
 	to_log = True
 	start_MC = time.time()
-	MC = MonteCarloSimulation(hole_program[chosen], n_simulations, n_games, max_game_rounds, to_parallel, chosen, to_log)
+	MC = MonteCarloSimulation(hole_program[chosen_1], hole_program[chosen_2], n_simulations, n_games, max_game_rounds, to_parallel, chosen_1, chosen_2, to_log)
 	v, l, d = MC.run()
+	print('v/l/d = ', v, l, d)
 	end_MC = time.time() - start_MC
 	print('Time elapsed = ', end_MC)
