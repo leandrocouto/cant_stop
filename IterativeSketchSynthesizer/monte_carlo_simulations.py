@@ -4,6 +4,7 @@ import pickle
 import math
 import os
 import statistics
+import operator
 from concurrent.futures import ProcessPoolExecutor
 import multiprocessing
 from DSL import *
@@ -18,8 +19,8 @@ class MonteCarloData:
         self.simulation_losses = []
         self.simulation_draws = []
         self.simulation_objects = []
-        self.programs_1 = []
-        self.programs_2 = []
+        self.programs_1_object = []
+        self.programs_2_object = []
         self.average_v = None
         self.average_l = None
         self.average_d = None
@@ -33,8 +34,8 @@ class MonteCarloData:
         self.simulation_losses.append(loss)
         self.simulation_draws.append(draw)
         self.simulation_objects.append(obj)
-        self.programs_1.append(program_1)
-        self.programs_2.append(program_2)
+        self.programs_1_object.append(program_1)
+        self.programs_2_object.append(program_2)
         if len(self.simulation_victories) > 1:
             self.average_v = statistics.mean(self.simulation_victories)
             self.average_l = statistics.mean(self.simulation_losses)
@@ -44,14 +45,18 @@ class MonteCarloData:
             self.std_d = statistics.stdev(self.simulation_draws)
 
     def sort_by_victory(self):
+        """ Sort by victories while ordering all other lists. """
 
-        list_vic, list_loss, list_draw, list_obj = (list(t) for t in zip(*sorted(zip(self.simulation_victories, self.simulation_losses, self.simulation_draws, self.simulation_objects))))
+        # Zip
+        zipped = zip(self.simulation_victories, self.simulation_losses, self.simulation_draws, self.simulation_objects, self.programs_1_object, self.programs_2_object)
+        # Sort, Unzip
+        list_vic, list_loss, list_draw, list_obj, list_obj_p1, list_obj_p2 = (list(t) for t in zip(*sorted(zipped, reverse=True, key=operator.itemgetter(0))))
         self.simulation_victories = list_vic
         self.simulation_losses = list_loss
         self.simulation_draws = list_draw
         self.simulation_objects = list_obj
-
-
+        self.programs_1_object = list_obj_p1
+        self.programs_2_object = list_obj_p2
 
 class MonteCarloSimulation:
     def __init__(self, hole_program_1, hole_program_2, n_simulations, n_games, max_game_rounds, to_parallel, hole_number_1, hole_number_2, to_log):
@@ -451,7 +456,7 @@ class MonteCarloSimulation:
                         print('Exception = ', str(e), file=f)
                 v, l, d = 0, 0, 0
 
-            MC_data.add_data(v, l, d, curr_player, curr_hole_program_1.to_string(), curr_hole_program_2.to_string())
+            MC_data.add_data(v, l, d, curr_player, curr_hole_program_1, curr_hole_program_2)
 
             if self.to_log:
                 end_sim = time.time() - start_sim
@@ -459,6 +464,7 @@ class MonteCarloSimulation:
                 with open(self.log_file, 'a') as f:
                     print('End of simulation.', file=f)
                     print('Info on this simulation', file=f)
+                    print('Programs = ', curr_hole_program_1.to_string(), ',', curr_hole_program_2.to_string(), file=f)
                     print('V/L/D against Glenn = ', v, l, d, file=f)
                     print('Info so far', file=f)
                     print('Avg vics = ', MC_data.simulation_victories, file=f)
@@ -489,7 +495,24 @@ class MonteCarloSimulation:
                 print(file=f)
                 print('Time elapsed = ', end, file=f)
 
-        return MC_data.average_v, MC_data.average_l, MC_data.average_d
+        # Sorting by victory
+        MC_data.sort_by_victory()
+        if self.to_log:
+            with open(self.log_file, 'a') as f:
+                print('Best 10 simulations sorted by victory', file=f)
+                for i in range(len(MC_data.simulation_victories[:10])):
+                    print(
+                            'i = ', i, 
+                            'V/L/D = ', \
+                            MC_data.simulation_victories[i], \
+                            MC_data.simulation_losses[i], \
+                            MC_data.simulation_draws[i], \
+                            'Programs = ', MC_data.programs_1_object[i].to_string(), \
+                            ',', \
+                            MC_data.programs_2_object[i].to_string(), \
+                            file=f
+                        )
+        return MC_data
 
     def evaluate(self, player_1, player_2):
         """ 
@@ -612,7 +635,7 @@ if __name__ == "__main__":
     to_log = True
     start_MC = time.time()
     MC = MonteCarloSimulation(hole_program[chosen_1], hole_program[chosen_2], n_simulations, n_games, max_game_rounds, to_parallel, chosen_1, chosen_2, to_log)
-    v, l, d = MC.run()
-    print('v/l/d = ', v, l, d)
+    MC_data = MC.run()
+    print('v/l/d = ', MC_data.average_v, MC_data.average_l, MC_data.average_d)
     end_MC = time.time() - start_MC
     print('Time elapsed = ', end_MC)
