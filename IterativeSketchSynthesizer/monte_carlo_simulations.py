@@ -33,7 +33,9 @@ class MonteCarloData:
         self.simulation_victories.append(victory)
         self.simulation_losses.append(loss)
         self.simulation_draws.append(draw)
+        # Player object
         self.simulation_objects.append(obj)
+        # DSL terms object (Argmax, etc)
         self.programs_1_object.append(program_1)
         self.programs_2_object.append(program_2)
         if len(self.simulation_victories) > 1:
