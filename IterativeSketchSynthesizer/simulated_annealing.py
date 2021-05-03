@@ -413,7 +413,7 @@ class SimulatedAnnealing:
                     node.can_mutate = False
             return initial_node
 
-    def run(self, initial_state_1, initial_state_2):
+    def run(self, initial_state_1, initial_state_2, is_complete):
         """ 
         Main routine of Simulated Annealing. SA will start mutating from
         initial_state and the first player to be beaten is player_to_be_beaten.
@@ -433,9 +433,10 @@ class SimulatedAnnealing:
         # Original program
         curr_tree_1 = pickle.loads(pickle.dumps(initial_state_1, -1))
         curr_tree_2 = pickle.loads(pickle.dumps(initial_state_2, -1))
-        # Fill HoleNodes
-        curr_tree_1 = self.finish_holes(curr_tree_1)
-        curr_tree_2 = self.finish_holes(curr_tree_2)
+        if not is_complete:
+            # Fill HoleNodes
+            curr_tree_1 = self.finish_holes(curr_tree_1)
+            curr_tree_2 = self.finish_holes(curr_tree_2)
         # Update the children of the nodes in a top-down approach
         self.update_children(curr_tree_1)
         self.curr_id = 0
@@ -647,5 +648,31 @@ class SimulatedAnnealing:
         ax1.set_xlim(X1[0], X1[-1])
         ax2.set_xlabel('Time elapsed (s)')
         ax1.set_title('Games against Glenn (' + str(self.n_SA_iterations) + ' SA iterations)', y=1.15)
-        plt.savefig(self.folder + self.algo_name + '_vs_glenn' + '.jpg', bbox_inches='tight')
+        plt.savefig(self.folder + 'vs_glenn' + '.jpg', bbox_inches='tight')
         plt.close()
+
+if __name__ == "__main__":
+
+    incomplete = [
+                    HoleNode(),
+                    Argmax(HoleNode()),
+                    Argmax(Map(HoleNode(), HoleNode())),
+                    Argmax(Map(Function(HoleNode()), VarList('actions'))),
+                    Argmax(Map(Function(Sum(HoleNode())), VarList('actions'))),
+                    Argmax(Map(Function(Sum(Map(Function(HoleNode()), NoneNode()))), VarList('actions'))),
+                    Argmax(Map(Function(Sum(Map(Function(Minus(Times(HoleNode(), HoleNode()), HoleNode())), NoneNode()))), VarList('actions'))),
+                ]
+    
+    chosen = int(sys.argv[1])
+    n_SA_iterations = 5000
+    max_game_rounds = 500
+    n_games = 100
+    init_temp = 1
+    d = 1
+    algo_name = 'SA_' + str(chosen)
+    start_SA = time.time()
+    SA = SimulatedAnnealing(n_SA_iterations, max_game_rounds, n_games, init_temp, d, algo_name)
+    is_complete = False
+    best_program, _ = SA.run(incomplete[chosen], incomplete[chosen], is_complete)
+    end_SA = time.time() - start_SA
+    print('Time elapsed = ', end_SA)

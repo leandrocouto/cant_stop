@@ -410,12 +410,17 @@ class MonteCarloSimulation:
         average_victories = []
         average_losses = []
         average_draws = []
+
         self.update_parent(self.hole_program_1, None)
         self.curr_id = 0
         self.id_tree_nodes(self.hole_program_1)
+
+        self.update_parent(self.hole_program_2, None)
+        self.curr_id = 0
+        self.id_tree_nodes(self.hole_program_2)
         if self.to_log:
             with open(self.log_file, 'a') as f:
-                print('Program to be MC simulated:', self.hole_program_1.to_string(), file=f)
+                print('Program to be MC simulated:', self.hole_program_1.to_string(), self.hole_program_2.to_string(), file=f)
                 print(file=f)
 
         MC_data = MonteCarloData()
@@ -501,8 +506,8 @@ class MonteCarloSimulation:
         MC_data.sort_by_victory()
         if self.to_log:
             with open(self.log_file, 'a') as f:
-                print('Best 10 simulations sorted by victory', file=f)
-                for i in range(len(MC_data.simulation_victories[:10])):
+                print('Best 3 simulations sorted by victory', file=f)
+                for i in range(len(MC_data.simulation_victories[:3])):
                     print(
                             'i = ', i, 
                             'V/L/D = ', \
