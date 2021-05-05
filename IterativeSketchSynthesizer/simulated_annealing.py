@@ -13,7 +13,7 @@ from game import Game
 from play_game_template import simplified_play_single_game
 
 class SimulatedAnnealing:
-    def __init__(self, n_SA_iterations, max_game_rounds, n_games, init_temp, d, algo_name):
+    def __init__(self, n_SA_iterations, max_game_rounds, n_games, init_temp, d, algo_name, initial_time):
         self.n_SA_iterations = n_SA_iterations
         self.max_game_rounds = max_game_rounds
         self.n_games = n_games
@@ -24,6 +24,7 @@ class SimulatedAnnealing:
         self.wins_vs_glenn_x = []
         self.wins_vs_glenn_y = []
         self.algo_name = algo_name
+        self.initial_time = initial_time
         self.folder = algo_name + '_SA' + str(self.n_SA_iterations) + '/'
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
@@ -449,27 +450,27 @@ class SimulatedAnnealing:
         with open(self.log_file, 'a') as f:
             print('Initial SA program below', file=f)
             print(curr_tree_1.to_string(), file=f)
+            print(curr_tree_2.to_string(), file=f)
         # Update the parent of the nodes
         self.update_parent(curr_tree_1, None)
         self.update_parent(curr_tree_2, None)
         # Transform into a Player object
         curr_player = self.get_object(curr_tree_1, curr_tree_2)
-        is_curr_compilable = True
         
         # Program to be beaten
         to_be_beaten = self.get_glenn_player()
 
         try:
-            v, l, d = self.evaluate(curr_player, to_be_beaten)
+            v, l, d = self.triage_evaluation(curr_player, to_be_beaten)
         except Exception as e:
             v = 0
             l = 0
             d = 0
-            is_curr_compilable = False
         with open(self.log_file, 'a') as f:
             print('Initial script SA - V/L/D against Glenn = ', v, l, d, file=f)
             print(file=f)
 
+        # Error of the best program
         best_J = self.n_games - v
         # Number of "successful" iterations
         successful = 0 
@@ -502,12 +503,13 @@ class SimulatedAnnealing:
 
             # Evaluates the mutated program against best_program
             try:
-                victories_mut, losses_mut, draws_mut = self.evaluate(mutated_player, to_be_beaten)
+                victories_mut, losses_mut, draws_mut = self.triage_evaluation(mutated_player, to_be_beaten)
             except Exception as e:
                 victories_mut = 0
                 losses_mut = 0
                 draws_mut = 0
 
+            # Error of the best program
             mutated_J = self.n_games - victories_mut
 
             if self.acceptance_function(best_J, mutated_J, curr_temp):
@@ -515,7 +517,7 @@ class SimulatedAnnealing:
 
                 elapsed_ite = time.time() - start_ite
                 elapsed_SA = time.time() - start_SA
-                self.time_elapsed.append(elapsed_SA)
+                self.time_elapsed.append(self.initial_time + elapsed_SA)
                 self.wins_vs_glenn_x.append(i)
                 self.wins_vs_glenn_y.append(victories_mut)
                 with open(self.log_file, 'a') as f:
@@ -525,17 +527,14 @@ class SimulatedAnnealing:
                     print('Current program 1 = ', curr_tree_1.to_string(), file=f)
                     print('Current program 2 = ', curr_tree_2.to_string(), file=f)
                     print('Mutated program (', tree_to_mutate, ') = ', mutated_tree.to_string(), file=f)
-                    print('self.wins_vs_glenn_x = ', self.wins_vs_glenn_x, file=f)
-                    print('self.wins_vs_glenn_y = ', self.wins_vs_glenn_y, file=f)
-                    print('self.time_elapsed = ', self.time_elapsed, file=f)
                     print('Time elapsed of this SA iteration = ', elapsed_ite, file=f)
                     print(file=f)
 
-                if not os.path.exists(self.folder + 'scripts/'):
-                    os.makedirs(self.folder + 'scripts/')
+                #if not os.path.exists(self.folder + 'scripts/'):
+                #    os.makedirs(self.folder + 'scripts/')
                 # Save object to file
-                with open(self.folder + 'scripts/program_' + str(i), 'wb') as file:
-                    pickle.dump(mutated_player, file)
+                #with open(self.folder + 'scripts/program_' + str(i), 'wb') as file:
+                #    pickle.dump(mutated_player, file)
 
                 # This is to avoid a "Permission Denied" error when trying to
                 # save an image too quickly between iteration, causing this error
@@ -551,6 +550,10 @@ class SimulatedAnnealing:
                 curr_player = mutated_player
                 # Copy the score
                 best_J = mutated_J
+
+                # Save graph data to file
+                with open(self.folder + 'graph_data', 'wb') as file:
+                    pickle.dump([curr_tree_1, curr_tree_2, curr_player, self.wins_vs_glenn_x, self.wins_vs_glenn_y, self.time_elapsed], file)
             # update temperature according to schedule
             else:
                 elapsed_ite = time.time() - start_ite
@@ -563,9 +566,16 @@ class SimulatedAnnealing:
                     print(file=f)
             curr_temp = self.temperature_schedule(i)
         with open(self.log_file, 'a') as f:
+            print('self.wins_vs_glenn_x = ', self.wins_vs_glenn_x, file=f)
+            print('self.wins_vs_glenn_y = ', self.wins_vs_glenn_y, file=f)
+            print('self.time_elapsed = ', self.time_elapsed, file=f)
             print('Successful iterations of this SA = ', successful, 'out of', self.n_SA_iterations, 'iterations.', file=f)
             print('Total time elapsed of this SA = ', time.time() - start_SA, file=f)
-        return curr_tree_1, curr_player
+
+        # Save graph data to file
+        with open(self.folder + 'graph_data', 'wb') as file:
+            pickle.dump([curr_tree_1, curr_tree_2, curr_player, self.wins_vs_glenn_x, self.wins_vs_glenn_y, self.time_elapsed], file)
+        return curr_tree_1, curr_tree_2, curr_player, self.wins_vs_glenn_x, self.wins_vs_glenn_y, self.time_elapsed
 
     def temperature_schedule(self, iteration):
         """ Calculate the next temperature used for the score calculation. """
@@ -577,6 +587,8 @@ class SimulatedAnnealing:
         Return a boolean representing whether the mutated program will be 
         accepted.
         """
+        best_J = best_J * 100 / self.n_games
+        mutated_J = mutated_J * 100 / self.n_games
         best_C = math.exp(-0.5 * best_J / curr_temp)
         mutated_C = math.exp(-0.5 * mutated_J / curr_temp)
         chosen_value = min(1, mutated_C / best_C)
@@ -587,7 +599,42 @@ class SimulatedAnnealing:
         else:
             return False
 
-    def evaluate(self, player_1, player_2):
+    def triage_evaluation(self, player_1, player_2):
+
+        victories = 0
+        losses = 0
+        draws = 0
+
+        # Play 5% of n_games
+        first_step = math.floor(0.05 * self.n_games)
+        v, l, d = self.evaluate(player_1, player_2, first_step)
+        victories += v
+        losses += l
+        draws += d
+        # If it does not win at least 30%, return
+        if v < (30 * first_step) / 100:
+            return victories, losses, draws
+
+        # Play 35% of n_games
+        second_step = math.floor(0.35 * self.n_games)
+        v, l, d = self.evaluate(player_1, player_2, second_step)
+        victories += v
+        losses += l
+        draws += d
+        # If it does not win at least 40%, return
+        if v < (40 * second_step) / 100:
+            return victories, losses, draws
+
+        # Play the remaining games
+        third_step = math.floor(0.60 * self.n_games)
+        v, l, d = self.evaluate(player_1, player_2, third_step)
+        victories += v
+        losses += l
+        draws += d
+        return victories, losses, draws
+
+
+    def evaluate(self, player_1, player_2, n_games):
         """ 
         Play self.n_games Can't Stop games between player_1 and player_2. The
         players swap who is the first player per iteration because Can't Stop
@@ -598,7 +645,7 @@ class SimulatedAnnealing:
         losses = 0
         draws = 0
 
-        for i in range(self.n_games):
+        for i in range(n_games):
             game = Game(2, 4, 6, [2,12], 2, 2)
             if i%2 == 0:
                     who_won = simplified_play_single_game(
@@ -628,7 +675,6 @@ class SimulatedAnnealing:
                     draws += 1
 
         return victories, losses, draws
-
     def generath_graph(self):
 
         fig = plt.figure()
@@ -664,15 +710,16 @@ if __name__ == "__main__":
                 ]
     
     chosen = int(sys.argv[1])
-    n_SA_iterations = 5000
+    n_SA_iterations = 10000
     max_game_rounds = 500
-    n_games = 100
+    n_games = 1000
     init_temp = 1
     d = 1
+    initial_time = 0.0
     algo_name = 'SA_' + str(chosen)
     start_SA = time.time()
-    SA = SimulatedAnnealing(n_SA_iterations, max_game_rounds, n_games, init_temp, d, algo_name)
+    SA = SimulatedAnnealing(n_SA_iterations, max_game_rounds, n_games, init_temp, d, algo_name, initial_time)
     is_complete = False
-    best_program, _ = SA.run(incomplete[chosen], incomplete[chosen], is_complete)
+    _, _, _, _, _, _ = SA.run(incomplete[chosen], incomplete[chosen], is_complete)
     end_SA = time.time() - start_SA
     print('Time elapsed = ', end_SA)

@@ -196,19 +196,19 @@ class IterativeSketchSynthesizer:
         print(best_victory_2.to_string())
         best_victory_2.print_tree()
 
-        n_SA_iterations = 2000
+        n_SA_iterations = 20000
         max_game_rounds = 500
-        n_games = 100
+        n_games = 1000
         init_temp = 1
         d = 1
         algo_name = self.folder
-
+        initial_time = time.time() - start
         start_SA = time.time()
-        SA = SimulatedAnnealing(n_SA_iterations, max_game_rounds, n_games, init_temp, d, algo_name)
+        SA = SimulatedAnnealing(n_SA_iterations, max_game_rounds, n_games, init_temp, d, algo_name, initial_time)
         if self.use_average:
-            best_program, _ = SA.run(best_average_1, best_average_2, False)
+            _, _, _, _, _, _  = SA.run(best_average_1, best_average_2, False)
         else:
-            best_program, _ = SA.run(best_victory_1, best_victory_2, True)
+            _, _, _, _, _, _  = SA.run(best_victory_1, best_victory_2, True)
         end_SA = time.time() - start_SA
         print('Time elapsed = ', end_SA)
 
@@ -218,8 +218,8 @@ class IterativeSketchSynthesizer:
 
 if __name__ == "__main__":
     n_terms = 4
-    MC_n_simulations = 10
-    n_games = 100
+    MC_n_simulations = 100
+    n_games = 10
     max_game_rounds = 500
     to_parallel = False
     to_log = False
