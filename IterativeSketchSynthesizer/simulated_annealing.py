@@ -554,6 +554,10 @@ class SimulatedAnnealing:
                 # Save graph data to file
                 with open(self.folder + 'graph_data', 'wb') as file:
                     pickle.dump([curr_tree_1, curr_tree_2, curr_player, self.wins_vs_glenn_x, self.wins_vs_glenn_y, self.time_elapsed], file)
+                with open(self.folder + 'log_graph.txt', 'w') as f:
+                    print('self.wins_vs_glenn_x = ', self.wins_vs_glenn_x, file=f)
+                    print('self.wins_vs_glenn_y = ', self.wins_vs_glenn_y, file=f)
+                    print('self.time_elapsed = ', self.time_elapsed, file=f)
             # update temperature according to schedule
             else:
                 elapsed_ite = time.time() - start_ite
