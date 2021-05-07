@@ -18,7 +18,9 @@ class MonteCarloData:
         self.simulation_victories = []
         self.simulation_losses = []
         self.simulation_draws = []
+        # Player object
         self.simulation_objects = []
+        # DSL terms object (Argmax, etc)
         self.programs_1_object = []
         self.programs_2_object = []
         self.average_v = None

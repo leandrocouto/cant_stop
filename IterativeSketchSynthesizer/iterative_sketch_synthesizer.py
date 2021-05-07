@@ -28,6 +28,24 @@ class DSLTerms:
         # No duplicates, maintain order
         return list(dict.fromkeys(self.all_terms))
 
+    def add_term(self, full_DSL, to_be_added):
+        if to_be_added in ['Argmax', 'Sum', 'Map', 'Function', 'Plus', 'Times', 'Minus']:
+            to_be_added = [i for i in full_DSL.operations if i.className() == to_be_added]
+            self.operations.append(to_be_added[0])
+        elif to_be_added in ['Constant']:
+            to_be_added = [i for i in full_DSL.constant_values if i.className() == to_be_added]
+            self.constant_values.append(to_be_added[0])
+        elif to_be_added in ['VarList', 'NoneNode']:
+            to_be_added = [i for i in full_DSL.variables_list if i.className() == to_be_added]
+            self.variables_list.append(to_be_added[0])
+        elif to_be_added in ['VarScalarFromArray', 'VarScalar']:
+            to_be_added = [i for i in full_DSL.variables_scalar_from_array if i.className() == to_be_added]
+            self.variables_scalar_from_array.append(to_be_added[0])
+        elif to_be_added in ['NumberAdvancedThisRound', 'NumberAdvancedByAction', 'IsNewNeutral', 'PlayerColumnAdvance', 'OpponentColumnAdvance']:
+            to_be_added = [i for i in full_DSL.functions_scalars if i.className() == to_be_added]
+            self.functions_scalars.append(to_be_added[0])
+                      
+
 class IterativeSketchSynthesizer:
     def __init__(self, n_terms, MC_n_simulations, n_games, max_game_rounds, to_parallel, to_log, use_average):
         self.n_terms = n_terms
@@ -46,6 +64,16 @@ class IterativeSketchSynthesizer:
         if not os.path.exists(self.folder):
                 os.makedirs(self.folder)
 
+    def get_traversal(self, program):
+        list_of_nodes = []
+        self._get_traversal(program, list_of_nodes)
+        return list_of_nodes
+
+    def _get_traversal(self, program, list_of_nodes):
+        list_of_nodes.append(program)
+        for child in program.children:
+            self._get_traversal(child, list_of_nodes)
+
     def run(self):
         start = time.time()
         
@@ -60,119 +88,149 @@ class IterativeSketchSynthesizer:
         full_DSL = DSLTerms(
                                 operations = [Argmax, Sum, Map, Function, Plus, Times, Minus], 
                                 constant_values = [], 
-                                variables_list = [VarList('neutrals'), VarList('actions')], 
-                                variables_scalar_from_array = [VarScalarFromArray('progress_value'), VarScalarFromArray('move_value')], 
+                                variables_list = [VarList('neutrals'), VarList('actions'), NoneNode()], 
+                                variables_scalar_from_array = [VarScalarFromArray('progress_value'), VarScalarFromArray('move_value'), VarScalar('marker')], 
                                 functions_scalars = [NumberAdvancedThisRound(), NumberAdvancedByAction(), IsNewNeutral(), PlayerColumnAdvance(), OpponentColumnAdvance()]
                             )
 
+        partial_terms = partial_DSL.get_all_terms()
         all_terms = full_DSL.get_all_terms()
 
         #
         # Get all the sketches
         #
 
+        all_closed_lists = []
         BUS = BottomUpSearch()
-        all_closed_lists = BUS.synthesize(
-                                bound = 10, 
-                                partial_DSL = partial_DSL,
-                                full_DSL = full_DSL,
-                                n_terms = self.n_terms,
-                                folder = self.folder
-                            )
-        closed_list = all_closed_lists[-1][1]
-        merged_closed_list = list(itertools.product(closed_list, repeat=2))
-        with open(self.folder + 'log.txt', 'a') as f:
-            print('Closed list collected - Length before = ', len(closed_list),  file=f)
-            print('Closed list collected - Length after  = ', len(merged_closed_list),  file=f)
-
-        average = []
-        victory = []
-        #all_MC_data = []
-        start_MC = time.time()
-
-        #
-        # Evaluate all of them using Monte Carlo Simulations
-        #
-
-        for i, program in enumerate(merged_closed_list):
-            MC = MonteCarloSimulation(program[0], program[1], self.MC_n_simulations, self.n_games, self.max_game_rounds, self.to_parallel, i, i, self.to_log)
-            MC_data = MC.run()
-            # Sorting by victory
-            MC_data.sort_by_victory()
-            with open(self.folder + 'log.txt', 'a') as f:
-                print('Iteration -', i, '- Programs being simulated', file=f)
-                print(program[0].to_string(), ',', program[1].to_string(), file=f)
-                print('Avg V/L/D = ', MC_data.average_v, MC_data.average_l, MC_data.average_d, file=f)
-                print('Std V/L/D = ', MC_data.std_v, MC_data.std_l, MC_data.std_d, file=f)
-                print('Best programs simulated by MC', file=f)
-
-                # Stores the best (by number of victories) of each MC sim.
-                best_vic = []
-                for i in range(len(MC_data.simulation_victories[:3])):
-                    #best_vic.append((MC_data.simulation_victories[i], program[0].to_string(), program[1].to_string(), MC_data.programs_1_object[i].to_string(), MC_data.programs_2_object[i].to_string()))
-                    best_vic.append(
-                                    (
-                                        program[0].to_string(), 
-                                        program[1].to_string(), 
-                                        MC_data.simulation_victories[i], 
-                                        MC_data.simulation_losses[i], 
-                                        MC_data.simulation_draws[i], 
-                                        MC_data.programs_1_object[i], 
-                                        MC_data.programs_2_object[i]
-                                    )
+        for i in range(self.n_terms):
+            closed_list = BUS.synthesize(
+                                    bound = 10, 
+                                    partial_DSL = partial_DSL,
+                                    n_terms = self.n_terms,
+                                    folder = self.folder
                                 )
-                    print(
-                            'i = ', i, 
-                            'V/L/D = ', \
-                            MC_data.simulation_victories[i], \
-                            MC_data.simulation_losses[i], \
-                            MC_data.simulation_draws[i], \
-                            'Programs = ', MC_data.programs_1_object[i].to_string(), \
-                            ',', \
-                            MC_data.programs_2_object[i].to_string(), \
-                            file=f
-                        )
-                print(file=f)
-                victory.append(best_vic)
-            
-            average.append(
-                            (
-                                program[0], 
-                                program[1],
-                                MC_data.average_v,
-                                MC_data.average_l,
-                                MC_data.average_d,
-                                MC_data.std_v,
-                                MC_data.std_l,
-                                MC_data.std_d
+            merged_closed_list = list(itertools.product(closed_list[1], repeat=2))
+            with open(self.folder + 'log_' + str(i) + '.txt', 'a') as f:
+                print('Closed list collected - Length before = ', len(closed_list),  file=f)
+                print('Closed list collected - Length after  = ', len(merged_closed_list),  file=f)
+
+            average = []
+            victory = []
+            #all_MC_data = []
+            start_MC = time.time()
+
+            #
+            # Evaluate all of them using Monte Carlo Simulations
+            #
+
+            for j, program in enumerate(merged_closed_list):
+                MC = MonteCarloSimulation(program[0], program[1], self.MC_n_simulations, self.n_games, self.max_game_rounds, self.to_parallel, i, i, self.to_log)
+                MC_data = MC.run()
+                # Sorting by victory
+                MC_data.sort_by_victory()
+                with open(self.folder + 'log_' + str(i) + '.txt', 'a') as f:
+                    print('Iteration -', j, '- Programs being simulated', file=f)
+                    print(program[0].to_string(), ',', program[1].to_string(), file=f)
+                    print('Avg V/L/D = ', MC_data.average_v, MC_data.average_l, MC_data.average_d, file=f)
+                    print('Std V/L/D = ', MC_data.std_v, MC_data.std_l, MC_data.std_d, file=f)
+                    print('Best programs simulated by MC', file=f)
+
+                    # Stores the best (by number of victories) of each MC sim.
+                    best_vic = []
+                    for k in range(len(MC_data.simulation_victories[:3])):
+                        best_vic.append(
+                                        (
+                                            program[0].to_string(), 
+                                            program[1].to_string(), 
+                                            MC_data.simulation_victories[k], 
+                                            MC_data.simulation_losses[k], 
+                                            MC_data.simulation_draws[k], 
+                                            MC_data.programs_1_object[k], 
+                                            MC_data.programs_2_object[k]
+                                        )
+                                    )
+                        print(
+                                'i = ', i, 
+                                'V/L/D = ', \
+                                MC_data.simulation_victories[k], \
+                                MC_data.simulation_losses[k], \
+                                MC_data.simulation_draws[k], \
+                                'Programs = ', MC_data.programs_1_object[k].to_string(), \
+                                ',', \
+                                MC_data.programs_2_object[k].to_string(), \
+                                file=f
                             )
-                        )
-        # Save best sketches (in terms of average) to file 
-        average.sort(key=lambda tup: tup[2], reverse=True)
-        with open(self.folder + 'average_log.txt', 'a') as f:
-            print('Average - len = ', len(average), file=f)
-            for ave in average:
-                print('Sketch 1 and 2 = ', ave[0].to_string(), ave[1].to_string(), file=f)
-                print('Average V/L/D = ', ave[2], ave[3], ave[4], file=f)
-                print('Stdev V/L/D = ', ave[5], ave[6], ave[7], file=f)
-                print(file=f)
-        # Save best programs (in terms of victory) to file 
-        victory.sort(key=lambda tup: tup[0][2], reverse=True)
-        with open(self.folder + 'victory_log.txt', 'a') as f:
-            print('Victory - len = ', len(victory), file=f)
-            for vic_best in victory:
-                print('Sketch = ', vic_best[0][0], vic_best[0][1], file=f)
-                for vic in vic_best:
-                    print('V/L/D = ', vic[2], vic[3], vic[4], vic[5].to_string(), vic[6].to_string(), file=f)
-                print(file=f)
-        # Save both victory and average to file
-        with open(self.folder + 'average', 'wb') as file:
-            pickle.dump(average, file)
-        with open(self.folder + 'victory', 'wb') as file:
-            pickle.dump(victory, file)
-        end_MC = time.time() - start_MC
-        with open(self.folder + 'log.txt', 'a') as f:
-            print('MC Time elapsed = ', end_MC, file=f)
+                    print(file=f)
+                    victory.append(best_vic)
+                
+                average.append(
+                                (
+                                    program[0], 
+                                    program[1],
+                                    MC_data.average_v,
+                                    MC_data.average_l,
+                                    MC_data.average_d,
+                                    MC_data.std_v,
+                                    MC_data.std_l,
+                                    MC_data.std_d
+                                )
+                            )
+            # Save best sketches (in terms of average) to file 
+            average.sort(key=lambda tup: tup[2], reverse=True)
+            with open(self.folder + 'average_log_' + str(i) + '.txt', 'a') as f:
+                print('Average - len = ', len(average), file=f)
+                for ave in average:
+                    print('Sketch 1 and 2 = ', ave[0].to_string(), ave[1].to_string(), file=f)
+                    print('Average V/L/D = ', ave[2], ave[3], ave[4], file=f)
+                    print('Stdev V/L/D = ', ave[5], ave[6], ave[7], file=f)
+                    print(file=f)
+            # Save best programs (in terms of victory) to file 
+            victory.sort(key=lambda tup: tup[0][2], reverse=True)
+            with open(self.folder + 'victory_log_' + str(i) + '.txt', 'a') as f:
+                print('Victory - len = ', len(victory), file=f)
+                for vic_best in victory:
+                    print('Sketch = ', vic_best[0][0], vic_best[0][1], file=f)
+                    for vic in vic_best:
+                        print('V/L/D = ', vic[2], vic[3], vic[4], vic[5].to_string(), vic[6].to_string(), file=f)
+                    print(file=f)
+            # Save both victory and average to file
+            with open(self.folder + 'average' + str(i), 'wb') as file:
+                pickle.dump(average, file)
+            with open(self.folder + 'victory' + str(i), 'wb') as file:
+                pickle.dump(victory, file)
+            end_MC = time.time() - start_MC
+            with open(self.folder + 'log_' + str(i) + '.txt', 'a') as f:
+                print('MC Time elapsed = ', end_MC, file=f)
+
+            # Dictionary to correlate a DSL term (key) to cummulative victory
+            # throughout the MC simulations (value)
+            DSL_terms_scores = {}
+            for term in all_terms:
+                if term not in partial_DSL.get_all_terms():
+                    #print('entrei aqui ')
+                    #print('termo ja presente = ', term)
+                    #print('DSL_terms_scores = ', DSL_terms_scores)
+
+                    #exit()
+                    DSL_terms_scores[term] = 0
+            print('DSL_terms_scores = ', DSL_terms_scores)
+            # Now selects the next DSL term to be added to partial_DSL
+            for j in range(len(MC_data.programs_1_object)):
+                list_of_nodes_1 = self.get_traversal(MC_data.programs_1_object[j])
+                list_of_nodes_2 = self.get_traversal(MC_data.programs_2_object[j])
+                n_victory = MC_data.simulation_victories[j]
+                #print('n_victory = ', n_victory)
+                list_of_nodes_1 = [node.className() for node in list_of_nodes_1]
+                list_of_nodes_2 = [node.className() for node in list_of_nodes_2]
+                list_of_nodes = set(list_of_nodes_1 + list_of_nodes_2)
+                for node in list_of_nodes:
+                    if node in DSL_terms_scores:
+                        DSL_terms_scores[node] += n_victory
+            print('DSL_terms_scores = ', DSL_terms_scores)
+            term_chosen = max(DSL_terms_scores, key=lambda key: DSL_terms_scores[key])
+            print('term_chosen = ', term_chosen)
+            partial_DSL.add_term(full_DSL, term_chosen)
+            print()#exit()
 
         #
         # Run Simulated Annealing on the best ones
@@ -196,7 +254,7 @@ class IterativeSketchSynthesizer:
         print(best_victory_2.to_string())
         best_victory_2.print_tree()
 
-        n_SA_iterations = 20000
+        n_SA_iterations = 10000
         max_game_rounds = 500
         n_games = 1000
         init_temp = 1
@@ -217,8 +275,8 @@ class IterativeSketchSynthesizer:
         return all_closed_lists
 
 if __name__ == "__main__":
-    n_terms = 4
-    MC_n_simulations = 100
+    n_terms = 6
+    MC_n_simulations = 500
     n_games = 10
     max_game_rounds = 500
     to_parallel = False
