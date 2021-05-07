@@ -681,24 +681,15 @@ class SimulatedAnnealing:
         return victories, losses, draws
     def generath_graph(self):
 
-        fig = plt.figure()
         plt.grid()
-        ax1 = fig.add_subplot(111)
-        ax2 = ax1.twiny()
-
-        X1 = self.wins_vs_glenn_x
+        X = [int(elem) for elem in self.time_elapsed]
         Y = self.wins_vs_glenn_y
-        X2 = [int(elem) for elem in self.time_elapsed]
-
-        ax1.plot(X1,Y)
-        ax1.set_xlabel('Iteration')
-        ax1.set_ylabel('Victories')
-        ax1.set_ylim([0, self.n_games])
-        ax1.callbacks.connect('xlim_changed', lambda ax1: ax2.set_xlim(X2[0], X2[-1]))
-        ax1.set_xlim(X1[0], X1[-1])
-        ax2.set_xlabel('Time elapsed (s)')
-        ax1.set_title('Games against Glenn (' + str(self.n_SA_iterations) + ' SA iterations)', y=1.15)
-        plt.savefig(self.folder + 'vs_glenn' + '.jpg', bbox_inches='tight')
+        plt.xlabel('Time elapsed (s)')
+        plt.ylabel('Victories')
+        plt.ylim([0, self.n_games])
+        plt.suptitle('Games against Glenn (' + str(self.n_SA_iterations) + ' SA iterations)')
+        plt.plot(X,Y)
+        plt.savefig(self.folder + 'vs_glenn' + '.jpg', dpi=1200)
         plt.close()
 
 if __name__ == "__main__":
