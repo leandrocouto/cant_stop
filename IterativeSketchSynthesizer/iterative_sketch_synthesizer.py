@@ -47,19 +47,19 @@ class DSLTerms:
                       
 
 class IterativeSketchSynthesizer:
-    def __init__(self, n_terms, MC_n_simulations, n_games, max_game_rounds, to_parallel, to_log, use_average):
-        self.n_terms = n_terms
+    def __init__(self, MC_n_simulations, n_games, max_game_rounds, to_parallel, to_log, use_average, budget):
         self.MC_n_simulations = MC_n_simulations
         self.n_games = n_games
         self.max_game_rounds = max_game_rounds
         self.to_parallel = to_parallel
         self.to_log = to_log
         self.use_average = use_average
+        self.budget = budget
         if self.use_average:
-            self.folder = 'ISS_' + str(self.n_terms) + 'terms_' + str(self.MC_n_simulations) + \
+            self.folder = 'ISS_' + str(self.MC_n_simulations) + \
                             'sim_' + str(self.n_games) + 'games_use_average/'
         else:
-            self.folder = 'ISS_' + str(self.n_terms) + 'terms_' + str(self.MC_n_simulations) + \
+            self.folder = 'ISS_' + str(self.MC_n_simulations) + \
                             'sim_' + str(self.n_games) + 'games_use_best/'
         if not os.path.exists(self.folder):
                 os.makedirs(self.folder)
@@ -102,21 +102,30 @@ class IterativeSketchSynthesizer:
 
         all_closed_lists = []
         BUS = BottomUpSearch()
-        for i in range(self.n_terms):
+        for i in range(len(all_terms)):
             closed_list = BUS.synthesize(
                                     bound = 10, 
                                     partial_DSL = partial_DSL,
-                                    n_terms = self.n_terms,
                                     folder = self.folder
                                 )
             merged_closed_list = list(itertools.product(closed_list[1], repeat=2))
-            with open(self.folder + 'log_' + str(i) + '.txt', 'a') as f:
-                print('Closed list collected - Length before = ', len(closed_list),  file=f)
-                print('Closed list collected - Length after  = ', len(merged_closed_list),  file=f)
+            # Stop the addition of DSL terms if the budget is reached
+            if len(merged_closed_list) > self.budget:
+                with open(self.folder + 'log_' + str(i) + '.txt', 'a') as f:
+                    print('Closed list collected - Length before = ', len(closed_list[1]),  file=f)
+                    print('Closed list collected - Length after  = ', len(merged_closed_list),  file=f)
+                    print('Number of max sketches reached. Budget = ', self.budget, file=f)
+                    print('Current partial DSL terms = ', partial_DSL.get_all_terms(), file=f)
+                    print('The addition of the term', partial_DSL.get_all_terms()[-1], 'will  be ignored.')
+                    break
+            else:
+                with open(self.folder + 'log_' + str(i) + '.txt', 'a') as f:
+                    print('Closed list collected - Length before = ', len(closed_list[1]),  file=f)
+                    print('Closed list collected - Length after  = ', len(merged_closed_list),  file=f)
+                    print('Current partial DSL terms = ', partial_DSL.get_all_terms(), file=f)
 
             average = []
             victory = []
-            #all_MC_data = []
             start_MC = time.time()
 
             #
@@ -124,8 +133,10 @@ class IterativeSketchSynthesizer:
             #
 
             for j, program in enumerate(merged_closed_list):
+                start_MC_sim = time.time()
                 MC = MonteCarloSimulation(program[0], program[1], self.MC_n_simulations, self.n_games, self.max_game_rounds, self.to_parallel, i, i, self.to_log)
                 MC_data = MC.run()
+                end_MC_sim = time.time() - start_MC_sim
                 # Sorting by victory
                 MC_data.sort_by_victory()
                 with open(self.folder + 'log_' + str(i) + '.txt', 'a') as f:
@@ -150,7 +161,7 @@ class IterativeSketchSynthesizer:
                                         )
                                     )
                         print(
-                                'i = ', i, 
+                                'k = ', k, 
                                 'V/L/D = ', \
                                 MC_data.simulation_victories[k], \
                                 MC_data.simulation_losses[k], \
@@ -160,6 +171,7 @@ class IterativeSketchSynthesizer:
                                 MC_data.programs_2_object[k].to_string(), \
                                 file=f
                             )
+                    print('Time elapsed of this MC simulation = ', end_MC_sim, file=f)
                     print(file=f)
                     victory.append(best_vic)
                 
@@ -207,11 +219,6 @@ class IterativeSketchSynthesizer:
             DSL_terms_scores = {}
             for term in all_terms:
                 if term not in partial_DSL.get_all_terms():
-                    #print('entrei aqui ')
-                    #print('termo ja presente = ', term)
-                    #print('DSL_terms_scores = ', DSL_terms_scores)
-
-                    #exit()
                     DSL_terms_scores[term] = 0
             print('DSL_terms_scores = ', DSL_terms_scores)
             # Now selects the next DSL term to be added to partial_DSL
@@ -219,7 +226,6 @@ class IterativeSketchSynthesizer:
                 list_of_nodes_1 = self.get_traversal(MC_data.programs_1_object[j])
                 list_of_nodes_2 = self.get_traversal(MC_data.programs_2_object[j])
                 n_victory = MC_data.simulation_victories[j]
-                #print('n_victory = ', n_victory)
                 list_of_nodes_1 = [node.className() for node in list_of_nodes_1]
                 list_of_nodes_2 = [node.className() for node in list_of_nodes_2]
                 list_of_nodes = set(list_of_nodes_1 + list_of_nodes_2)
@@ -230,29 +236,35 @@ class IterativeSketchSynthesizer:
             term_chosen = max(DSL_terms_scores, key=lambda key: DSL_terms_scores[key])
             print('term_chosen = ', term_chosen)
             partial_DSL.add_term(full_DSL, term_chosen)
-            print()#exit()
+            print()
 
         #
         # Run Simulated Annealing on the best ones
         #
+
         best_average_1 = average[0][0]
         best_average_2 = average[0][1]
 
         best_victory_1 = victory[0][0][5]
         best_victory_2 = victory[0][0][6]
 
-        print('best_average_1')
-        print(best_average_1.to_string())
-        best_average_1.print_tree()
-        print('best_average_2')
-        print(best_average_2.to_string())
-        best_average_2.print_tree()
-        print('best_victory_1')
-        print(best_victory_1.to_string())
-        best_victory_1.print_tree()
-        print('best_victory_2')
-        print(best_victory_2.to_string())
-        best_victory_2.print_tree()
+        path_pre_sa = self.folder + 'log_pre_sa.txt'
+        with open(path_pre_sa, 'a') as f:
+            print('best_average_1', file=f)
+            print(best_average_1.to_string(), file=f)
+        best_average_1.print_tree_file(path_pre_sa)
+        with open(path_pre_sa, 'a') as f:
+            print('best_average_2', file=f)
+            print(best_average_2.to_string(), file=f)
+        best_average_2.print_tree_file(path_pre_sa)
+        with open(path_pre_sa, 'a') as f:
+            print('best_victory_1', file=f)
+            print(best_victory_1.to_string(), file=f)
+        best_victory_1.print_tree_file(path_pre_sa)
+        with open(path_pre_sa, 'a') as f:
+            print('best_victory_2', file=f)
+            print(best_victory_2.to_string(), file=f)
+        best_victory_2.print_tree_file(path_pre_sa)
 
         n_SA_iterations = 10000
         max_game_rounds = 500
@@ -275,15 +287,15 @@ class IterativeSketchSynthesizer:
         return all_closed_lists
 
 if __name__ == "__main__":
-    n_terms = 6
-    MC_n_simulations = 500
+    MC_n_simulations = 11
     n_games = 10
     max_game_rounds = 500
     to_parallel = False
     to_log = False
     use_average = False
+    budget = 100000
     start_ISS = time.time()
-    ISS = IterativeSketchSynthesizer(n_terms, MC_n_simulations, n_games, max_game_rounds, to_parallel, to_log, use_average)
+    ISS = IterativeSketchSynthesizer(MC_n_simulations, n_games, max_game_rounds, to_parallel, to_log, use_average, budget)
     all_closed_lists = ISS.run()
     end_ISS = time.time() - start_ISS
     print('ISS - Time elapsed = ', end_ISS)

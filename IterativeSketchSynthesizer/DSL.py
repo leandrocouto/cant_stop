@@ -50,6 +50,22 @@ class Node:
             for child in node.children:
                 self._print_tree(child, indentation + '    ')
 
+    def print_tree_file(self, path):
+        indentation = '  '
+        self._print_tree_file(self, indentation, path)
+
+    def _print_tree_file(self, node, indentation, path):
+        #For root
+        if indentation == '  ':
+            with open(path, 'a') as file:
+                print(node, ' - ', node.to_string(), ' - ', node.id, ' - can mutate = ', node.can_mutate, file=file)
+        else:
+            with open(path, 'a') as file:
+                print(indentation, node, ' - ', node.to_string(), ' - ', node.id, ' - can mutate = ', node.can_mutate, file=file)
+        if hasattr(node, 'children'):
+            for child in node.children:
+                self._print_tree_file(child, indentation + '    ', path)
+
     def getRulesNames(self, rules):
         raise Exception('Unimplemented method: getRulesNames')
 

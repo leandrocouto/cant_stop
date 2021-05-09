@@ -84,71 +84,23 @@ class BottomUpSearch:
         
         return self.closed_list, self.closed_list_objects
 
-    def synthesize(self, bound, partial_DSL, n_terms, folder):
+    def synthesize(self, bound, partial_DSL, folder):
 
         n_partial_terms = len(partial_DSL.get_all_terms())
 
-        with open(folder + 'PBUS_' + str(n_partial_terms) + '_' + str(n_terms) + 'DSLTerms.txt', 'a') as f:
+        with open(folder + 'PBUS_' + str(n_partial_terms) + '_DSLTerms.txt', 'a') as f:
             print('Partial DSL used', file=f)
             print(partial_DSL.get_all_terms(), file=f)
             print(file=f)
 
         closed_list, closed_list_objects = self.search(bound, partial_DSL)
 
-        with open(folder + 'PBUS_' + str(n_partial_terms) + '_' + str(n_terms) + 'DSLTerms.txt', 'a') as f:
+        with open(folder + 'PBUS_' + str(n_partial_terms) + '_DSLTerms.txt', 'a') as f:
             print('Closed list collected - Length = ', len(closed_list),  file=f)
             for p in closed_list:
                 print(p, file=f)
             print(file=f)
                       
         return (closed_list, closed_list_objects,)
-    '''
-    def synthesize(self, bound, partial_DSL, full_DSL, n_terms, folder):
-
-        all_terms = full_DSL.get_all_terms()
-        i = -1
-        all_closed_lists = []
-        length_all_terms = len(all_terms) 
-        for i in range(length_all_terms + 1):
-            if i > n_terms:
-                return all_closed_lists
-            with open(folder + 'PBUS_' + str(i) + '_' + str(n_terms) + 'DSLTerms.txt', 'a') as f:
-                print('Partial DSL used', file=f)
-                print(partial_DSL.get_all_terms(), file=f)
-                print(file=f)
-
-            closed_list, closed_list_objects = self.search(bound, partial_DSL)
-
-            all_closed_lists.append((closed_list, closed_list_objects))
-
-            with open(folder + 'PBUS_' + str(i) + '_' + str(n_terms) + 'DSLTerms.txt', 'a') as f:
-                print('Closed list collected - Length = ', len(closed_list),  file=f)
-                for p in closed_list:
-                    print(p, file=f)
-                print(file=f)
-            
-            if not all_terms:
-                return all_closed_lists
-            # Remove a term and add it to the partial DSL
-            to_be_added = all_terms.pop(0)
-
-            if to_be_added in ['Argmax', 'Sum', 'Map', 'Function', 'Plus', 'Times', 'Minus']:
-                to_be_added = [i for i in full_DSL.operations if i.className() == to_be_added]
-                partial_DSL.operations.append(to_be_added[0])
-            elif to_be_added in ['Constant']:
-                to_be_added = [i for i in full_DSL.constant_values if i.className() == to_be_added]
-                partial_DSL.constant_values.append(to_be_added[0])
-            elif to_be_added in ['VarList']:
-                to_be_added = [i for i in full_DSL.variables_list if i.className() == to_be_added]
-                partial_DSL.variables_list.append(to_be_added[0])
-            elif to_be_added in ['VarScalarFromArray']:
-                to_be_added = [i for i in full_DSL.variables_scalar_from_array if i.className() == to_be_added]
-                partial_DSL.variables_scalar_from_array.append(to_be_added[0])
-            elif to_be_added in ['NumberAdvancedThisRound', 'NumberAdvancedByAction', 'IsNewNeutral', 'PlayerColumnAdvance', 'OpponentColumnAdvance']:
-                to_be_added = [i for i in full_DSL.functions_scalars if i.className() == to_be_added]
-                partial_DSL.functions_scalars.append(to_be_added[0])
-                      
-        return all_closed_lists
-    '''
 
 
