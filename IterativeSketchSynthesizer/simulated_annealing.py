@@ -369,10 +369,10 @@ class SimulatedAnnealing:
                 print('Tree')
                 program.print_tree()
                 raise Exception('Node randomly selected does not exist.' + ' Index sampled = ' + str(index_node))
-            if not node_to_mutate.can_mutate:
+            if max_tries == 0:
+                return program
+            elif not node_to_mutate.can_mutate:
                 continue
-            elif max_tries == 0:
-                return
             else:
                 break
 
@@ -705,7 +705,7 @@ if __name__ == "__main__":
                 ]
     
     chosen = int(sys.argv[1])
-    n_SA_iterations = 10000
+    n_SA_iterations = 50000
     max_game_rounds = 500
     n_games = 1000
     init_temp = 1
