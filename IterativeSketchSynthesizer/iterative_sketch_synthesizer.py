@@ -3,6 +3,7 @@ import sys
 import itertools
 import os
 import pickle
+import random
 from bottom_up_search import BottomUpSearch
 from monte_carlo_simulations import MonteCarloSimulation
 from simulated_annealing import SimulatedAnnealing
@@ -18,6 +19,7 @@ class DSLTerms:
         self.variables_scalar_from_array = variables_scalar_from_array
         self.functions_scalars = functions_scalars
         self.all_terms = []
+        self.all_terms_in_order = []
 
     def get_all_terms(self):
         self.all_terms = [op.className() for op in self.operations] + \
@@ -29,6 +31,7 @@ class DSLTerms:
         return list(dict.fromkeys(self.all_terms))
 
     def add_term(self, full_DSL, to_be_added):
+        self.all_terms_in_order.append(to_be_added)
         if to_be_added in ['Argmax', 'Sum', 'Map', 'Function', 'Plus', 'Times', 'Minus']:
             to_be_added = [i for i in full_DSL.operations if i.className() == to_be_added]
             self.operations.append(to_be_added[0])
@@ -76,6 +79,19 @@ class IterativeSketchSynthesizer:
         list_of_nodes.append(program)
         for child in program.children:
             self._get_traversal(child, list_of_nodes)
+
+    def update_parent(self, program, parent):
+        program.add_parent(parent)
+        for child in program.children:
+            self.update_parent(child, program)
+
+    def calculate_height(self, node):
+        curr_height = 0
+        while node.parent is not None:
+            curr_height += 1
+            node = node.parent
+        return curr_height 
+
 
     def remove_terminal_nodes(self, terms_dict):
         to_delete = [
@@ -145,6 +161,12 @@ class IterativeSketchSynthesizer:
             # Evaluate all of them using Monte Carlo Simulations
             #
 
+            # Dictionary to correlate a DSL term (key) to cummulative victory
+            # and DSL term root proximity throughout the MC simulations (values)
+            DSL_terms_scores = {}
+            for term in all_terms:
+                if term not in partial_DSL.get_all_terms():
+                    DSL_terms_scores[term] = [0, []]
             for j, program in enumerate(merged_closed_list):
                 start_MC_sim = time.time()
                 MC = MonteCarloSimulation(program[0], program[1], self.MC_n_simulations, self.n_games, self.max_game_rounds, self.to_parallel, i, i, self.to_log)
@@ -200,6 +222,38 @@ class IterativeSketchSynthesizer:
                                     MC_data.std_d
                                 )
                             )
+                # Calculate DSL terms victories and proximity to root
+                for k in range(len(MC_data.programs_1_object)):
+                    self.update_parent(MC_data.programs_1_object[k], None)
+                    self.update_parent(MC_data.programs_2_object[k], None)
+                    list_of_nodes_1 = self.get_traversal(MC_data.programs_1_object[k])
+                    list_of_nodes_2 = self.get_traversal(MC_data.programs_2_object[k])
+                    n_victory = MC_data.simulation_victories[k]
+                    list_of_nodes_1_str = [node.className() for node in list_of_nodes_1]
+                    list_of_nodes_2_str = [node.className() for node in list_of_nodes_2]
+                    list_of_nodes_str_set = list(set(list_of_nodes_1_str + list_of_nodes_2_str))
+                    # Add number of victories related to the DSL term
+                    for node in list_of_nodes_str_set:
+                        if node in DSL_terms_scores:
+                            DSL_terms_scores[node][0] += n_victory
+                    
+                    # Calculate the distance from root of each node
+                    list_of_nodes_str = list_of_nodes_1_str + list_of_nodes_2_str
+                    list_of_nodes_obj = list_of_nodes_1 + list_of_nodes_2
+                    distance = np.zeros(len(list_of_nodes_obj))
+                    for m in range(len(list_of_nodes_obj)):
+                        d = self.calculate_height(list_of_nodes_obj[m])
+                        distance[m] = d
+
+                    all_occurrences = list_of_nodes_1_str + list_of_nodes_2_str
+                    for m in range(len(list_of_nodes_str_set)):
+                        indices = [z for z, x in enumerate(all_occurrences) if x == list_of_nodes_str_set[m]]
+                        ave_height = 0
+                        for index in indices:
+                            ave_height += distance[index]
+                        ave_height = ave_height / len(indices)
+                        if list_of_nodes_str_set[m] in DSL_terms_scores:
+                            DSL_terms_scores[list_of_nodes_str_set[m]][1].append(ave_height)
             # Save best sketches (in terms of average) to file 
             average.sort(key=lambda tup: tup[2], reverse=True)
             with open(self.folder + 'average_log_' + str(i) + '.txt', 'a') as f:
@@ -227,30 +281,30 @@ class IterativeSketchSynthesizer:
             with open(self.folder + 'log_' + str(i) + '.txt', 'a') as f:
                 print('MC Time elapsed = ', end_MC, file=f)
 
-            # Dictionary to correlate a DSL term (key) to cummulative victory
-            # throughout the MC simulations (value)
-            DSL_terms_scores = {}
-            for term in all_terms:
-                if term not in partial_DSL.get_all_terms():
-                    DSL_terms_scores[term] = 0
-            print('DSL_terms_scores = ', DSL_terms_scores)
-            # Now selects the next DSL term to be added to partial_DSL
-            for j in range(len(MC_data.programs_1_object)):
-                list_of_nodes_1 = self.get_traversal(MC_data.programs_1_object[j])
-                list_of_nodes_2 = self.get_traversal(MC_data.programs_2_object[j])
-                n_victory = MC_data.simulation_victories[j]
-                list_of_nodes_1 = [node.className() for node in list_of_nodes_1]
-                list_of_nodes_2 = [node.className() for node in list_of_nodes_2]
-                list_of_nodes = set(list_of_nodes_1 + list_of_nodes_2)
-                for node in list_of_nodes:
-                    if node in DSL_terms_scores:
-                        DSL_terms_scores[node] += n_victory
             # Remove terminal DSL terms from the dictionary
             self.remove_terminal_nodes(DSL_terms_scores)
-            term_chosen = max(DSL_terms_scores, key=lambda key_term: DSL_terms_scores[key_term])
-            print('term_chosen = ', term_chosen)
+            with open(self.folder + 'log_' + str(i) + '.txt', 'a') as f:
+                print('DSL dict. after MC', file=f)
+                print(DSL_terms_scores, file=f)
+                print('DSL dict. after MC (formatted)', file=f)
+                for k in DSL_terms_scores:
+                    if len(DSL_terms_scores[k][1]) != 0:
+                        print('Term = ', k, 'Vic = ', DSL_terms_scores[k][0], 'Ave. height = ', sum(DSL_terms_scores[k][1])/len(DSL_terms_scores[k][1]), file=f)
+
+            # Auxiliar function to get the average while giving a low score
+            # if list is empty (term not used in the simulations)
+            def calc_ave(l):
+                if len(l) == 0:
+                    return -99999999
+                else:
+                    return sum(l)/len(l)
+            # Get the DSL term with the highest number of victories.
+            # If tied: take the one closest to the root (in average).
+            # If tied: pick a term randomly.
+            term_chosen = max(DSL_terms_scores, key=lambda key_term: (DSL_terms_scores[key_term][0], -calc_ave(DSL_terms_scores[key_term][1]), random.random()))
+            with open(self.folder + 'log_' + str(i) + '.txt', 'a') as f:
+                print('DSL term chosen = ', term_chosen, file=f)
             partial_DSL.add_term(full_DSL, term_chosen)
-            print()
 
         #
         # Run Simulated Annealing on the best ones
@@ -280,7 +334,7 @@ class IterativeSketchSynthesizer:
             print(best_victory_2.to_string(), file=f)
         best_victory_2.print_tree_file(path_pre_sa)
 
-        n_SA_iterations = 5000
+        n_SA_iterations = 500
         max_game_rounds = 500
         n_games = 1000
         init_temp = 1
@@ -301,7 +355,7 @@ class IterativeSketchSynthesizer:
         return all_closed_lists
 
 if __name__ == "__main__":
-    MC_n_simulations = 100
+    MC_n_simulations = 12
     n_games = 100
     max_game_rounds = 500
     to_parallel = False

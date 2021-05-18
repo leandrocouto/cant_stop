@@ -2,6 +2,7 @@ import numpy as np
 import random
 import itertools
 import pickle
+import copy
 
 class Node:
     def __init__(self):
@@ -520,7 +521,8 @@ class Times(Node):
                             elif isinstance(p2, VarScalar):
                                 p2 = VarScalar(p2.name)
 
-                            times = Times(p1, p2)
+                            #times = Times(p1, p2)
+                            times = Times(copy.deepcopy(p1), copy.deepcopy(p2))
                             new_programs.append(times)
             
                             yield times
@@ -620,7 +622,8 @@ class Minus(Node):
                             elif isinstance(p2, VarScalar):
                                 p2 = VarScalar(p2.name)
 
-                            minus = Minus(p1, p2)
+                            #minus = Minus(p1, p2)
+                            minus = Minus(copy.deepcopy(p1), copy.deepcopy(p2))
                             new_programs.append(minus)
             
                             yield minus
@@ -720,7 +723,8 @@ class Plus(Node):
                             elif isinstance(p2, VarScalar):
                                 p2 = VarScalar(p2.name)
 
-                            plus = Plus(p1, p2)
+                            #plus = Plus(p1, p2)
+                            plus = Plus(copy.deepcopy(p1), copy.deepcopy(p2))
                             new_programs.append(plus)
             
                             yield plus
@@ -760,7 +764,8 @@ class Function(Node):
                 continue
             
             for p1 in programs1:                       
-                func = Function(p1)
+                #func = Function(p1)
+                func = Function(copy.deepcopy(p1))
                 new_programs.append(func)
         
                 yield func
@@ -798,7 +803,8 @@ class Argmax(Node):
             if t1 not in accepted_nodes:
                 continue
             for p1 in programs1:
-                am = Argmax(p1)
+                #am = Argmax(p1)
+                am = Argmax(copy.deepcopy(p1))
                 new_programs.append(am)
                 yield am
         return new_programs
@@ -837,7 +843,8 @@ class Sum(Node):
             
             for p1 in programs1:                       
 
-                sum_p = Sum(p1)
+                #sum_p = Sum(p1)
+                sum_p = Sum(copy.deepcopy(p1))
                 new_programs.append(sum_p)      
                 yield sum_p
         return new_programs
@@ -915,7 +922,8 @@ class Map(Node):
                                     p2 = NoneNode()
                                 else:
                                     p2 = HoleNode()
-                            m = Map(p1, p2)
+                            #m = Map(p1, p2)
+                            m = Map(copy.deepcopy(p1), copy.deepcopy(p2))
                             new_programs.append(m)
                             yield m
         return new_programs 

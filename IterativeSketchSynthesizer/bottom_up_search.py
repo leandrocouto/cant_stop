@@ -90,7 +90,7 @@ class BottomUpSearch:
 
         with open(folder + 'PBUS_' + str(n_partial_terms) + '_DSLTerms.txt', 'a') as f:
             print('Partial DSL used', file=f)
-            print(partial_DSL.get_all_terms(), file=f)
+            print(partial_DSL.all_terms_in_order, file=f)
             print(file=f)
 
         closed_list, closed_list_objects = self.search(bound, partial_DSL)
