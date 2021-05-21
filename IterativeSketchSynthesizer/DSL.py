@@ -109,7 +109,9 @@ class HoleNode(Node):
                                   Function(HoleNode()),
                                   Plus(HoleNode(), HoleNode()),
                                   Minus(HoleNode(), HoleNode()),
-                                  Times(HoleNode(),HoleNode())])
+                                  Times(HoleNode(),HoleNode()),
+                                  Constant(HoleNode())
+                                  ])
             for node in accepted_nodes:
                 if node.className() in partial_DSL.get_all_terms():
                     new_programs.append(node)
@@ -138,7 +140,9 @@ class HoleNode(Node):
                                 Minus(HoleNode(), HoleNode()), 
                                 Sum(HoleNode()), 
                                 Map(HoleNode(), HoleNode()), 
-                                Function(HoleNode())])
+                                Function(HoleNode()),
+                                Constant(HoleNode()),
+                                Argmax(HoleNode())])
                 for node in accepted_nodes:
                     if node.className() in partial_DSL.get_all_terms():
                         new_programs.append(node)
@@ -146,19 +150,22 @@ class HoleNode(Node):
             elif parent.className() == 'Plus' or parent.className() == 'Minus':
                 acceptable_nodes = set([VarScalar(), 
                                 VarScalarFromArray(), 
-                                NumberAdvancedThisRound(), NumberAdvancedByAction(), IsNewNeutral(), PlayerColumnAdvance(), OpponentColumnAdvance(),
-                                #Constant(),
+                                NumberAdvancedThisRound(), NumberAdvancedByAction(), IsNewNeutral(), WillPlayerWinAfterN(),
+                                AreThereAvailableColumnsToPlay(), PlayerColumnAdvance(), OpponentColumnAdvance(), 
+                                Constant(HoleNode()),
                                 Times(HoleNode(),HoleNode()),
                                 Plus(HoleNode(), HoleNode()),
-                                Minus(HoleNode(), HoleNode())])
+                                Minus(HoleNode(), HoleNode()),
+                                Argmax(HoleNode())])
                 for node in accepted_nodes:
                     if node.className() in partial_DSL.get_all_terms():
                         new_programs.append(node)
                         yield node
             elif parent.className() == 'Times':
                 acceptable_nodes = set([VarScalar(), 
-                                VarScalarFromArray(),
-                                NumberAdvancedThisRound(), NumberAdvancedByAction(), IsNewNeutral(), PlayerColumnAdvance(), OpponentColumnAdvance(),
+                                VarScalarFromArray(), Constant(HoleNode()), Argmax(HoleNode()),
+                                NumberAdvancedThisRound(), NumberAdvancedByAction(), IsNewNeutral(), WillPlayerWinAfterN(),
+                                AreThereAvailableColumnsToPlay(), PlayerColumnAdvance(), OpponentColumnAdvance(),
                             ])
                 for node in accepted_nodes:
                     if node.className() in partial_DSL.get_all_terms():
@@ -227,15 +234,16 @@ class VarScalar(Node):
         self.parent = parent
     
 class Constant(Node):
-    def __init__(self, value):
-        self.value = value
+    def __init__(self, name):
+        super(Constant, self).__init__()
+        self.name = name
         self.size = 1
         
     def to_string(self):
-        return str(self.value)
+        return str(self.name)
     
     def interpret(self, env):
-        return self.value
+        return self.name
 
     def add_parent(self, parent):
         self.parent = parent
@@ -288,6 +296,64 @@ class IsNewNeutral(Node):
                 is_new_neutral = False
 
         return is_new_neutral
+
+    def add_parent(self, parent):
+        self.parent = parent
+
+class WillPlayerWinAfterN(Node):
+    def __init__(self):
+        super(WillPlayerWinAfterN, self).__init__()
+        self.size = 1
+        
+    def to_string(self):
+        return type(self).__name__
+    
+    def interpret(self, env):
+        """ 
+        Return a boolean in regards to if the player will win the game or not 
+        if they choose to stop playing the current round (i.e.: choose the 
+        'n' action). 
+        """
+
+        state = env[self.statename]
+
+        won_columns_by_player = [won[0] for won in state.finished_columns if state.player_turn == won[1]]
+        won_columns_by_player_this_round = [won[0] for won in state.player_won_column if state.player_turn == won[1]]
+        if len(won_columns_by_player) + len(won_columns_by_player_this_round) >= 3:
+            return True
+        else:
+            return False
+
+    def add_parent(self, parent):
+        self.parent = parent
+
+class AreThereAvailableColumnsToPlay(Node):
+    def __init__(self):
+        super(AreThereAvailableColumnsToPlay, self).__init__()
+        self.size = 1
+        
+    def to_string(self):
+        return type(self).__name__
+    
+    def interpret(self, env):
+        """ 
+        Return a boolean in regards to if the player will win the game or not 
+        if they choose to stop playing the current round (i.e.: choose the 
+        'n' action). 
+        """
+
+        state = env[self.statename]
+
+        # List containing all columns, remove from it the columns that are
+        # available given the current board
+        available_columns = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        for neutral in state.neutral_positions:
+            available_columns.remove(neutral[0])
+        for finished in state.finished_columns:
+            if finished[0] in available_columns:
+                available_columns.remove(finished[0])
+
+        return state.n_neutral_markers != 3 and len(available_columns) > 0
 
     def add_parent(self, parent):
         self.parent = parent
@@ -462,9 +528,12 @@ class Times(Node):
                               NumberAdvancedThisRound.className(),
                               NumberAdvancedByAction.className(),
                               IsNewNeutral.className(),
+                              WillPlayerWinAfterN.className(),
+                              AreThereAvailableColumnsToPlay.className(),
                               PlayerColumnAdvance.className(),
                               OpponentColumnAdvance.className(),
-                              Constant.className()])
+                              Constant.className(),
+                              Argmax.className()])
         
         # generates all combinations of cost of size 2 varying from 1 to size - 1
         combinations = list(itertools.product(range(1, size - 1), repeat=2))
@@ -491,37 +560,6 @@ class Times(Node):
                             continue
                         
                         for p2 in programs2:
-                            if isinstance(p1, NumberAdvancedThisRound):
-                                p1 = NumberAdvancedThisRound()
-                            elif isinstance(p1, NumberAdvancedByAction):
-                                p1 = NumberAdvancedByAction()
-                            elif isinstance(p1, IsNewNeutral):
-                                p1 = IsNewNeutral()
-                            elif isinstance(p1, PlayerColumnAdvance):
-                                p1 = PlayerColumnAdvance()
-                            elif isinstance(p1, OpponentColumnAdvance):
-                                p1 = OpponentColumnAdvance()
-                            elif isinstance(p1, VarScalarFromArray):
-                                p1 = VarScalarFromArray(p1.name)
-                            elif isinstance(p1, VarScalar):
-                                p1 = VarScalar(p1.name)
-
-                            if isinstance(p2, NumberAdvancedThisRound):
-                                p2 = NumberAdvancedThisRound()
-                            elif isinstance(p2, NumberAdvancedByAction):
-                                p2 = NumberAdvancedByAction()
-                            elif isinstance(p2, IsNewNeutral):
-                                p2 = IsNewNeutral()
-                            elif isinstance(p2, PlayerColumnAdvance):
-                                p2 = PlayerColumnAdvance()
-                            elif isinstance(p2, OpponentColumnAdvance):
-                                p2 = OpponentColumnAdvance()
-                            elif isinstance(p2, VarScalarFromArray):
-                                p2 = VarScalarFromArray(p2.name)
-                            elif isinstance(p2, VarScalar):
-                                p2 = VarScalar(p2.name)
-
-                            #times = Times(p1, p2)
                             times = Times(copy.deepcopy(p1), copy.deepcopy(p2))
                             new_programs.append(times)
             
@@ -560,12 +598,15 @@ class Minus(Node):
                       NumberAdvancedThisRound.className(),
                       NumberAdvancedByAction.className(),
                       IsNewNeutral.className(),
+                      WillPlayerWinAfterN.className(),
+                      AreThereAvailableColumnsToPlay.className(),
                       PlayerColumnAdvance.className(),
                       OpponentColumnAdvance.className(),
                       Constant.className(),
                       Plus.className(),
                       Times.className(),
-                      Minus.className()])
+                      Minus.className(),
+                      Argmax.className()])
         
         # generates all combinations of cost of size 2 varying from 1 to size - 1
         combinations = list(itertools.product(range(1, size - 1), repeat=2))
@@ -592,37 +633,6 @@ class Minus(Node):
                             continue
                         
                         for p2 in programs2:
-                            if isinstance(p1, NumberAdvancedThisRound):
-                                p1 = NumberAdvancedThisRound()
-                            elif isinstance(p1, NumberAdvancedByAction):
-                                p1 = NumberAdvancedByAction()
-                            elif isinstance(p1, IsNewNeutral):
-                                p1 = IsNewNeutral()
-                            elif isinstance(p1, PlayerColumnAdvance):
-                                p1 = PlayerColumnAdvance()
-                            elif isinstance(p1, OpponentColumnAdvance):
-                                p1 = OpponentColumnAdvance()
-                            elif isinstance(p1, VarScalarFromArray):
-                                p1 = VarScalarFromArray(p1.name)
-                            elif isinstance(p1, VarScalar):
-                                p1 = VarScalar(p1.name)
-
-                            if isinstance(p2, NumberAdvancedThisRound):
-                                p2 = NumberAdvancedThisRound()
-                            elif isinstance(p2, NumberAdvancedByAction):
-                                p2 = NumberAdvancedByAction()
-                            elif isinstance(p2, IsNewNeutral):
-                                p2 = IsNewNeutral()
-                            elif isinstance(p2, PlayerColumnAdvance):
-                                p2 = PlayerColumnAdvance()
-                            elif isinstance(p2, OpponentColumnAdvance):
-                                p2 = OpponentColumnAdvance()
-                            elif isinstance(p2, VarScalarFromArray):
-                                p2 = VarScalarFromArray(p2.name)
-                            elif isinstance(p2, VarScalar):
-                                p2 = VarScalar(p2.name)
-
-                            #minus = Minus(p1, p2)
                             minus = Minus(copy.deepcopy(p1), copy.deepcopy(p2))
                             new_programs.append(minus)
             
@@ -661,12 +671,15 @@ class Plus(Node):
                       NumberAdvancedThisRound.className(),
                       NumberAdvancedByAction.className(),
                       IsNewNeutral.className(),
+                      WillPlayerWinAfterN.className(),
+                      AreThereAvailableColumnsToPlay.className(),
                       PlayerColumnAdvance.className(),
                       OpponentColumnAdvance.className(),
                       Constant.className(),
                       Plus.className(),
                       Times.className(),
-                      Minus.className()])
+                      Minus.className(),
+                      Argmax.className()])
         
         # generates all combinations of cost of size 2 varying from 1 to size - 1
         combinations = list(itertools.product(range(1, size - 1), repeat=2))
@@ -693,37 +706,6 @@ class Plus(Node):
                             continue
                         
                         for p2 in programs2:
-                            if isinstance(p1, NumberAdvancedThisRound):
-                                p1 = NumberAdvancedThisRound()
-                            elif isinstance(p1, NumberAdvancedByAction):
-                                p1 = NumberAdvancedByAction()
-                            elif isinstance(p1, IsNewNeutral):
-                                p1 = IsNewNeutral()
-                            elif isinstance(p1, PlayerColumnAdvance):
-                                p1 = PlayerColumnAdvance()
-                            elif isinstance(p1, OpponentColumnAdvance):
-                                p1 = OpponentColumnAdvance()
-                            elif isinstance(p1, VarScalarFromArray):
-                                p1 = VarScalarFromArray(p1.name)
-                            elif isinstance(p1, VarScalar):
-                                p1 = VarScalar(p1.name)
-
-                            if isinstance(p2, NumberAdvancedThisRound):
-                                p2 = NumberAdvancedThisRound()
-                            elif isinstance(p2, NumberAdvancedByAction):
-                                p2 = NumberAdvancedByAction()
-                            elif isinstance(p2, IsNewNeutral):
-                                p2 = IsNewNeutral()
-                            elif isinstance(p2, PlayerColumnAdvance):
-                                p2 = PlayerColumnAdvance()
-                            elif isinstance(p2, OpponentColumnAdvance):
-                                p2 = OpponentColumnAdvance()
-                            elif isinstance(p2, VarScalarFromArray):
-                                p2 = VarScalarFromArray(p2.name)
-                            elif isinstance(p2, VarScalar):
-                                p2 = VarScalar(p2.name)
-
-                            #plus = Plus(p1, p2)
                             plus = Plus(copy.deepcopy(p1), copy.deepcopy(p2))
                             new_programs.append(plus)
             
@@ -754,7 +736,7 @@ class Function(Node):
     def grow(p_list, size, partial_DSL):
         new_programs = []
         # defines which nodes are accepted in the AST
-        accepted_nodes = set([Minus.className(), Plus.className(), Times.className(), Sum.className(), Map.className(), Function.className()])
+        accepted_nodes = set([Minus.className(), Plus.className(), Times.className(), Sum.className(), Map.className(), Function.className(), Constant.className(), Argmax.className()])
          
         program_set = p_list.get_programs(size - 1)
                     
@@ -763,12 +745,51 @@ class Function(Node):
             if t1 not in accepted_nodes:
                 continue
             
-            for p1 in programs1:                       
-                #func = Function(p1)
+            for p1 in programs1:
                 func = Function(copy.deepcopy(p1))
                 new_programs.append(func)
         
                 yield func
+        return new_programs 
+
+class Not(Node):
+    def __init__(self, boolean_function):
+        super(Not, self).__init__()
+        self.boolean_function = boolean_function
+        self.size = self.boolean_function.size + 1
+        
+    def to_string(self):
+        return "not (" + self.boolean_function.to_string() + ")"
+    
+    def interpret(self, env):
+        return not self.boolean_function.interpret(env)
+
+    def add_parent(self, parent):
+        self.parent = parent
+        # In case there's already data in there
+        self.children = []
+        self.children.append(self.boolean_function)
+
+    def add_children(self, children):
+        self.boolean_function = children[0]
+    
+    def grow(p_list, size, partial_DSL):
+        new_programs = []
+        # defines which nodes are accepted in the AST
+        accepted_nodes = set([IsNewNeutral.className(), WillPlayerWinAfterN.className(), AreThereAvailableColumnsToPlay.className()])
+         
+        program_set = p_list.get_programs(size - 1)
+                    
+        for t1, programs1 in program_set.items():                
+            # skip if t1 isn't a node accepted by Lt
+            if t1 not in accepted_nodes:
+                continue
+            
+            for p1 in programs1:
+                boolean_not = Not(copy.deepcopy(p1))
+                new_programs.append(boolean_not)
+        
+                yield boolean_not
         return new_programs 
 
 class Argmax(Node):
@@ -803,7 +824,6 @@ class Argmax(Node):
             if t1 not in accepted_nodes:
                 continue
             for p1 in programs1:
-                #am = Argmax(p1)
                 am = Argmax(copy.deepcopy(p1))
                 new_programs.append(am)
                 yield am
@@ -841,9 +861,7 @@ class Sum(Node):
             if t1 not in accepted_nodes:
                 continue
             
-            for p1 in programs1:                       
-
-                #sum_p = Sum(p1)
+            for p1 in programs1:
                 sum_p = Sum(copy.deepcopy(p1))
                 new_programs.append(sum_p)      
                 yield sum_p
@@ -900,7 +918,6 @@ class Map(Node):
             if c[1] == 0:
                 if VarList.className() not in program_set2:
                     program_set2[VarList.className()] = []
-                #program_set2[VarList.className()].append(NoneNode())
                 program_set2[VarList.className()].append(None)
                 
             for t1, programs1 in program_set1.items():                
@@ -922,7 +939,6 @@ class Map(Node):
                                     p2 = NoneNode()
                                 else:
                                     p2 = HoleNode()
-                            #m = Map(p1, p2)
                             m = Map(copy.deepcopy(p1), copy.deepcopy(p2))
                             new_programs.append(m)
                             yield m

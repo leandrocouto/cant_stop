@@ -32,7 +32,7 @@ class DSLTerms:
 
     def add_term(self, full_DSL, to_be_added):
         self.all_terms_in_order.append(to_be_added)
-        if to_be_added in ['Argmax', 'Sum', 'Map', 'Function', 'Plus', 'Times', 'Minus']:
+        if to_be_added in ['Argmax', 'Sum', 'Map', 'Function', 'Plus', 'Times', 'Minus', 'Not']:
             to_be_added = [i for i in full_DSL.operations if i.className() == to_be_added]
             self.operations.append(to_be_added[0])
         elif to_be_added in ['Constant']:
@@ -44,7 +44,7 @@ class DSLTerms:
         elif to_be_added in ['VarScalarFromArray', 'VarScalar']:
             to_be_added = [i for i in full_DSL.variables_scalar_from_array if i.className() == to_be_added]
             self.variables_scalar_from_array.append(to_be_added[0])
-        elif to_be_added in ['NumberAdvancedThisRound', 'NumberAdvancedByAction', 'IsNewNeutral', 'PlayerColumnAdvance', 'OpponentColumnAdvance']:
+        elif to_be_added in ['NumberAdvancedThisRound', 'NumberAdvancedByAction', 'IsNewNeutral', 'PlayerColumnAdvance', 'OpponentColumnAdvance', 'WillPlayerWinAfterN', 'AreThereAvailableColumnsToPlay']:
             to_be_added = [i for i in full_DSL.functions_scalars if i.className() == to_be_added]
             self.functions_scalars.append(to_be_added[0])
                       
@@ -97,7 +97,8 @@ class IterativeSketchSynthesizer:
         to_delete = [
                         'Constant', 'VarList', 'NoneNode', 'VarScalarFromArray', 
                         'VarScalar', 'NumberAdvancedThisRound', 'NumberAdvancedByAction',
-                        'IsNewNeutral', 'PlayerColumnAdvance', 'OpponentColumnAdvance'
+                        'IsNewNeutral', 'PlayerColumnAdvance', 'OpponentColumnAdvance',
+                        'WillPlayerWinAfterN', 'AreThereAvailableColumnsToPlay', 'Not'
                     ]
         for term in to_delete:
             if term in terms_dict:
@@ -115,11 +116,11 @@ class IterativeSketchSynthesizer:
                             )
         
         full_DSL = DSLTerms(
-                                operations = [Argmax, Sum, Map, Function, Plus, Times, Minus], 
-                                constant_values = [], 
+                                operations = [Argmax, Sum, Map, Function, Plus, Times, Minus, Not], 
+                                constant_values = [Constant(i) for i in range(20)], 
                                 variables_list = [VarList('neutrals'), VarList('actions'), NoneNode()], 
                                 variables_scalar_from_array = [VarScalarFromArray('progress_value'), VarScalarFromArray('move_value'), VarScalar('marker')], 
-                                functions_scalars = [NumberAdvancedThisRound(), NumberAdvancedByAction(), IsNewNeutral(), PlayerColumnAdvance(), OpponentColumnAdvance()]
+                                functions_scalars = [NumberAdvancedThisRound(), NumberAdvancedByAction(), IsNewNeutral(), PlayerColumnAdvance(), OpponentColumnAdvance(), WillPlayerWinAfterN(), AreThereAvailableColumnsToPlay()]
                             )
 
         partial_terms = partial_DSL.get_all_terms()
@@ -133,7 +134,7 @@ class IterativeSketchSynthesizer:
         BUS = BottomUpSearch()
         for i in range(len(all_terms)):
             closed_list = BUS.synthesize(
-                                    bound = 10, 
+                                    bound = 5, 
                                     partial_DSL = partial_DSL,
                                     folder = self.folder
                                 )
@@ -334,7 +335,7 @@ class IterativeSketchSynthesizer:
             print(best_victory_2.to_string(), file=f)
         best_victory_2.print_tree_file(path_pre_sa)
 
-        n_SA_iterations = 500
+        n_SA_iterations = 200000
         max_game_rounds = 500
         n_games = 1000
         init_temp = 1
@@ -355,14 +356,14 @@ class IterativeSketchSynthesizer:
         return all_closed_lists
 
 if __name__ == "__main__":
-    MC_n_simulations = 12
+    MC_n_simulations = 100
     n_games = 100
     max_game_rounds = 500
     to_parallel = False
     to_log = False
     use_average = False
-    budget = 100000
-    n_run = 10
+    budget = 2000
+    n_run = 6
     start_ISS = time.time()
     ISS = IterativeSketchSynthesizer(MC_n_simulations, n_games, max_game_rounds, to_parallel, to_log, use_average, budget, n_run)
     all_closed_lists = ISS.run()

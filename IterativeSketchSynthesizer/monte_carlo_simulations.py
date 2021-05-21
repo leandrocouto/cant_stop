@@ -146,8 +146,12 @@ class MonteCarloSimulation:
             else:
                 new_node = NoneNode()
             return new_node
+        elif chosen_node == 'Constant':
+            acceptable_nodes = [i for i in range(20)]
+            chosen = random.choice(acceptable_nodes)
+            return Constant(chosen)
         elif chosen_node == 'functions_scalars':
-            acceptable_nodes = ['NumberAdvancedThisRound', 'NumberAdvancedByAction', 'IsNewNeutral', 'PlayerColumnAdvance', 'OpponentColumnAdvance']
+            acceptable_nodes = ['NumberAdvancedThisRound', 'NumberAdvancedByAction', 'IsNewNeutral', 'WillPlayerWinAfterN', 'AreThereAvailableColumnsToPlay', 'PlayerColumnAdvance', 'OpponentColumnAdvance']
             chosen = random.choice(acceptable_nodes)
             if chosen == 'NumberAdvancedThisRound':
                 new_node = NumberAdvancedThisRound()
@@ -155,13 +159,27 @@ class MonteCarloSimulation:
                 new_node = NumberAdvancedByAction()
             elif chosen == 'IsNewNeutral':
                 new_node = IsNewNeutral()
+            elif chosen == 'WillPlayerWinAfterN':
+                new_node = WillPlayerWinAfterN()
+            elif chosen == 'AreThereAvailableColumnsToPlay':
+                new_node = AreThereAvailableColumnsToPlay()
             elif chosen == 'PlayerColumnAdvance':
                 new_node = PlayerColumnAdvance()
             elif chosen == 'OpponentColumnAdvance':
                 new_node = OpponentColumnAdvance()
             return new_node
+        elif chosen_node == 'boolean_function':
+            acceptable_nodes = ['IsNewNeutral', 'WillPlayerWinAfterN', 'AreThereAvailableColumnsToPlay']
+            chosen = random.choice(acceptable_nodes)
+            if chosen == 'IsNewNeutral':
+                new_node = IsNewNeutral()
+            elif chosen == 'WillPlayerWinAfterN':
+                new_node = WillPlayerWinAfterN()
+            elif chosen == 'AreThereAvailableColumnsToPlay':
+                new_node = AreThereAvailableColumnsToPlay()
+            return new_node
         elif chosen_node == 'Times':
-            acceptable_nodes = ['VarScalar', 'VarScalarFromArray', 'functions_scalars']
+            acceptable_nodes = ['VarScalar', 'VarScalarFromArray', 'functions_scalars', 'Constant', 'Argmax', 'Not']
             chosen_left = random.choice(acceptable_nodes)
             chosen_right = random.choice(acceptable_nodes)
             # Left
@@ -169,6 +187,12 @@ class MonteCarloSimulation:
                 chosen_node_left = self.finish_tree(node, 'VarScalar')
             elif chosen_left == 'VarScalarFromArray':
                 chosen_node_left = self.finish_tree(node, 'VarScalarFromArray')
+            elif chosen_left == 'Constant':
+                chosen_node_left = self.finish_tree(node, 'Constant')
+            elif chosen_left == 'Argmax':
+                chosen_node_left = self.finish_tree(node, 'Argmax')
+            elif chosen_left == 'Not':
+                chosen_node_left = self.finish_tree(node, 'Not')
             else:
                 chosen_node_left = self.finish_tree(node, 'functions_scalars')
             # Right
@@ -176,13 +200,19 @@ class MonteCarloSimulation:
                 chosen_node_right = self.finish_tree(node, 'VarScalar')
             elif chosen_right == 'VarScalarFromArray':
                 chosen_node_right = self.finish_tree(node, 'VarScalarFromArray')
+            elif chosen_right == 'Constant':
+                chosen_node_right = self.finish_tree(node, 'Constant')
+            elif chosen_right == 'Argmax':
+                chosen_node_right = self.finish_tree(node, 'Argmax')
+            elif chosen_right == 'Not':
+                chosen_node_right = self.finish_tree(node, 'Not')
             else:
                 chosen_node_right = self.finish_tree(node, 'functions_scalars')
             new_node = Times(chosen_node_left, chosen_node_right)
             return new_node
         elif chosen_node == 'Plus':
             acceptable_nodes = ['VarScalar', 'VarScalarFromArray', 'functions_scalars',
-                                'Times', 'Plus', 'Minus',
+                                'Times', 'Plus', 'Minus', 'Constant', 'Argmax', 'Not'
                             ]
             chosen_left = random.choice(acceptable_nodes)
             chosen_right = random.choice(acceptable_nodes)
@@ -191,6 +221,12 @@ class MonteCarloSimulation:
                 chosen_node_left = self.finish_tree(node, 'VarScalar')
             elif chosen_left == 'VarScalarFromArray':
                 chosen_node_left = self.finish_tree(node, 'VarScalarFromArray')
+            elif chosen_left == 'Constant':
+                chosen_node_left = self.finish_tree(node, 'Constant')
+            elif chosen_left == 'Argmax':
+                chosen_node_left = self.finish_tree(node, 'Argmax')
+            elif chosen_left == 'Not':
+                chosen_node_left = self.finish_tree(node, 'Not')
             elif chosen_left == 'functions_scalars':
                 chosen_node_left = self.finish_tree(node, 'functions_scalars')
             elif chosen_left == 'Times':
@@ -204,6 +240,12 @@ class MonteCarloSimulation:
                 chosen_node_right = self.finish_tree(node, 'VarScalar')
             elif chosen_right == 'VarScalarFromArray':
                 chosen_node_right = self.finish_tree(node, 'VarScalarFromArray')
+            elif chosen_right == 'Constant':
+                chosen_node_right = self.finish_tree(node, 'Constant')
+            elif chosen_right == 'Argmax':
+                chosen_node_right = self.finish_tree(node, 'Argmax')
+            elif chosen_right == 'Not':
+                chosen_node_right = self.finish_tree(node, 'Not')
             elif chosen_right == 'functions_scalars':
                 chosen_node_right = self.finish_tree(node, 'functions_scalars')
             elif chosen_right == 'Times':
@@ -216,7 +258,7 @@ class MonteCarloSimulation:
             return new_node
         elif chosen_node == 'Minus':
             acceptable_nodes = ['VarScalar', 'VarScalarFromArray', 'functions_scalars',
-                                'Times', 'Plus', 'Minus',
+                                'Times', 'Plus', 'Minus', 'Constant', 'Argmax', 'Not'
                             ]
             chosen_left = random.choice(acceptable_nodes)
             chosen_right = random.choice(acceptable_nodes)
@@ -225,6 +267,12 @@ class MonteCarloSimulation:
                 chosen_node_left = self.finish_tree(node, 'VarScalar')
             elif chosen_left == 'VarScalarFromArray':
                 chosen_node_left = self.finish_tree(node, 'VarScalarFromArray')
+            elif chosen_left == 'Constant':
+                chosen_node_left = self.finish_tree(node, 'Constant')
+            elif chosen_left == 'Argmax':
+                chosen_node_left = self.finish_tree(node, 'Argmax')
+            elif chosen_left == 'Not':
+                chosen_node_left = self.finish_tree(node, 'Not')
             elif chosen_left == 'functions_scalars':
                 chosen_node_left = self.finish_tree(node, 'functions_scalars')
             elif chosen_left == 'Times':
@@ -238,6 +286,12 @@ class MonteCarloSimulation:
                 chosen_node_right = self.finish_tree(node, 'VarScalar')
             elif chosen_right == 'VarScalarFromArray':
                 chosen_node_right = self.finish_tree(node, 'VarScalarFromArray')
+            elif chosen_right == 'Constant':
+                chosen_node_right = self.finish_tree(node, 'Constant')
+            elif chosen_right == 'Argmax':
+                chosen_node_right = self.finish_tree(node, 'Argmax')
+            elif chosen_right == 'Not':
+                chosen_node_right = self.finish_tree(node, 'Not')
             elif chosen_right == 'functions_scalars':
                 chosen_node_right = self.finish_tree(node, 'functions_scalars')
             elif chosen_right == 'Times':
@@ -257,6 +311,13 @@ class MonteCarloSimulation:
                 chosen_node = self.finish_tree(node, 'Map')
             new_node = Sum(chosen_node)
             return new_node
+        elif chosen_node == 'Not':
+            acceptable_nodes = ['boolean_function']
+            chosen = random.choice(acceptable_nodes)
+            if chosen == 'boolean_function':
+                chosen_node = self.finish_tree(node, 'boolean_function')
+            new_node = Not(chosen_node)
+            return new_node
         elif chosen_node == 'Map':
             # Function
             acceptable_nodes_1 = ['Function']
@@ -271,7 +332,7 @@ class MonteCarloSimulation:
             new_node = Map(chosen_node_left, chosen_node_right)
             return new_node
         elif chosen_node == 'Function':
-            acceptable_nodes = ['Times', 'Plus', 'Minus', 'Sum', 'Map', 'Function']
+            acceptable_nodes = ['Times', 'Plus', 'Minus', 'Sum', 'Map', 'Function', 'Constant', 'Argmax']
             chosen = random.choice(acceptable_nodes)
             if chosen == 'Times':
                 chosen_node = self.finish_tree(node, 'Times')
@@ -283,6 +344,10 @@ class MonteCarloSimulation:
                 chosen_node = self.finish_tree(node, 'Sum')
             elif chosen == 'Map':
                 chosen_node = self.finish_tree(node, 'Map')
+            elif chosen == 'Constant':
+                chosen_node = self.finish_tree(node, 'Constant')
+            elif chosen == 'Argmax':
+                chosen_node = self.finish_tree(node, 'Argmax')
             else:
                 chosen_node = self.finish_tree(node, 'Function')
             new_node = Function(chosen_node)
@@ -325,7 +390,10 @@ class MonteCarloSimulation:
         elif parent.className() == 'Times':
             acceptable_nodes = ['VarScalar', 
                                 'VarScalarFromArray',
-                                'functions_scalars'
+                                'functions_scalars',
+                                'Constant',
+                                'Argmax',
+                                'Not'
                             ]
             chosen_node = random.choice(acceptable_nodes)
             # Finish the tree with the chosen substitute
@@ -334,10 +402,12 @@ class MonteCarloSimulation:
             acceptable_nodes = ['VarScalar', 
                                 'VarScalarFromArray', 
                                 'functions_scalars',
-                                #'Constant',
+                                'Constant',
+                                'Argmax',
                                 'Times',
                                 'Plus',
-                                'Minus'
+                                'Minus',
+                                'Not'
                                 ]
             chosen_node = random.choice(acceptable_nodes)
             # Finish the tree with the chosen substitute
@@ -348,7 +418,9 @@ class MonteCarloSimulation:
                                 'Minus', 
                                 'Sum', 
                                 'Map', 
-                                'Function'
+                                'Function',
+                                'Constant',
+                                'Argmax'
                             ]
             chosen_node = random.choice(acceptable_nodes)
             # Finish the tree with the chosen substitute
@@ -357,6 +429,11 @@ class MonteCarloSimulation:
             acceptable_nodes = ['VarList', 
                                 'Map'
                             ]
+            chosen_node = random.choice(acceptable_nodes)
+            # Finish the tree with the chosen substitute
+            new_node = self.finish_tree(node, chosen_node)
+        elif parent.className() == 'Not':
+            acceptable_nodes = ['boolean_function']
             chosen_node = random.choice(acceptable_nodes)
             # Finish the tree with the chosen substitute
             new_node = self.finish_tree(node, chosen_node)
