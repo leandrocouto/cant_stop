@@ -14,7 +14,7 @@ from game import Game
 from play_game_template import simplified_play_single_game
 
 class SimulatedAnnealing:
-    def __init__(self, n_SA_iterations, max_game_rounds, n_games, init_temp, d, algo_name, initial_time):
+    def __init__(self, n_SA_iterations, max_game_rounds, n_games, init_temp, d, algo_name, initial_time, max_time):
         self.n_SA_iterations = n_SA_iterations
         self.max_game_rounds = max_game_rounds
         self.n_games = n_games
@@ -26,7 +26,8 @@ class SimulatedAnnealing:
         self.wins_vs_glenn_y = []
         self.algo_name = algo_name
         self.initial_time = initial_time
-        self.folder = algo_name + '_SA' + str(self.n_SA_iterations) + '/'
+        self.max_time = max_time
+        self.folder = algo_name + '_SA' + str(self.max_time) + '/'
         if not os.path.exists(self.folder):
             os.makedirs(self.folder)
         self.log_file = self.folder + 'log.txt'
@@ -530,6 +531,7 @@ class SimulatedAnnealing:
             print('Initial SA program below', file=f)
             print(curr_tree_1.to_string(), file=f)
             print(curr_tree_2.to_string(), file=f)
+            print('Initial time = ', self.initial_time, file=f)
         # Update the parent of the nodes
         self.update_parent(curr_tree_1, None)
         self.update_parent(curr_tree_2, None)
@@ -554,7 +556,9 @@ class SimulatedAnnealing:
         # Number of "successful" iterations
         successful = 0 
         curr_temp = self.init_temp
-        for i in range(2, self.n_SA_iterations + 2):
+        #for i in range(2, self.n_SA_iterations + 2):
+        i = 2
+        while True:
             with open(self.log_file, 'a') as f:
                 print('SA Iteration - ', i, file=f)
             start_ite = time.time()
@@ -599,14 +603,14 @@ class SimulatedAnnealing:
                 else:
                     print(curr_tree_1.to_string())
                     print(mutated_tree.to_string())
-                print('Time elapsed so far: ', time.time() - start_SA)
+                print('Time elapsed so far: ', time.time() - start_SA + self.initial_time)
                 print()
             if self.acceptance_function(best_J, mutated_J, curr_temp):
                 successful += 1
 
                 elapsed_ite = time.time() - start_ite
                 elapsed_SA = time.time() - start_SA
-                self.time_elapsed.append(self.initial_time + elapsed_SA)
+                self.time_elapsed.append(elapsed_SA + self.initial_time)
                 self.wins_vs_glenn_x.append(i)
                 self.wins_vs_glenn_y.append(victories_mut)
                 with open(self.log_file, 'a') as f:
@@ -617,6 +621,7 @@ class SimulatedAnnealing:
                     print('Current program 2 = ', curr_tree_2.to_string(), file=f)
                     print('Mutated program (', tree_to_mutate, ') = ', mutated_tree.to_string(), file=f)
                     print('Time elapsed of this SA iteration = ', elapsed_ite, file=f)
+                    print('Time elapsed so far = ', time.time() - start_SA + self.initial_time, file=f)
                     print(file=f)
 
                 # This is to avoid a "Permission Denied" error when trying to
@@ -652,6 +657,10 @@ class SimulatedAnnealing:
                     print('Time elapsed of this SA iteration = ', elapsed_ite, file=f)
                     print(file=f)
             curr_temp = self.temperature_schedule(i)
+            i += 1
+            # Stop condition
+            if time.time() - start_SA > self.max_time:
+                break
         with open(self.log_file, 'a') as f:
             print('self.wins_vs_glenn_x = ', self.wins_vs_glenn_x, file=f)
             print('self.wins_vs_glenn_y = ', self.wins_vs_glenn_y, file=f)
@@ -762,6 +771,7 @@ class SimulatedAnnealing:
                     draws += 1
 
         return victories, losses, draws
+
     def generath_graph(self):
 
         plt.grid()
@@ -788,15 +798,17 @@ if __name__ == "__main__":
                 ]
     
     chosen = int(sys.argv[1])
-    n_SA_iterations = 200000
+    n_SA_iterations = 12
     max_game_rounds = 500
+    # Stop condition for SA (in seconds)
+    max_time = 360
     n_games = 1000
     init_temp = 1
     d = 1
     initial_time = 0.0
     algo_name = 'SA_' + str(chosen)
     start_SA = time.time()
-    SA = SimulatedAnnealing(n_SA_iterations, max_game_rounds, n_games, init_temp, d, algo_name, initial_time)
+    SA = SimulatedAnnealing(n_SA_iterations, max_game_rounds, n_games, init_temp, d, algo_name, initial_time, max_time)
     is_complete = False
     _, _, _, _, _, _ = SA.run(incomplete[chosen], incomplete[chosen], is_complete)
     end_SA = time.time() - start_SA

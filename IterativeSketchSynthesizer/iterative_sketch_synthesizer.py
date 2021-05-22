@@ -50,8 +50,9 @@ class DSLTerms:
                       
 
 class IterativeSketchSynthesizer:
-    def __init__(self, MC_n_simulations, n_games, max_game_rounds, to_parallel, to_log, use_average, budget, n_run):
+    def __init__(self, MC_n_simulations, max_time, n_games, max_game_rounds, to_parallel, to_log, use_average, budget, n_run):
         self.MC_n_simulations = MC_n_simulations
+        self.max_time = max_time
         self.n_games = n_games
         self.max_game_rounds = max_game_rounds
         self.to_parallel = to_parallel
@@ -343,7 +344,7 @@ class IterativeSketchSynthesizer:
         algo_name = self.folder
         initial_time = time.time() - start
         start_SA = time.time()
-        SA = SimulatedAnnealing(n_SA_iterations, max_game_rounds, n_games, init_temp, d, algo_name, initial_time)
+        SA = SimulatedAnnealing(n_SA_iterations, max_game_rounds, n_games, init_temp, d, algo_name, initial_time, self.max_time)
         if self.use_average:
             _, _, _, _, _, _  = SA.run(best_average_1, best_average_2, False)
         else:
@@ -356,7 +357,9 @@ class IterativeSketchSynthesizer:
         return all_closed_lists
 
 if __name__ == "__main__":
-    MC_n_simulations = 100
+    MC_n_simulations = 5
+    # Stop condition for SA (in seconds)
+    max_time = 360
     n_games = 100
     max_game_rounds = 500
     to_parallel = False
@@ -365,7 +368,7 @@ if __name__ == "__main__":
     budget = 2000
     n_run = 6
     start_ISS = time.time()
-    ISS = IterativeSketchSynthesizer(MC_n_simulations, n_games, max_game_rounds, to_parallel, to_log, use_average, budget, n_run)
+    ISS = IterativeSketchSynthesizer(MC_n_simulations, max_time, n_games, max_game_rounds, to_parallel, to_log, use_average, budget, n_run)
     all_closed_lists = ISS.run()
     end_ISS = time.time() - start_ISS
     print('ISS - Time elapsed = ', end_ISS)
