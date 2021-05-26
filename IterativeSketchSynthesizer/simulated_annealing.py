@@ -636,6 +636,14 @@ class SimulatedAnnealing:
                         # Generath the graph against Glenn
                         self.generath_graph()
 
+                    # Save graph data to file
+                    with open(self.folder + 'graph_data', 'wb') as file:
+                        pickle.dump([best_program_1, best_program_2, self.get_object(best_program_1, best_program_2), self.wins_vs_glenn_x, self.wins_vs_glenn_y, self.time_elapsed], file)
+                    with open(self.folder + 'log_graph.txt', 'w') as f:
+                        print('self.wins_vs_glenn_x = ', self.wins_vs_glenn_x, file=f)
+                        print('self.wins_vs_glenn_y = ', self.wins_vs_glenn_y, file=f)
+                        print('self.time_elapsed = ', self.time_elapsed, file=f)
+
                 if self.acceptance_function(current_score, mutated_score, curr_temp):
                     current_score = mutated_score
                     current_program_1 = mutated_program_1
@@ -644,6 +652,28 @@ class SimulatedAnnealing:
 
                 curr_temp = self.temperature_schedule(iteration, curr_temp)
                 iteration += 1
+
+        # Add a final data manually for the graph to always end at self.max_time
+        self.time_elapsed.append(self.max_time + self.initial_time)
+        self.wins_vs_glenn_y.append(self.wins_vs_glenn_y[-1])
+
+        # Save graph data to file
+        with open(self.folder + 'graph_data', 'wb') as file:
+            pickle.dump([best_program_1, best_program_2, self.get_object(best_program_1, best_program_2), self.wins_vs_glenn_x, self.wins_vs_glenn_y, self.time_elapsed], file)
+        with open(self.folder + 'log_graph.txt', 'w') as f:
+            print('self.wins_vs_glenn_x = ', self.wins_vs_glenn_x, file=f)
+            print('self.wins_vs_glenn_y = ', self.wins_vs_glenn_y, file=f)
+            print('self.time_elapsed = ', self.time_elapsed, file=f)
+
+        with open(self.log_file, 'a') as f:
+            print('SA ended', v, l, d, file=f)
+            print('Best program 1 = ', best_program_1.to_string(), file=f)
+            print('Best program 2 = ', best_program_2.to_string(), file=f)
+            print('Time elapsed = ', time.time() - start_SA + self.initial_time, file=f)
+            print(file=f)
+
+        self.generath_graph()
+
         return best_program_1, best_program_2, self.get_object(best_program_1, best_program_2), self.wins_vs_glenn_x, self.wins_vs_glenn_y, self.time_elapsed
 
 
@@ -772,7 +802,7 @@ if __name__ == "__main__":
     n_SA_iterations = 12
     max_game_rounds = 500
     # Stop condition for SA (in seconds)
-    max_time = 28803
+    max_time = 300
     n_games = 1000
     init_temp = 2000
     d = 1
