@@ -494,6 +494,51 @@ class SimulatedAnnealing:
                     node.can_mutate = False
             return initial_node
 
+    def get_random_program(self, state_1, state_2):
+        self.update_parent(state_1, None)
+        self.curr_id = 0
+        self.id_tree_nodes(state_1)
+
+        self.update_parent(state_2, None)
+        self.curr_id = 0
+        self.id_tree_nodes(state_2)
+        state_1 = self.finish_holes(state_1)
+        state_2 = self.finish_holes(state_2)
+
+        # Update the children of the nodes in a top-down approach
+        self.update_children(state_1)
+        self.curr_id = 0
+        self.id_tree_nodes(state_1)
+        self.update_children(state_2)
+        self.curr_id = 0
+        self.id_tree_nodes(state_2)
+
+        # Update the parent of the nodes
+        self.update_parent(state_1, None)
+        self.update_parent(state_2, None)
+
+        return state_1, state_2
+
+    def get_mutated_program(self, program_1, program_2):
+        tree_to_mutate = random.randint(1, 2)
+
+        if tree_to_mutate == 1: 
+            # Make a copy of program_1
+            mutated_program = pickle.loads(pickle.dumps(program_1, -1))
+            # Mutate it
+            mutated_program = self.mutate(mutated_program)
+            # Update the children of the nodes in a top-down approach
+            self.update_children(mutated_program)
+            return mutated_program, program_2
+        else:
+            # Make a copy of program_2
+            mutated_program = pickle.loads(pickle.dumps(program_2, -1))
+            # Mutate it
+            mutated_program = self.mutate(mutated_program)
+            # Update the children of the nodes in a top-down approach
+            self.update_children(mutated_program)
+            return program_1, mutated_program
+
     def run(self, initial_state_1, initial_state_2, is_complete):
         """ 
         Main routine of Simulated Annealing. SA will start mutating from
@@ -502,192 +547,118 @@ class SimulatedAnnealing:
         beaten in the next iteration. 
         """
         start_SA = time.time()
-
-        self.update_parent(initial_state_1, None)
-        self.curr_id = 0
-        self.id_tree_nodes(initial_state_1)
-
-        self.update_parent(initial_state_2, None)
-        self.curr_id = 0
-        self.id_tree_nodes(initial_state_2)
-
-        # Original program
-        curr_tree_1 = pickle.loads(pickle.dumps(initial_state_1, -1))
-        curr_tree_2 = pickle.loads(pickle.dumps(initial_state_2, -1))
-        if not is_complete:
-            # Fill HoleNodes
-            curr_tree_1 = self.finish_holes(curr_tree_1)
-            curr_tree_2 = self.finish_holes(curr_tree_2)
-        # Update the children of the nodes in a top-down approach
-        self.update_children(curr_tree_1)
-        self.curr_id = 0
-        self.id_tree_nodes(curr_tree_1)
-
-        self.update_children(curr_tree_2)
-        self.curr_id = 0
-        self.id_tree_nodes(curr_tree_2)
+        start_state_1, start_state_2 = self.get_random_program(pickle.loads(pickle.dumps(initial_state_1, -1)), pickle.loads(pickle.dumps(initial_state_2, -1)))
 
         with open(self.log_file, 'a') as f:
             print('Initial SA program below', file=f)
-            print(curr_tree_1.to_string(), file=f)
-            print(curr_tree_2.to_string(), file=f)
+            print(start_state_1.to_string(), file=f)
+            print(start_state_2.to_string(), file=f)
             print('Initial time = ', self.initial_time, file=f)
-        # Update the parent of the nodes
-        self.update_parent(curr_tree_1, None)
-        self.update_parent(curr_tree_2, None)
-        # Transform into a Player object
-        curr_player = self.get_object(curr_tree_1, curr_tree_2)
         
         # Program to be beaten
         to_be_beaten = self.get_glenn_player()
 
-        try:
-            v, l, d = self.triage_evaluation(curr_player, to_be_beaten)
-        except Exception as e:
-            v = 0
-            l = 0
-            d = 0
-        with open(self.log_file, 'a') as f:
-            print('Initial script SA - V/L/D against Glenn = ', v, l, d, file=f)
-            print(file=f)
+        best_score = None
+        best_program_1 = None
+        best_program_2 = None
 
-        # Error of the best program
-        best_J = self.n_games - v
-        # Number of "successful" iterations
-        successful = 0 
-        curr_temp = self.init_temp
-        #for i in range(2, self.n_SA_iterations + 2):
-        i = 2
+        time_limit_reached = False
+        # Loop it until time limit is reached
         while True:
             with open(self.log_file, 'a') as f:
-                print('SA Iteration - ', i, file=f)
-            start_ite = time.time()
-            # Decides which tree to mutate
-            tree_to_mutate = random.randint(1, 2)
-
-            if tree_to_mutate == 1: 
-                # Make a copy of curr_tree
-                mutated_tree = pickle.loads(pickle.dumps(curr_tree_1, -1))
-                # Mutate it
-                mutated_tree = self.mutate(mutated_tree)
-                # Update the children of the nodes in a top-down approach
-                self.update_children(mutated_tree)
-                # Get the object of the mutated program
-                mutated_player = self.get_object(mutated_tree, curr_tree_2)
-            else:
-                # Make a copy of curr_tree
-                mutated_tree = pickle.loads(pickle.dumps(curr_tree_2, -1))
-                # Mutate it
-                mutated_tree = self.mutate(mutated_tree)
-                # Update the children of the nodes in a top-down approach
-                self.update_children(mutated_tree)
-                # Get the object of the mutated program
-                mutated_player = self.get_object(curr_tree_1, mutated_tree)
-
-            # Evaluates the mutated program against best_program
-            try:
-                victories_mut, losses_mut, draws_mut = self.triage_evaluation(mutated_player, to_be_beaten)
-            except Exception as e:
-                victories_mut = 0
-                losses_mut = 0
-                draws_mut = 0
-
-            # Error of the best program
-            mutated_J = self.n_games - victories_mut
-            if victories_mut > 0:
-                print('i = ', i, 'vic mut = ', victories_mut)
-                print('mutated')
-                if tree_to_mutate == 1:
-                    print(mutated_tree.to_string())
-                    print(curr_tree_2.to_string())
-                else:
-                    print(curr_tree_1.to_string())
-                    print(mutated_tree.to_string())
-                print('Time elapsed so far: ', time.time() - start_SA + self.initial_time)
-                print()
-            if self.acceptance_function(best_J, mutated_J, curr_temp):
-                successful += 1
-
-                elapsed_ite = time.time() - start_ite
-                elapsed_SA = time.time() - start_SA
-                self.time_elapsed.append(elapsed_SA + self.initial_time)
-                self.wins_vs_glenn_x.append(i)
-                self.wins_vs_glenn_y.append(victories_mut)
-                with open(self.log_file, 'a') as f:
-                    print('SA - Iteration = ',i, '- Mutated player was better - V/L/D =', victories_mut, losses_mut, draws_mut, file=f)
-                    print('Losses by best = ', best_J, file=f)
-                    print('Losses by the mutated = ', mutated_J, file=f)
-                    print('Current program 1 = ', curr_tree_1.to_string(), file=f)
-                    print('Current program 2 = ', curr_tree_2.to_string(), file=f)
-                    print('Mutated program (', tree_to_mutate, ') = ', mutated_tree.to_string(), file=f)
-                    print('Time elapsed of this SA iteration = ', elapsed_ite, file=f)
-                    print('Time elapsed so far = ', time.time() - start_SA + self.initial_time, file=f)
-                    print(file=f)
-
-                # This is to avoid a "Permission Denied" error when trying to
-                # save an image too quickly between iteration, causing this error
-                if victories_mut != 0:
-                    # Generath the graph against Glenn
-                    self.generath_graph()
-                # Copy the tree
-                if tree_to_mutate == 1:
-                    curr_tree_1 = mutated_tree
-                else:
-                    curr_tree_2 = mutated_tree
-                # Copy the script
-                curr_player = mutated_player
-                # Copy the score
-                best_J = mutated_J
-
-                # Save graph data to file
-                with open(self.folder + 'graph_data', 'wb') as file:
-                    pickle.dump([curr_tree_1, curr_tree_2, curr_player, self.wins_vs_glenn_x, self.wins_vs_glenn_y, self.time_elapsed], file)
-                with open(self.folder + 'log_graph.txt', 'w') as f:
-                    print('self.wins_vs_glenn_x = ', self.wins_vs_glenn_x, file=f)
-                    print('self.wins_vs_glenn_y = ', self.wins_vs_glenn_y, file=f)
-                    print('self.time_elapsed = ', self.time_elapsed, file=f)
-            # update temperature according to schedule
-            else:
-                elapsed_ite = time.time() - start_ite
-                with open(self.log_file, 'a') as f:
-                    print('SA - Iteration = ',i, '- Mutated player was worse - V/L/D =', victories_mut, losses_mut, draws_mut, file=f)
-                    print('Current program 1 = ', curr_tree_1.to_string(), file=f)
-                    print('Current program 2 = ', curr_tree_2.to_string(), file=f)
-                    print('Mutated program (', tree_to_mutate, ') = ', mutated_tree.to_string(), file=f)
-                    print('Time elapsed of this SA iteration = ', elapsed_ite, file=f)
-                    print(file=f)
-            curr_temp = self.temperature_schedule(i)
-            i += 1
-            # Stop condition
-            if time.time() - start_SA > self.max_time:
+                print('Temperature is too low. Restarting it.\n', file=f)
+            if time_limit_reached:
                 break
-        with open(self.log_file, 'a') as f:
-            print('self.wins_vs_glenn_x = ', self.wins_vs_glenn_x, file=f)
-            print('self.wins_vs_glenn_y = ', self.wins_vs_glenn_y, file=f)
-            print('self.time_elapsed = ', self.time_elapsed, file=f)
-            print('Successful iterations of this SA = ', successful, 'out of', self.n_SA_iterations, 'iterations.', file=f)
-            print('Total time elapsed of this SA = ', time.time() - start_SA, file=f)
+            curr_temp = self.init_temp
+            current_program_1 = pickle.loads(pickle.dumps(start_state_1, -1))
+            current_program_2 = pickle.loads(pickle.dumps(start_state_2, -1))
+            # Transform into a Player object
+            current_player = self.get_object(current_program_1, current_program_2)
 
-        # Save graph data to file
-        with open(self.folder + 'graph_data', 'wb') as file:
-            pickle.dump([curr_tree_1, curr_tree_2, curr_player, self.wins_vs_glenn_x, self.wins_vs_glenn_y, self.time_elapsed], file)
-        return curr_tree_1, curr_tree_2, curr_player, self.wins_vs_glenn_x, self.wins_vs_glenn_y, self.time_elapsed
+            # Evaluates the current_player against to_be_beaten
+            try:
+                v, l, d = self.triage_evaluation(current_player, to_be_beaten)
+            except Exception as e:
+                v = 0
+                l = 0
+                d = 0
+            current_score = self.n_games - v
 
-    def temperature_schedule(self, iteration):
+            if best_score is None or current_score < best_score:
+                best_score = current_score
+                best_program_1 = current_program_1
+                best_program_2 = current_program_2
+
+            iteration = 1
+            # If temperature gets too low, reset it
+            while curr_temp > 1:
+                # Stop condition
+                if time.time() - start_SA > self.max_time:
+                    with open(self.log_file, 'a') as f:
+                        print('Time limit reached', file=f)
+                        print('Current time = ', time.time() - start_SA, file=f)
+                        print('Max time = ', self.max_time, file=f)
+                    time_limit_reached = True
+                    break
+
+                mutated_program_1, mutated_program_2 = self.get_mutated_program(current_program_1, current_program_2)
+                mutated_player = self.get_object(mutated_program_1, mutated_program_2)
+
+                # Evaluates the mutated_player against to_be_beaten
+                try:
+                    v, l, d = self.triage_evaluation(mutated_player, to_be_beaten)
+                except Exception as e:
+                    v = 0
+                    l = 0
+                    d = 0
+                mutated_score = self.n_games - v
+
+                if best_score is None or mutated_score < best_score:
+                    best_score = mutated_score
+                    best_program_1 = mutated_program_1
+                    best_program_2 = mutated_program_2
+                    elapsed_SA = time.time() - start_SA
+                    self.time_elapsed.append(elapsed_SA + self.initial_time)
+                    self.wins_vs_glenn_y.append(v)
+
+                    with open(self.log_file, 'a') as f:
+                        print('SA - Mutated player was better than best - V/L/D =', v, l, d, file=f)
+                        print('Mutated program 1 = ', current_program_1.to_string(), file=f)
+                        print('Mutated program 2 = ', current_program_2.to_string(), file=f)
+                        print('Best program 1 = ', best_program_1.to_string(), file=f)
+                        print('Best program 2 = ', best_program_2.to_string(), file=f)
+                        print('Time elapsed so far = ', time.time() - start_SA + self.initial_time, file=f)
+                        print(file=f)
+
+                    # This is to avoid a "Permission Denied" error when trying to
+                    # save an image too quickly between iteration, causing this error
+                    if v != 0:
+                        # Generath the graph against Glenn
+                        self.generath_graph()
+
+                if self.acceptance_function(current_score, mutated_score, curr_temp):
+                    current_score = mutated_score
+                    current_program_1 = mutated_program_1
+                    current_program_2 = mutated_program_2
+                    
+
+                curr_temp = self.temperature_schedule(iteration, curr_temp)
+                iteration += 1
+        return best_program_1, best_program_2, self.get_object(best_program_1, best_program_2), self.wins_vs_glenn_x, self.wins_vs_glenn_y, self.time_elapsed
+
+
+    def temperature_schedule(self, iteration, curr_temperature):
         """ Calculate the next temperature used for the score calculation. """
 
-        return self.d/math.log(iteration)
+        return self.init_temp / (1 + 0.9*iteration)
 
     def acceptance_function(self, best_J, mutated_J, curr_temp):
         """ 
         Return a boolean representing whether the mutated program will be 
         accepted.
         """
-        best_J = best_J * 100 / self.n_games
-        mutated_J = mutated_J * 100 / self.n_games
-        best_C = math.exp(-0.5 * best_J / curr_temp)
-        mutated_C = math.exp(-0.5 * mutated_J / curr_temp)
-        chosen_value = min(1, mutated_C / best_C)
+        acceptance_term = np.exp((best_J - mutated_J) * (100 / curr_temp))
+        chosen_value = min(1, acceptance_term)
 
         sampled_value = random.uniform(0, 1)
         if sampled_value <= chosen_value:
@@ -780,7 +751,7 @@ class SimulatedAnnealing:
         plt.xlabel('Time elapsed (s)')
         plt.ylabel('Victories')
         plt.ylim([0, self.n_games])
-        plt.suptitle('Games against Glenn (' + str(self.n_SA_iterations) + ' SA iterations)')
+        plt.suptitle('SA - Games against Glenn')
         plt.plot(X,Y)
         plt.savefig(self.folder + 'vs_glenn' + '.jpg', dpi=1200)
         plt.close()
@@ -801,9 +772,9 @@ if __name__ == "__main__":
     n_SA_iterations = 12
     max_game_rounds = 500
     # Stop condition for SA (in seconds)
-    max_time = 360
+    max_time = 28803
     n_games = 1000
-    init_temp = 1
+    init_temp = 2000
     d = 1
     initial_time = 0.0
     algo_name = 'SA_' + str(chosen)
